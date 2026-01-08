@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Canvas as FabricCanvas } from "fabric";
+import { Canvas as FabricCanvas, IText } from "fabric";
 import { supabase } from "@/integrations/supabase/client";
 
 export const useCollaborativeCanvas = (roomId: string | undefined, userId: string | undefined) => {
@@ -186,6 +186,24 @@ export const useCollaborativeCanvas = (roomId: string | undefined, userId: strin
     }
   }, [debouncedSave]);
 
+  const addText = useCallback((color: string) => {
+    if (!fabricRef.current) return;
+    
+    const text = new IText("Type here...", {
+      left: 100,
+      top: 100,
+      fontSize: 20,
+      fill: color,
+      fontFamily: "Inter, sans-serif",
+    });
+    
+    fabricRef.current.add(text);
+    fabricRef.current.setActiveObject(text);
+    text.enterEditing();
+    text.selectAll();
+    fabricRef.current.renderAll();
+  }, []);
+
   return {
     canvasRef,
     isLoading,
@@ -194,5 +212,6 @@ export const useCollaborativeCanvas = (roomId: string | undefined, userId: strin
     setBrushWidth,
     clearCanvas,
     deleteSelected,
+    addText,
   };
 };
