@@ -6,7 +6,8 @@ import {
   MousePointer, 
   Trash2, 
   Eraser,
-  Loader2
+  Loader2,
+  Type
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -41,11 +42,18 @@ export const CollaborativeCanvas = ({ roomId, userId }: CollaborativeCanvasProps
     setBrushWidth,
     clearCanvas,
     deleteSelected,
+    addText,
   } = useCollaborativeCanvas(roomId, userId);
 
   const handleToolChange = (drawing: boolean) => {
     setIsDrawing(drawing);
     setDrawingMode(drawing);
+  };
+
+  const handleAddText = () => {
+    setIsDrawing(false);
+    setDrawingMode(false);
+    addText(activeColor);
   };
 
   const handleColorChange = (color: string) => {
@@ -95,6 +103,15 @@ export const CollaborativeCanvas = ({ roomId, userId }: CollaborativeCanvasProps
             title="Select"
           >
             <MousePointer className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={handleAddText}
+            title="Add text"
+          >
+            <Type className="w-4 h-4" />
           </Button>
         </div>
 
