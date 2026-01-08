@@ -8,13 +8,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VideoSidebar } from "@/components/VideoSidebar";
+import { CollaborativeCanvas } from "@/components/CollaborativeCanvas";
 import { 
   ArrowLeft, 
   Send, 
   Sparkles, 
   Loader2,
-  Bot
+  Bot,
+  MessageSquare,
+  PenTool
 } from "lucide-react";
 
 interface Message {
@@ -266,113 +270,142 @@ export default function RoomPage() {
 
       {/* Main layout */}
       <div className="flex-1 flex overflow-hidden">
-        {/* AI Workspace - Center */}
+        {/* AI Workspace & Canvas - Center */}
         <div className="flex-1 flex flex-col">
-          {/* Messages */}
-          <ScrollArea className="flex-1 p-4">
-            <div className="max-w-3xl mx-auto space-y-4">
-              {messages.length === 0 ? (
-                <div className="text-center py-16">
-                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                    <Sparkles className="w-8 h-8 text-primary" />
-                  </div>
-                  <h3 className="font-display text-xl font-semibold mb-2">
-                    Välkommen till AI-arbetsytan
-                  </h3>
-                  <p className="text-muted-foreground max-w-sm mx-auto">
-                    Börja med <span className="text-primary font-mono">@ai</span> för att prata med AI:n. Alla i rummet kan se och bidra.
-                  </p>
-                </div>
-              ) : (
-                messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex gap-3 ${msg.is_ai ? "flex-row" : "flex-row"}`}
-                  >
-                    <Avatar className="w-8 h-8">
-                      <AvatarFallback className={msg.is_ai ? "bg-primary text-primary-foreground" : "bg-secondary"}>
-                        {msg.is_ai ? "AI" : getInitials(msg.profile?.display_name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-medium">
-                          {msg.is_ai ? "AI Assistant" : msg.profile?.display_name || "Anonym"}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(msg.created_at).toLocaleTimeString("sv-SE", { 
-                            hour: "2-digit", 
-                            minute: "2-digit" 
-                          })}
-                        </span>
+          <Tabs defaultValue="chat" className="flex-1 flex flex-col">
+            <div className="border-b border-border/50 px-4">
+              <TabsList className="bg-transparent h-12">
+                <TabsTrigger 
+                  value="chat" 
+                  className="data-[state=active]:bg-primary/10 gap-2"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Chat
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="canvas" 
+                  className="data-[state=active]:bg-primary/10 gap-2"
+                >
+                  <PenTool className="w-4 h-4" />
+                  Whiteboard
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="chat" className="flex-1 flex flex-col m-0 data-[state=inactive]:hidden">
+              {/* Messages */}
+              <ScrollArea className="flex-1 p-4">
+                <div className="max-w-3xl mx-auto space-y-4">
+                  {messages.length === 0 ? (
+                    <div className="text-center py-16">
+                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                        <Sparkles className="w-8 h-8 text-primary" />
                       </div>
-                      <div className={`rounded-lg p-3 ${
-                        msg.is_ai 
-                          ? "bg-primary/10 border border-primary/20" 
-                          : "bg-card border border-border"
-                      }`}>
-                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-              
-              {/* AI Typing indicator */}
-              {aiTyping && (
-                <div className="flex gap-3">
-                  <Avatar className="w-8 h-8">
-                    <AvatarFallback className="bg-primary text-primary-foreground">
-                      <Bot className="w-4 h-4" />
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-medium">AI Assistant</span>
-                      <span className="text-xs text-muted-foreground">skriver...</span>
-                    </div>
-                    <div className="rounded-lg p-3 bg-primary/10 border border-primary/20">
-                      <p className="text-sm whitespace-pre-wrap">
-                        {streamingAiContent || (
-                          <span className="flex gap-1">
-                            <span className="animate-pulse">●</span>
-                            <span className="animate-pulse animation-delay-200">●</span>
-                            <span className="animate-pulse animation-delay-400">●</span>
-                          </span>
-                        )}
+                      <h3 className="font-display text-xl font-semibold mb-2">
+                        Välkommen till AI-arbetsytan
+                      </h3>
+                      <p className="text-muted-foreground max-w-sm mx-auto">
+                        Börja med <span className="text-primary font-mono">@ai</span> för att prata med AI:n. Alla i rummet kan se och bidra.
                       </p>
                     </div>
-                  </div>
+                  ) : (
+                    messages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`flex gap-3 ${msg.is_ai ? "flex-row" : "flex-row"}`}
+                      >
+                        <Avatar className="w-8 h-8">
+                          <AvatarFallback className={msg.is_ai ? "bg-primary text-primary-foreground" : "bg-secondary"}>
+                            {msg.is_ai ? "AI" : getInitials(msg.profile?.display_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-medium">
+                              {msg.is_ai ? "AI Assistant" : msg.profile?.display_name || "Anonym"}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(msg.created_at).toLocaleTimeString("sv-SE", { 
+                                hour: "2-digit", 
+                                minute: "2-digit" 
+                              })}
+                            </span>
+                          </div>
+                          <div className={`rounded-lg p-3 ${
+                            msg.is_ai 
+                              ? "bg-primary/10 border border-primary/20" 
+                              : "bg-card border border-border"
+                          }`}>
+                            <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  
+                  {/* AI Typing indicator */}
+                  {aiTyping && (
+                    <div className="flex gap-3">
+                      <Avatar className="w-8 h-8">
+                        <AvatarFallback className="bg-primary text-primary-foreground">
+                          <Bot className="w-4 h-4" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-medium">AI Assistant</span>
+                          <span className="text-xs text-muted-foreground">skriver...</span>
+                        </div>
+                        <div className="rounded-lg p-3 bg-primary/10 border border-primary/20">
+                          <p className="text-sm whitespace-pre-wrap">
+                            {streamingAiContent || (
+                              <span className="flex gap-1">
+                                <span className="animate-pulse">●</span>
+                                <span className="animate-pulse animation-delay-200">●</span>
+                                <span className="animate-pulse animation-delay-400">●</span>
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div ref={messagesEndRef} />
                 </div>
-              )}
-              
-              <div ref={messagesEndRef} />
-            </div>
-          </ScrollArea>
+              </ScrollArea>
 
-          {/* Input */}
-          <div className="border-t border-border/50 p-4 bg-background/80 backdrop-blur-sm">
-            <form onSubmit={sendMessage} className="max-w-3xl mx-auto flex gap-2">
-              <Input
-                placeholder="Skriv @ai för att prata med AI..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                className="flex-1"
-                disabled={sending}
-              />
-              <Button 
-                type="submit" 
-                className="gradient-valhalla hover:opacity-90"
-                disabled={sending || !newMessage.trim()}
-              >
-                {sending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-              </Button>
-            </form>
-          </div>
+              {/* Input */}
+              <div className="border-t border-border/50 p-4 bg-background/80 backdrop-blur-sm">
+                <form onSubmit={sendMessage} className="max-w-3xl mx-auto flex gap-2">
+                  <Input
+                    placeholder="Skriv @ai för att prata med AI..."
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    className="flex-1"
+                    disabled={sending}
+                  />
+                  <Button 
+                    type="submit" 
+                    className="gradient-valhalla hover:opacity-90"
+                    disabled={sending || !newMessage.trim()}
+                  >
+                    {sending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                  </Button>
+                </form>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="canvas" className="flex-1 m-0 data-[state=inactive]:hidden">
+              {id && user && (
+                <CollaborativeCanvas roomId={id} userId={user.id} />
+              )}
+            </TabsContent>
+          </Tabs>
         </div>
 
         {/* Video sidebar - Right */}
