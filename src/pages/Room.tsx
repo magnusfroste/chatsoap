@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useWebRTC } from "@/hooks/useWebRTC";
@@ -10,7 +10,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VideoSidebar } from "@/components/VideoSidebar";
-import { CollaborativeCanvas } from "@/components/CollaborativeCanvas";
+
+// Lazy load the canvas component to avoid fabric.js blocking the main bundle
+const CollaborativeCanvas = lazy(() => import("@/components/CollaborativeCanvas").then(mod => ({ default: mod.CollaborativeCanvas })));
 import { 
   ArrowLeft, 
   Send, 
@@ -402,7 +404,9 @@ export default function RoomPage() {
 
             <TabsContent value="canvas" className="flex-1 m-0 data-[state=inactive]:hidden">
               {id && user && (
-                <CollaborativeCanvas roomId={id} userId={user.id} />
+                <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}>
+                  <CollaborativeCanvas roomId={id} userId={user.id} />
+                </Suspense>
               )}
             </TabsContent>
           </Tabs>
