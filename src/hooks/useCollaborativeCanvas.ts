@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Canvas as FabricCanvas, IText } from "fabric";
+import * as fabric from "fabric";
 import { supabase } from "@/integrations/supabase/client";
 
 export const useCollaborativeCanvas = (roomId: string | undefined, userId: string | undefined) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fabricRef = useRef<FabricCanvas | null>(null);
+  const fabricRef = useRef<fabric.Canvas | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const isSyncing = useRef(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
@@ -73,7 +73,7 @@ export const useCollaborativeCanvas = (roomId: string | undefined, userId: strin
   useEffect(() => {
     if (!canvasRef.current || !roomId) return;
 
-    const canvas = new FabricCanvas(canvasRef.current, {
+    const canvas = new fabric.Canvas(canvasRef.current, {
       width: 800,
       height: 500,
       backgroundColor: "#1a1a2e",
@@ -189,7 +189,7 @@ export const useCollaborativeCanvas = (roomId: string | undefined, userId: strin
   const addText = useCallback((color: string) => {
     if (!fabricRef.current) return;
     
-    const text = new IText("Type here...", {
+    const text = new fabric.IText("Type here...", {
       left: 100,
       top: 100,
       fontSize: 20,
