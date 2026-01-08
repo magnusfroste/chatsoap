@@ -135,6 +135,76 @@ export type Database = {
           },
         ]
       }
+      room_presence: {
+        Row: {
+          audio_enabled: boolean | null
+          id: string
+          room_id: string
+          updated_at: string
+          user_id: string
+          video_enabled: boolean | null
+        }
+        Insert: {
+          audio_enabled?: boolean | null
+          id?: string
+          room_id: string
+          updated_at?: string
+          user_id: string
+          video_enabled?: boolean | null
+        }
+        Update: {
+          audio_enabled?: boolean | null
+          id?: string
+          room_id?: string
+          updated_at?: string
+          user_id?: string
+          video_enabled?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_presence_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      room_signals: {
+        Row: {
+          created_at: string
+          from_user_id: string
+          id: string
+          room_id: string
+          signal_data: Json
+          to_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          from_user_id: string
+          id?: string
+          room_id: string
+          signal_data: Json
+          to_user_id: string
+        }
+        Update: {
+          created_at?: string
+          from_user_id?: string
+          id?: string
+          room_id?: string
+          signal_data?: Json
+          to_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_signals_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rooms: {
         Row: {
           created_at: string
