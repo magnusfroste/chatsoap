@@ -1,20 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useWebRTC } from "@/hooks/useWebRTC";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { VideoSidebar } from "@/components/VideoSidebar";
 import { 
   ArrowLeft, 
   Send, 
   Sparkles, 
-  Video, 
-  VideoOff, 
-  Mic, 
-  MicOff,
-  Users,
   Loader2
 } from "lucide-react";
 
@@ -38,17 +35,28 @@ interface Room {
 export default function RoomPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, profile } = useAuth();
   
   const [room, setRoom] = useState<Room | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [videoEnabled, setVideoEnabled] = useState(false);
-  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [isInCall, setIsInCall] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  const {
+    localStream,
+    participants,
+    videoEnabled,
+    audioEnabled,
+    isConnecting,
+    toggleVideo,
+    toggleAudio,
+    joinRoom,
+    leaveRoom,
+  } = useWebRTC(id, user?.id);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -192,22 +200,6 @@ export default function RoomPage() {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button 
-            variant={videoEnabled ? "default" : "outline"} 
-            size="icon"
-            onClick={() => setVideoEnabled(!videoEnabled)}
-          >
-            {videoEnabled ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
-          </Button>
-          <Button 
-            variant={audioEnabled ? "default" : "outline"} 
-            size="icon"
-            onClick={() => setAudioEnabled(!audioEnabled)}
-          >
-            {audioEnabled ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-          </Button>
-        </div>
       </header>
 
       {/* Main layout */}
@@ -293,29 +285,25 @@ export default function RoomPage() {
         </div>
 
         {/* Video sidebar - Right */}
-        <div className="w-72 border-l border-border/50 bg-card/50 p-4 hidden lg:block">
-          <div className="flex items-center gap-2 mb-4">
-            <Users className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Deltagare</span>
-          </div>
-          
-          {/* Placeholder for video participants */}
-          <div className="space-y-3">
-            <div className="aspect-video rounded-lg bg-valhalla-surface border border-border flex items-center justify-center">
-              <div className="text-center">
-                <Avatar className="w-12 h-12 mx-auto mb-2">
-                  <AvatarFallback>Du</AvatarFallback>
-                </Avatar>
-                <p className="text-xs text-muted-foreground">
-                  {videoEnabled ? "Video på" : "Video av"}
-                </p>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground text-center">
-              Video kommer snart...
-            </p>
-          </div>
-        </div>
+        <VideoSidebar
+          localStream={localStream}
+          participants={participants}
+          videoEnabled={videoEnabled}
+          audioEnabled={audioEnabled}
+          isConnecting={isConnecting}
+          isInCall={isInCall}
+          displayName={profile?.display_name}
+          onToggleVideo={toggleVideo}
+          onToggleAudio={toggleAudio}
+          onJoinCall={async () => {
+            await joinRoom(true, true);
+            setIsInCall(true);
+          }}
+          onLeaveCall={async () => {
+            await leaveRoom();
+            setIsInCall(false);
+          }}
+        />
       </div>
     </div>
   );
