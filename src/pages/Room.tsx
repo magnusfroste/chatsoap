@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useWebRTC } from "@/hooks/useWebRTC";
+import { useAIChat } from "@/hooks/useAIChat";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,8 @@ import {
   ArrowLeft, 
   Send, 
   Sparkles, 
-  Loader2
+  Loader2,
+  Bot
 } from "lucide-react";
 
 interface Message {
@@ -43,6 +45,8 @@ export default function RoomPage() {
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isInCall, setIsInCall] = useState(false);
+  const [aiTyping, setAiTyping] = useState(false);
+  const [streamingAiContent, setStreamingAiContent] = useState("");
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -57,6 +61,8 @@ export default function RoomPage() {
     joinRoom,
     leaveRoom,
   } = useWebRTC(id, user?.id);
+  
+  const { streamAIResponse } = useAIChat(id);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -156,17 +162,73 @@ export default function RoomPage() {
     e.preventDefault();
     if (!newMessage.trim() || !user || !id) return;
 
+    const messageContent = newMessage.trim();
+    const shouldTriggerAI = messageContent.toLowerCase().startsWith("@ai") || 
+                            messageContent.toLowerCase().startsWith("/ai");
+    
     setSending(true);
     
-    await supabase.from("messages").insert({
+    // Insert user message
+    const { data: insertedMsg } = await supabase.from("messages").insert({
       room_id: id,
       user_id: user.id,
-      content: newMessage,
+      content: messageContent,
       is_ai: false,
-    });
+    }).select().single();
 
     setNewMessage("");
     setSending(false);
+    
+    // If message starts with @ai or /ai, trigger AI response
+    if (shouldTriggerAI && insertedMsg) {
+      setAiTyping(true);
+      setStreamingAiContent("");
+      
+      // Get recent messages for context (last 20)
+      const { data: recentMessages } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("room_id", id)
+        .order("created_at", { ascending: true })
+        .limit(20);
+      
+      // Add profiles to messages
+      const userIds = [...new Set(recentMessages?.filter(m => m.user_id).map(m => m.user_id!) || [])];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, display_name")
+        .in("user_id", userIds);
+      
+      const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+      const messagesWithProfiles = recentMessages?.map(msg => ({
+        ...msg,
+        profile: msg.user_id ? profileMap.get(msg.user_id) : undefined,
+      })) || [];
+      
+      let fullAiResponse = "";
+      
+      await streamAIResponse(
+        messagesWithProfiles,
+        (delta) => {
+          fullAiResponse += delta;
+          setStreamingAiContent(fullAiResponse);
+        },
+        async (finalText) => {
+          setAiTyping(false);
+          setStreamingAiContent("");
+          
+          // Save AI response to database
+          if (finalText.trim()) {
+            await supabase.from("messages").insert({
+              room_id: id,
+              content: finalText,
+              is_ai: true,
+              user_id: null,
+            });
+          }
+        }
+      );
+    }
   };
 
   const getInitials = (name: string | null | undefined) => {
@@ -218,7 +280,7 @@ export default function RoomPage() {
                     Välkommen till AI-arbetsytan
                   </h3>
                   <p className="text-muted-foreground max-w-sm mx-auto">
-                    Börja skriva för att starta konversationen. Alla i rummet kan se och bidra.
+                    Börja med <span className="text-primary font-mono">@ai</span> för att prata med AI:n. Alla i rummet kan se och bidra.
                   </p>
                 </div>
               ) : (
@@ -255,6 +317,35 @@ export default function RoomPage() {
                   </div>
                 ))
               )}
+              
+              {/* AI Typing indicator */}
+              {aiTyping && (
+                <div className="flex gap-3">
+                  <Avatar className="w-8 h-8">
+                    <AvatarFallback className="bg-primary text-primary-foreground">
+                      <Bot className="w-4 h-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-medium">AI Assistant</span>
+                      <span className="text-xs text-muted-foreground">skriver...</span>
+                    </div>
+                    <div className="rounded-lg p-3 bg-primary/10 border border-primary/20">
+                      <p className="text-sm whitespace-pre-wrap">
+                        {streamingAiContent || (
+                          <span className="flex gap-1">
+                            <span className="animate-pulse">●</span>
+                            <span className="animate-pulse animation-delay-200">●</span>
+                            <span className="animate-pulse animation-delay-400">●</span>
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
@@ -263,7 +354,7 @@ export default function RoomPage() {
           <div className="border-t border-border/50 p-4 bg-background/80 backdrop-blur-sm">
             <form onSubmit={sendMessage} className="max-w-3xl mx-auto flex gap-2">
               <Input
-                placeholder="Skriv till rummet eller AI..."
+                placeholder="Skriv @ai för att prata med AI..."
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 className="flex-1"
