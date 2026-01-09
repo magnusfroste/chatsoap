@@ -60,9 +60,10 @@ export default function Landing() {
               <Button 
                 size="lg" 
                 variant="outline"
+                onClick={() => navigate("/chats")}
                 className="border-border hover:bg-card text-lg px-8"
               >
-                Lär dig mer
+                Gå till chattar
               </Button>
             </div>
           </div>

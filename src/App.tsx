@@ -7,12 +7,13 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
+import Chats from "./pages/Chats";
+import DirectChat from "./pages/DirectChat";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
-// Lazy load Room to avoid fabric.js and simple-peer blocking the main bundle
-const Room = lazy(() => import("./pages/Room"));
+// Lazy load GroupChat to avoid fabric.js and simple-peer blocking the main bundle
+const GroupChat = lazy(() => import("./pages/GroupChat"));
 
 const queryClient = new QueryClient();
 
@@ -32,16 +33,17 @@ const App = () => {
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/auth" element={<Auth />} />
-              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/chats" element={<Chats />} />
+              <Route path="/chat/:id" element={<DirectChat />} />
               <Route 
-                path="/room/:id" 
+                path="/group/:id" 
                 element={
                   <Suspense fallback={
                     <div className="min-h-screen flex items-center justify-center bg-background">
                       <Loader2 className="w-8 h-8 animate-spin text-primary" />
                     </div>
                   }>
-                    <Room />
+                    <GroupChat />
                   </Suspense>
                 } 
               />
