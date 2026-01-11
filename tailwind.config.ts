@@ -64,6 +64,15 @@ export default {
           surface: "hsl(var(--valhalla-surface))",
           glow: "hsl(var(--valhalla-glow))",
         },
+        whatsapp: {
+          green: "hsl(var(--whatsapp-green))",
+          "green-dark": "hsl(var(--whatsapp-green-dark))",
+          teal: "hsl(var(--whatsapp-teal))",
+          "light-green": "hsl(var(--whatsapp-light-green))",
+          "chat-bg": "hsl(var(--whatsapp-chat-bg))",
+        },
+        online: "hsl(var(--online))",
+        offline: "hsl(var(--offline))",
       },
       borderRadius: {
         lg: "var(--radius)",
