@@ -5,12 +5,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { MessageSquare, Users, Plus, LogOut, Search } from "lucide-react";
+import { MessageSquare, Users, Plus, LogOut, Search, MoreVertical, Check, CheckCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import NewChatDialog from "@/components/NewChatDialog";
 import NewGroupDialog from "@/components/NewGroupDialog";
 import { formatDistanceToNow } from "date-fns";
 import { sv } from "date-fns/locale";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Conversation {
   id: string;
@@ -196,85 +202,113 @@ const Chats = () => {
     }
   };
 
+  const formatTime = (dateStr: string | null) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return date.toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
+    } else if (diffDays === 1) {
+      return "Igår";
+    } else if (diffDays < 7) {
+      return date.toLocaleDateString("sv-SE", { weekday: "short" });
+    } else {
+      return date.toLocaleDateString("sv-SE", { day: "numeric", month: "short" });
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-whatsapp-green"></div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-4">
+      {/* WhatsApp-style Header */}
+      <header className="bg-whatsapp-green text-white shadow-md sticky top-0 z-10">
+        <div className="px-4 py-3">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-foreground">Chattar</h1>
-            <Button variant="ghost" size="icon" onClick={handleLogout}>
-              <LogOut className="w-5 h-5" />
-            </Button>
+            <h1 className="text-xl font-semibold tracking-tight">Silicon Valhalla</h1>
+            <div className="flex items-center gap-1">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-white hover:bg-whatsapp-green-dark"
+                onClick={() => setSearchQuery(searchQuery ? "" : " ")}
+              >
+                <Search className="w-5 h-5" />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-white hover:bg-whatsapp-green-dark">
+                    <MoreVertical className="w-5 h-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => setNewGroupOpen(true)}>
+                    <Users className="w-4 h-4 mr-2" />
+                    Ny grupp
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logga ut
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
+
+        {/* Search Bar (conditionally shown) */}
+        {searchQuery !== "" && (
+          <div className="px-4 pb-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Sök..."
+                value={searchQuery.trim()}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 bg-white text-foreground border-0 rounded-full"
+                autoFocus
+              />
+            </div>
+          </div>
+        )}
       </header>
-
-      {/* Search and Actions */}
-      <div className="container mx-auto px-4 py-4 space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Sök chattar..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-
-        <div className="flex gap-2">
-          <Button
-            onClick={() => setNewChatOpen(true)}
-            className="flex-1"
-            variant="outline"
-          >
-            <MessageSquare className="w-4 h-4 mr-2" />
-            Ny chatt
-          </Button>
-          <Button
-            onClick={() => setNewGroupOpen(true)}
-            className="flex-1"
-            variant="default"
-          >
-            <Users className="w-4 h-4 mr-2" />
-            Ny grupp
-          </Button>
-        </div>
-      </div>
 
       {/* Conversations List */}
       <ScrollArea className="flex-1">
-        <div className="container mx-auto px-4 pb-4">
+        <div className="divide-y divide-border">
           {filteredConversations.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Inga chattar ännu</p>
+            <div className="text-center py-16 text-muted-foreground">
+              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-whatsapp-light-green flex items-center justify-center">
+                <MessageSquare className="w-12 h-12 text-whatsapp-green" />
+              </div>
+              <p className="text-lg font-medium">Inga chattar ännu</p>
               <p className="text-sm mt-2">
-                Starta en ny chatt eller skapa en grupp
+                Tryck på + för att starta en ny chatt
               </p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {filteredConversations.map((conv) => (
-                <button
-                  key={conv.id}
-                  onClick={() => handleConversationClick(conv)}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-accent/50 transition-colors text-left"
-                >
-                  <Avatar className="h-12 w-12">
+            filteredConversations.map((conv) => (
+              <button
+                key={conv.id}
+                onClick={() => handleConversationClick(conv)}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+              >
+                {/* Avatar with online indicator */}
+                <div className="relative">
+                  <Avatar className="h-12 w-12 ring-2 ring-transparent">
                     <AvatarFallback
                       className={
                         conv.type === "group"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-secondary text-secondary-foreground"
+                          ? "bg-whatsapp-teal text-white font-medium"
+                          : "bg-gradient-to-br from-whatsapp-green to-whatsapp-teal text-white font-medium"
                       }
                     >
                       {conv.type === "group" ? (
@@ -284,40 +318,61 @@ const Chats = () => {
                       )}
                     </AvatarFallback>
                   </Avatar>
+                  {/* Online status indicator for direct chats */}
+                  {conv.type === "direct" && (
+                    <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-online border-2 border-background rounded-full" />
+                  )}
+                </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-foreground truncate">
-                        {getDisplayName(conv)}
-                      </span>
-                      {conv.last_message_at && (
-                        <span className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(conv.last_message_at), {
-                            addSuffix: true,
-                            locale: sv,
-                          })}
-                        </span>
-                      )}
-                    </div>
-                    {conv.last_message && (
-                      <p className="text-sm text-muted-foreground truncate">
-                        {conv.last_message}
-                      </p>
-                    )}
-                    {conv.type === "group" && (
-                      <div className="flex items-center gap-1 mt-1">
-                        <span className="text-xs text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                          Arbetsrum
-                        </span>
-                      </div>
-                    )}
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-foreground truncate">
+                      {getDisplayName(conv)}
+                    </span>
+                    <span className="text-xs text-muted-foreground flex-shrink-0">
+                      {formatTime(conv.last_message_at)}
+                    </span>
                   </div>
-                </button>
-              ))}
-            </div>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    {/* Read indicators */}
+                    <CheckCheck className="w-4 h-4 text-whatsapp-green flex-shrink-0" />
+                    <p className="text-sm text-muted-foreground truncate">
+                      {conv.last_message || (conv.type === "group" ? "Arbetsrum med whiteboard & video" : "Ny konversation")}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Unread badge or group indicator */}
+                {conv.type === "group" && !conv.last_message && (
+                  <span className="flex-shrink-0 w-2 h-2 bg-whatsapp-green rounded-full" />
+                )}
+              </button>
+            ))
           )}
         </div>
       </ScrollArea>
+
+      {/* Floating Action Button */}
+      <div className="fixed bottom-6 right-6 flex flex-col gap-3">
+        {/* Secondary FAB for new group */}
+        <Button
+          onClick={() => setNewGroupOpen(true)}
+          size="icon"
+          className="w-12 h-12 rounded-full bg-whatsapp-teal hover:bg-whatsapp-green-dark shadow-lg"
+        >
+          <Users className="w-5 h-5" />
+        </Button>
+        
+        {/* Primary FAB for new chat */}
+        <Button
+          onClick={() => setNewChatOpen(true)}
+          size="icon"
+          className="w-14 h-14 rounded-full bg-whatsapp-green hover:bg-whatsapp-green-dark shadow-lg shadow-whatsapp-green/30"
+        >
+          <MessageSquare className="w-6 h-6" />
+        </Button>
+      </div>
 
       {/* Dialogs */}
       <NewChatDialog

@@ -42,6 +42,15 @@
     --valhalla-deep: 220 30% 8%;
     --valhalla-surface: 220 25% 12%;
     --valhalla-glow: 265 100% 70%;
+
+    /* WhatsApp-inspired tokens */
+    --whatsapp-green: 142 70% 45%;
+    --whatsapp-green-dark: 142 70% 35%;
+    --whatsapp-teal: 168 76% 42%;
+    --whatsapp-light-green: 142 70% 95%;
+    --whatsapp-chat-bg: 142 30% 97%;
+    --online: 142 70% 45%;
+    --offline: 0 0% 60%;
   }
 
   .dark {
@@ -88,6 +97,15 @@
     --valhalla-deep: 220 30% 4%;
     --valhalla-surface: 220 25% 10%;
     --valhalla-glow: 265 100% 75%;
+
+    /* WhatsApp-inspired tokens (dark) */
+    --whatsapp-green: 142 70% 49%;
+    --whatsapp-green-dark: 142 70% 40%;
+    --whatsapp-teal: 168 76% 46%;
+    --whatsapp-light-green: 142 50% 15%;
+    --whatsapp-chat-bg: 220 25% 8%;
+    --online: 142 70% 49%;
+    --offline: 0 0% 50%;
   }
 }
 
