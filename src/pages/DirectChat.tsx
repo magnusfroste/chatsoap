@@ -9,7 +9,17 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ArrowLeft, Send, Bot, Loader2, Smile, Paperclip, Mic, Check, CheckCheck } from "lucide-react";
-import { MessageBubble } from "@/components/MessageBubble";
+import { MessageBubble, ReplyPreview } from "@/components/MessageBubble";
+
+interface ReplyToMessage {
+  id: string;
+  content: string;
+  user_id: string | null;
+  is_ai: boolean;
+  profile?: {
+    display_name: string | null;
+  };
+}
 
 interface Message {
   id: string;
@@ -17,6 +27,8 @@ interface Message {
   is_ai: boolean;
   user_id: string | null;
   created_at: string;
+  reply_to_id?: string | null;
+  reply_to?: ReplyToMessage | null;
   profile?: {
     display_name: string | null;
   };
@@ -49,6 +61,7 @@ const DirectChat = () => {
   const [sending, setSending] = useState(false);
   const [aiTyping, setAiTyping] = useState(false);
   const [aiResponse, setAiResponse] = useState("");
+  const [replyTo, setReplyTo] = useState<ReplyToMessage | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -150,7 +163,7 @@ const DirectChat = () => {
     try {
       const { data, error } = await supabase
         .from("messages")
-        .select("id, content, is_ai, user_id, created_at, conversation_id")
+        .select("id, content, is_ai, user_id, created_at, conversation_id, reply_to_id")
         .eq("conversation_id", id)
         .order("created_at", { ascending: true });
 
@@ -165,14 +178,36 @@ const DirectChat = () => {
 
       const profileMap = new Map(profiles?.map((p) => [p.user_id, p]) || []);
 
-      const enrichedMessages: Message[] = (data || []).map((msg) => ({
-        id: msg.id,
-        content: msg.content,
-        is_ai: msg.is_ai || false,
-        user_id: msg.user_id,
-        created_at: msg.created_at,
-        profile: msg.user_id ? profileMap.get(msg.user_id) : undefined,
-      }));
+      // Create a map of messages for reply lookups
+      const messageMap = new Map<string, Message>();
+      
+      const enrichedMessages: Message[] = (data || []).map((msg) => {
+        const enriched: Message = {
+          id: msg.id,
+          content: msg.content,
+          is_ai: msg.is_ai || false,
+          user_id: msg.user_id,
+          created_at: msg.created_at,
+          reply_to_id: msg.reply_to_id,
+          profile: msg.user_id ? profileMap.get(msg.user_id) : undefined,
+        };
+        messageMap.set(msg.id, enriched);
+        return enriched;
+      });
+
+      // Add reply_to references
+      enrichedMessages.forEach((msg) => {
+        if (msg.reply_to_id && messageMap.has(msg.reply_to_id)) {
+          const replyMsg = messageMap.get(msg.reply_to_id)!;
+          msg.reply_to = {
+            id: replyMsg.id,
+            content: replyMsg.content,
+            user_id: replyMsg.user_id,
+            is_ai: replyMsg.is_ai,
+            profile: replyMsg.profile,
+          };
+        }
+      });
 
       setMessages(enrichedMessages);
     } catch (error) {
@@ -187,17 +222,20 @@ const DirectChat = () => {
     if (!newMessage.trim() || !user || !id || sending) return;
 
     const content = newMessage.trim();
+    const currentReplyTo = replyTo;
     setNewMessage("");
+    setReplyTo(null);
     setSending(true);
 
     try {
-      // Insert message
+      // Insert message with reply_to_id if replying
       const { error } = await supabase.from("messages").insert({
         content,
         is_ai: false,
         user_id: user.id,
         conversation_id: id,
         room_id: id, // Using conversation_id as room_id for compatibility
+        reply_to_id: currentReplyTo?.id || null,
       });
 
       if (error) throw error;
@@ -378,6 +416,7 @@ const DirectChat = () => {
                     isOwn={isOwn}
                     userId={user?.id}
                     formatTime={formatMessageTime}
+                    onReply={(m) => setReplyTo(m)}
                   />
                 </div>
               );
@@ -411,6 +450,17 @@ const DirectChat = () => {
 
       {/* WhatsApp-style Message Input */}
       <div className="bg-whatsapp-chat-bg border-t border-border/50 p-2">
+        {/* Reply preview */}
+        {replyTo && (
+          <div className="max-w-3xl mx-auto mb-2">
+            <ReplyPreview 
+              replyTo={replyTo} 
+              currentUserId={user?.id} 
+              onCancel={() => setReplyTo(null)} 
+            />
+          </div>
+        )}
+        
         <form onSubmit={sendMessage} className="flex items-center gap-2 max-w-3xl mx-auto">
           <Button
             type="button"

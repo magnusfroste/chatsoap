@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VideoSidebar } from "@/components/VideoSidebar";
-import { MessageBubble } from "@/components/MessageBubble";
+import { MessageBubble, ReplyPreview } from "@/components/MessageBubble";
 import {
   ArrowLeft,
   Send,
@@ -38,12 +38,24 @@ const CollaborativeCanvas = lazy(() =>
   import("@/components/CollaborativeCanvas").then(mod => ({ default: mod.CollaborativeCanvas }))
 );
 
+interface ReplyToMessage {
+  id: string;
+  content: string;
+  user_id: string | null;
+  is_ai: boolean;
+  profile?: {
+    display_name: string | null;
+  };
+}
+
 interface Message {
   id: string;
   content: string;
   is_ai: boolean;
   user_id: string | null;
   created_at: string;
+  reply_to_id?: string | null;
+  reply_to?: ReplyToMessage | null;
   profile?: {
     display_name: string | null;
   };
@@ -82,6 +94,7 @@ const GroupChat = () => {
   const [aiResponse, setAiResponse] = useState("");
   const [activeTab, setActiveTab] = useState("chat");
   const [inCall, setInCall] = useState(false);
+  const [replyTo, setReplyTo] = useState<ReplyToMessage | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -195,7 +208,7 @@ const GroupChat = () => {
     try {
       const { data, error } = await supabase
         .from("messages")
-        .select("id, content, is_ai, user_id, created_at, conversation_id")
+        .select("id, content, is_ai, user_id, created_at, conversation_id, reply_to_id")
         .eq("conversation_id", id)
         .order("created_at", { ascending: true });
 
@@ -210,14 +223,36 @@ const GroupChat = () => {
 
       const profileMap = new Map(profiles?.map((p) => [p.user_id, p]) || []);
 
-      const enrichedMessages: Message[] = (data || []).map((msg) => ({
-        id: msg.id,
-        content: msg.content,
-        is_ai: msg.is_ai || false,
-        user_id: msg.user_id,
-        created_at: msg.created_at,
-        profile: msg.user_id ? profileMap.get(msg.user_id) : undefined,
-      }));
+      // Create a map of messages for reply lookups
+      const messageMap = new Map<string, Message>();
+      
+      const enrichedMessages: Message[] = (data || []).map((msg) => {
+        const enriched: Message = {
+          id: msg.id,
+          content: msg.content,
+          is_ai: msg.is_ai || false,
+          user_id: msg.user_id,
+          created_at: msg.created_at,
+          reply_to_id: msg.reply_to_id,
+          profile: msg.user_id ? profileMap.get(msg.user_id) : undefined,
+        };
+        messageMap.set(msg.id, enriched);
+        return enriched;
+      });
+
+      // Add reply_to references
+      enrichedMessages.forEach((msg) => {
+        if (msg.reply_to_id && messageMap.has(msg.reply_to_id)) {
+          const replyMsg = messageMap.get(msg.reply_to_id)!;
+          msg.reply_to = {
+            id: replyMsg.id,
+            content: replyMsg.content,
+            user_id: replyMsg.user_id,
+            is_ai: replyMsg.is_ai,
+            profile: replyMsg.profile,
+          };
+        }
+      });
 
       setMessages(enrichedMessages);
     } catch (error) {
@@ -232,7 +267,9 @@ const GroupChat = () => {
     if (!newMessage.trim() || !user || !id || sending) return;
 
     const content = newMessage.trim();
+    const currentReplyTo = replyTo;
     setNewMessage("");
+    setReplyTo(null);
     setSending(true);
 
     try {
@@ -242,6 +279,7 @@ const GroupChat = () => {
         user_id: user.id,
         conversation_id: id,
         room_id: id,
+        reply_to_id: currentReplyTo?.id || null,
       });
 
       if (error) throw error;
@@ -506,6 +544,7 @@ const GroupChat = () => {
                           showSenderName={showSender}
                           getUserColor={getUserColor}
                           formatTime={formatMessageTime}
+                          onReply={(m) => setReplyTo(m)}
                         />
                       </div>
                     );
@@ -539,6 +578,17 @@ const GroupChat = () => {
 
             {/* WhatsApp-style Message Input */}
             <div className="bg-whatsapp-chat-bg border-t border-border/50 p-2">
+              {/* Reply preview */}
+              {replyTo && (
+                <div className="max-w-3xl mx-auto mb-2">
+                  <ReplyPreview 
+                    replyTo={replyTo} 
+                    currentUserId={user?.id} 
+                    onCancel={() => setReplyTo(null)} 
+                  />
+                </div>
+              )}
+              
               <form onSubmit={sendMessage} className="flex items-center gap-2 max-w-3xl mx-auto">
                 <Button
                   type="button"
