@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAIChat } from "@/hooks/useAIChat";
 import { useWebRTC } from "@/hooks/useWebRTC";
+import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +65,11 @@ const GroupChat = () => {
   const navigate = useNavigate();
   const { user, profile, loading: authLoading } = useAuth();
   const { streamAIResponse, cancelStream } = useAIChat(id);
+  const { typingUsers, handleInputChange, stopTyping } = useTypingPresence(
+    id,
+    user?.id,
+    profile?.display_name || undefined
+  );
 
   const [group, setGroup] = useState<GroupInfo | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -401,7 +407,9 @@ const GroupChat = () => {
                   {group?.name || "Grupp"}
                 </h1>
                 <p className="text-xs text-white/70 truncate">
-                  {members.map(m => m.display_name).join(", ")}
+                  {typingUsers.length > 0 
+                    ? `${typingUsers.map(u => u.display_name).join(", ")} skriver...`
+                    : members.map(m => m.display_name).join(", ")}
                 </p>
               </div>
               <Button
@@ -605,7 +613,11 @@ const GroupChat = () => {
                 <div className="flex-1 flex items-center bg-white dark:bg-card rounded-full px-4 py-2 shadow-sm">
                   <Input
                     value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
+                    onChange={(e) => {
+                      setNewMessage(e.target.value);
+                      handleInputChange();
+                    }}
+                    onBlur={stopTyping}
                     placeholder="Meddelande"
                     className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0 text-sm"
                     disabled={sending}

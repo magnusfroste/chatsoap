@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAIChat } from "@/hooks/useAIChat";
+import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,8 +33,13 @@ interface ConversationInfo {
 const DirectChat = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const { streamAIResponse, cancelStream } = useAIChat(id);
+  const { typingUsers, handleInputChange, stopTyping } = useTypingPresence(
+    id,
+    user?.id,
+    profile?.display_name || undefined
+  );
 
   const [conversation, setConversation] = useState<ConversationInfo | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -332,7 +338,7 @@ const DirectChat = () => {
                 {conversation?.other_user?.display_name || "Chatt"}
               </h1>
               <p className="text-xs text-white/70">
-                online
+                {typingUsers.length > 0 ? "skriver..." : "online"}
               </p>
             </div>
           </div>
@@ -472,7 +478,11 @@ const DirectChat = () => {
           <div className="flex-1 flex items-center bg-white dark:bg-card rounded-full px-4 py-2 shadow-sm">
             <Input
               value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
+              onChange={(e) => {
+                setNewMessage(e.target.value);
+                handleInputChange();
+              }}
+              onBlur={stopTyping}
               placeholder="Meddelande"
               className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0 text-sm"
               disabled={sending}
