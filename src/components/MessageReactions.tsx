@@ -139,6 +139,7 @@ interface ReactionPickerProps {
   isOwn: boolean;
   children: React.ReactNode;
   onReactionAdded?: () => void;
+  onReply?: () => void;
 }
 
 export const ReactionPicker = ({ 
@@ -146,7 +147,8 @@ export const ReactionPicker = ({
   userId, 
   isOwn, 
   children,
-  onReactionAdded 
+  onReactionAdded,
+  onReply
 }: ReactionPickerProps) => {
   const [open, setOpen] = useState(false);
 
@@ -183,6 +185,11 @@ export const ReactionPicker = ({
     onReactionAdded?.();
   };
 
+  const handleReply = () => {
+    setOpen(false);
+    onReply?.();
+  };
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -193,16 +200,29 @@ export const ReactionPicker = ({
         side={isOwn ? "left" : "right"}
         align="start"
       >
-        <div className="flex gap-1">
-          {QUICK_EMOJIS.map((emoji) => (
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-1">
+            {QUICK_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => addReaction(emoji)}
+                className="text-xl hover:scale-125 transition-transform p-1 hover:bg-muted rounded"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+          {onReply && (
             <button
-              key={emoji}
-              onClick={() => addReaction(emoji)}
-              className="text-xl hover:scale-125 transition-transform p-1 hover:bg-muted rounded"
+              onClick={handleReply}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
             >
-              {emoji}
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+              </svg>
+              Svara
             </button>
-          ))}
+          )}
         </div>
       </PopoverContent>
     </Popover>
