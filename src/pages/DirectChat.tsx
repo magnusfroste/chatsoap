@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Send, Bot, Loader2 } from "lucide-react";
+import { ArrowLeft, Send, Bot, Loader2, Smile, Paperclip, Mic, Check, CheckCheck } from "lucide-react";
 
 interface Message {
   id: string;
@@ -267,127 +267,250 @@ const DirectChat = () => {
       .slice(0, 2);
   };
 
+  const formatMessageTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const formatDateSeparator = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return "Idag";
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return "Igår";
+    } else {
+      return date.toLocaleDateString("sv-SE", { 
+        weekday: "long", 
+        day: "numeric", 
+        month: "long" 
+      });
+    }
+  };
+
+  const shouldShowDateSeparator = (currentMsg: Message, prevMsg?: Message) => {
+    if (!prevMsg) return true;
+    const currentDate = new Date(currentMsg.created_at).toDateString();
+    const prevDate = new Date(prevMsg.created_at).toDateString();
+    return currentDate !== prevDate;
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <Loader2 className="w-8 h-8 animate-spin text-whatsapp-green" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/chats")}>
+    <div className="min-h-screen bg-whatsapp-chat-bg flex flex-col">
+      {/* WhatsApp-style Header */}
+      <header className="bg-whatsapp-green text-white sticky top-0 z-10 shadow-md">
+        <div className="px-2 py-2">
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => navigate("/chats")}
+              className="text-white hover:bg-whatsapp-green-dark"
+            >
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <Avatar className="h-10 w-10">
-              <AvatarFallback className="bg-secondary text-secondary-foreground">
+            <Avatar className="h-10 w-10 ring-2 ring-white/20">
+              <AvatarFallback className="bg-whatsapp-teal text-white font-medium">
                 {conversation?.other_user
                   ? getInitials(conversation.other_user.display_name)
                   : "?"}
               </AvatarFallback>
             </Avatar>
-            <div>
-              <h1 className="font-semibold text-foreground">
+            <div className="flex-1 min-w-0">
+              <h1 className="font-semibold truncate">
                 {conversation?.other_user?.display_name || "Chatt"}
               </h1>
-              <p className="text-xs text-muted-foreground">
-                Skriv @ai för att prata med AI
+              <p className="text-xs text-white/70">
+                online
               </p>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Messages */}
-      <ScrollArea className="flex-1 px-4">
-        <div className="container mx-auto py-4 space-y-4">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex gap-3 ${
-                msg.user_id === user?.id ? "flex-row-reverse" : ""
-              }`}
-            >
-              <Avatar className="h-8 w-8 flex-shrink-0">
-                <AvatarFallback
-                  className={
-                    msg.is_ai
-                      ? "bg-primary text-primary-foreground"
-                      : msg.user_id === user?.id
-                      ? "bg-secondary text-secondary-foreground"
-                      : "bg-muted text-muted-foreground"
-                  }
-                >
-                  {msg.is_ai ? (
-                    <Bot className="w-4 h-4" />
+      {/* Messages with WhatsApp pattern background */}
+      <ScrollArea className="flex-1">
+        <div 
+          className="min-h-full px-3 py-2"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2325D366' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          }}
+        >
+          <div className="max-w-3xl mx-auto space-y-1">
+            {messages.map((msg, index) => {
+              const prevMsg = index > 0 ? messages[index - 1] : undefined;
+              const showDateSeparator = shouldShowDateSeparator(msg, prevMsg);
+              const isOwn = msg.user_id === user?.id;
+              const isAI = msg.is_ai;
+
+              return (
+                <div key={msg.id}>
+                  {/* Date Separator */}
+                  {showDateSeparator && (
+                    <div className="flex justify-center my-3">
+                      <span className="bg-white/90 dark:bg-card/90 text-muted-foreground text-xs px-3 py-1 rounded-lg shadow-sm">
+                        {formatDateSeparator(msg.created_at)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Message Bubble */}
+                  <div className={`flex ${isOwn ? "justify-end" : "justify-start"} mb-1`}>
+                    <div
+                      className={`relative max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 shadow-sm ${
+                        isAI
+                          ? "bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-900/30 dark:to-purple-800/20 border border-purple-200 dark:border-purple-700/50"
+                          : isOwn
+                          ? "bg-whatsapp-light-green dark:bg-whatsapp-green-dark text-foreground"
+                          : "bg-white dark:bg-card text-foreground"
+                      }`}
+                      style={{
+                        borderTopLeftRadius: !isOwn && !isAI ? "4px" : undefined,
+                        borderTopRightRadius: isOwn ? "4px" : undefined,
+                      }}
+                    >
+                      {/* AI Badge */}
+                      {isAI && (
+                        <div className="flex items-center gap-1.5 mb-1 text-purple-600 dark:text-purple-400">
+                          <Bot className="w-3.5 h-3.5" />
+                          <span className="text-xs font-medium">AI Assistent</span>
+                        </div>
+                      )}
+
+                      {/* Message Content */}
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed break-words">
+                        {msg.content}
+                      </p>
+
+                      {/* Time and Read Status */}
+                      <div className={`flex items-center justify-end gap-1 mt-1 ${
+                        isAI ? "text-purple-500" : "text-muted-foreground"
+                      }`}>
+                        <span className="text-[10px]">
+                          {formatMessageTime(msg.created_at)}
+                        </span>
+                        {isOwn && (
+                          <CheckCheck className="w-3.5 h-3.5 text-whatsapp-green" />
+                        )}
+                      </div>
+
+                      {/* Message tail */}
+                      <div
+                        className={`absolute top-0 w-3 h-3 overflow-hidden ${
+                          isOwn ? "-right-1.5" : "-left-1.5"
+                        }`}
+                      >
+                        <div
+                          className={`w-3 h-3 transform rotate-45 ${
+                            isAI
+                              ? "bg-purple-100 dark:bg-purple-900/30"
+                              : isOwn
+                              ? "bg-whatsapp-light-green dark:bg-whatsapp-green-dark"
+                              : "bg-white dark:bg-card"
+                          }`}
+                          style={{
+                            marginLeft: isOwn ? "-6px" : "6px",
+                            marginTop: "2px",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* AI typing indicator */}
+            {aiTyping && (
+              <div className="flex justify-start mb-1">
+                <div className="relative max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 shadow-sm bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-900/30 dark:to-purple-800/20 border border-purple-200 dark:border-purple-700/50">
+                  <div className="flex items-center gap-1.5 mb-1 text-purple-600 dark:text-purple-400">
+                    <Bot className="w-3.5 h-3.5" />
+                    <span className="text-xs font-medium">AI Assistent</span>
+                  </div>
+                  {aiResponse ? (
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed">{aiResponse}</p>
                   ) : (
-                    getInitials(
-                      msg.profile?.display_name ||
-                        (msg.user_id === user?.id ? "Du" : "?")
-                    )
+                    <div className="flex gap-1 py-1">
+                      <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                    </div>
                   )}
-                </AvatarFallback>
-              </Avatar>
-
-              <div
-                className={`max-w-[70%] rounded-2xl px-4 py-2 ${
-                  msg.is_ai
-                    ? "bg-primary/10 text-foreground"
-                    : msg.user_id === user?.id
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-foreground"
-                }`}
-              >
-                <p className="whitespace-pre-wrap">{msg.content}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            )}
 
-          {/* AI typing indicator */}
-          {aiTyping && (
-            <div className="flex gap-3">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary text-primary-foreground">
-                  <Bot className="w-4 h-4" />
-                </AvatarFallback>
-              </Avatar>
-              <div className="max-w-[70%] rounded-2xl px-4 py-2 bg-primary/10 text-foreground">
-                <p className="whitespace-pre-wrap">
-                  {aiResponse || (
-                    <span className="flex gap-1">
-                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce" />
-                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce delay-100" />
-                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce delay-200" />
-                    </span>
-                  )}
-                </p>
-              </div>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
+            <div ref={messagesEndRef} />
+          </div>
         </div>
       </ScrollArea>
 
-      {/* Message Input */}
-      <div className="border-t border-border bg-card/50 backdrop-blur-sm p-4">
-        <form onSubmit={sendMessage} className="container mx-auto flex gap-2">
-          <Input
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Skriv ett meddelande..."
-            className="flex-1"
-            disabled={sending}
-          />
-          <Button type="submit" size="icon" disabled={!newMessage.trim() || sending}>
-            <Send className="w-4 h-4" />
+      {/* WhatsApp-style Message Input */}
+      <div className="bg-whatsapp-chat-bg border-t border-border/50 p-2">
+        <form onSubmit={sendMessage} className="flex items-center gap-2 max-w-3xl mx-auto">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="flex-shrink-0 text-muted-foreground hover:text-foreground"
+          >
+            <Smile className="w-6 h-6" />
           </Button>
+          
+          <div className="flex-1 flex items-center bg-white dark:bg-card rounded-full px-4 py-2 shadow-sm">
+            <Input
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="Meddelande"
+              className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0 text-sm"
+              disabled={sending}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="flex-shrink-0 text-muted-foreground hover:text-foreground h-8 w-8"
+            >
+              <Paperclip className="w-5 h-5" />
+            </Button>
+          </div>
+
+          {newMessage.trim() ? (
+            <Button 
+              type="submit" 
+              size="icon" 
+              disabled={sending}
+              className="flex-shrink-0 rounded-full w-12 h-12 bg-whatsapp-green hover:bg-whatsapp-green-dark shadow-md"
+            >
+              <Send className="w-5 h-5" />
+            </Button>
+          ) : (
+            <Button 
+              type="button" 
+              size="icon"
+              className="flex-shrink-0 rounded-full w-12 h-12 bg-whatsapp-green hover:bg-whatsapp-green-dark shadow-md"
+            >
+              <Mic className="w-5 h-5" />
+            </Button>
+          )}
         </form>
+
+        {/* AI hint */}
+        <p className="text-center text-xs text-muted-foreground mt-2">
+          Skriv <span className="font-medium text-whatsapp-green">@ai</span> för att prata med AI-assistenten
+        </p>
       </div>
     </div>
   );
