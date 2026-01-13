@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Send, Bot, Loader2, Smile, Paperclip, Mic, Check, CheckCheck } from "lucide-react";
+import { ArrowLeft, Send, Bot, Loader2, Smile, Paperclip, Mic, Check, CheckCheck, Search, MoreVertical } from "lucide-react";
 import { MessageBubble, ReplyPreview } from "@/components/MessageBubble";
 
 interface ReplyToMessage {
@@ -352,47 +352,58 @@ const DirectChat = () => {
   }
 
   return (
-    <div className="min-h-screen bg-whatsapp-chat-bg flex flex-col">
-      {/* WhatsApp-style Header */}
-      <header className="bg-whatsapp-green text-white sticky top-0 z-10 shadow-md">
-        <div className="px-2 py-2">
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => navigate("/chats")}
-              className="text-white hover:bg-whatsapp-green-dark"
-            >
-              <ArrowLeft className="w-5 h-5" />
+    <div className="h-full flex flex-col bg-background">
+      {/* Header - WhatsApp desktop style */}
+      <header className="flex-shrink-0 bg-card border-b border-border px-4 py-2">
+        <div className="flex items-center gap-3">
+          {/* Mobile back button */}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => navigate("/chats")}
+            className="md:hidden text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          
+          <Avatar className="h-10 w-10">
+            <AvatarFallback className="bg-gradient-to-br from-primary/80 to-accent/80 text-primary-foreground font-medium">
+              {conversation?.other_user
+                ? getInitials(conversation.other_user.display_name)
+                : "?"}
+            </AvatarFallback>
+          </Avatar>
+          
+          <div className="flex-1 min-w-0">
+            <h1 className="font-semibold text-foreground truncate">
+              {conversation?.other_user?.display_name || "Chatt"}
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              {typingUsers.length > 0 ? "skriver..." : "online"}
+            </p>
+          </div>
+
+          {/* Action icons */}
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+              <Search className="w-5 h-5" />
             </Button>
-            <Avatar className="h-10 w-10 ring-2 ring-white/20">
-              <AvatarFallback className="bg-whatsapp-teal text-white font-medium">
-                {conversation?.other_user
-                  ? getInitials(conversation.other_user.display_name)
-                  : "?"}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <h1 className="font-semibold truncate">
-                {conversation?.other_user?.display_name || "Chatt"}
-              </h1>
-              <p className="text-xs text-white/70">
-                {typingUsers.length > 0 ? "skriver..." : "online"}
-              </p>
-            </div>
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+              <MoreVertical className="w-5 h-5" />
+            </Button>
           </div>
         </div>
       </header>
 
-      {/* Messages with WhatsApp pattern background */}
-      <ScrollArea className="flex-1">
+      {/* Messages area with subtle pattern */}
+      <ScrollArea className="flex-1 bg-muted/30">
         <div 
-          className="min-h-full px-3 py-2"
+          className="min-h-full px-4 py-3"
           style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2325D366' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
           }}
         >
-          <div className="max-w-3xl mx-auto space-y-1">
+          <div className="max-w-4xl mx-auto space-y-1">
             {messages.map((msg, index) => {
               const prevMsg = index > 0 ? messages[index - 1] : undefined;
               const showDateSeparator = shouldShowDateSeparator(msg, prevMsg);
@@ -403,8 +414,8 @@ const DirectChat = () => {
                 <div key={msg.id}>
                   {/* Date Separator */}
                   {showDateSeparator && (
-                    <div className="flex justify-center my-3">
-                      <span className="bg-white/90 dark:bg-card/90 text-muted-foreground text-xs px-3 py-1 rounded-lg shadow-sm">
+                    <div className="flex justify-center my-4">
+                      <span className="bg-card text-muted-foreground text-xs px-3 py-1.5 rounded-lg shadow-sm">
                         {formatDateSeparator(msg.created_at)}
                       </span>
                     </div>
@@ -448,11 +459,11 @@ const DirectChat = () => {
         </div>
       </ScrollArea>
 
-      {/* WhatsApp-style Message Input */}
-      <div className="bg-whatsapp-chat-bg border-t border-border/50 p-2">
+      {/* Message Input */}
+      <div className="flex-shrink-0 bg-card border-t border-border px-4 py-3">
         {/* Reply preview */}
         {replyTo && (
-          <div className="max-w-3xl mx-auto mb-2">
+          <div className="max-w-4xl mx-auto mb-2">
             <ReplyPreview 
               replyTo={replyTo} 
               currentUserId={user?.id} 
@@ -461,17 +472,26 @@ const DirectChat = () => {
           </div>
         )}
         
-        <form onSubmit={sendMessage} className="flex items-center gap-2 max-w-3xl mx-auto">
+        <form onSubmit={sendMessage} className="flex items-center gap-3 max-w-4xl mx-auto">
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="flex-shrink-0 text-muted-foreground hover:text-foreground"
+            className="flex-shrink-0 text-muted-foreground hover:text-foreground rounded-full"
           >
-            <Smile className="w-6 h-6" />
+            <Smile className="w-5 h-5" />
           </Button>
           
-          <div className="flex-1 flex items-center bg-white dark:bg-card rounded-full px-4 py-2 shadow-sm">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="flex-shrink-0 text-muted-foreground hover:text-foreground rounded-full"
+          >
+            <Paperclip className="w-5 h-5" />
+          </Button>
+          
+          <div className="flex-1">
             <Input
               value={newMessage}
               onChange={(e) => {
@@ -479,18 +499,10 @@ const DirectChat = () => {
                 handleInputChange();
               }}
               onBlur={stopTyping}
-              placeholder="Meddelande"
-              className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0 text-sm"
+              placeholder="Skriv ett meddelande"
+              className="bg-muted/50 border-0 rounded-lg h-10 focus-visible:ring-1 focus-visible:ring-ring"
               disabled={sending}
             />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="flex-shrink-0 text-muted-foreground hover:text-foreground h-8 w-8"
-            >
-              <Paperclip className="w-5 h-5" />
-            </Button>
           </div>
 
           {newMessage.trim() ? (
@@ -498,7 +510,7 @@ const DirectChat = () => {
               type="submit" 
               size="icon" 
               disabled={sending}
-              className="flex-shrink-0 rounded-full w-12 h-12 bg-whatsapp-green hover:bg-whatsapp-green-dark shadow-md"
+              className="flex-shrink-0 rounded-full w-10 h-10 bg-primary hover:bg-primary/90"
             >
               <Send className="w-5 h-5" />
             </Button>
@@ -506,7 +518,7 @@ const DirectChat = () => {
             <Button 
               type="button" 
               size="icon"
-              className="flex-shrink-0 rounded-full w-12 h-12 bg-whatsapp-green hover:bg-whatsapp-green-dark shadow-md"
+              className="flex-shrink-0 rounded-full w-10 h-10 bg-primary hover:bg-primary/90"
             >
               <Mic className="w-5 h-5" />
             </Button>
@@ -514,8 +526,8 @@ const DirectChat = () => {
         </form>
 
         {/* AI hint */}
-        <p className="text-center text-xs text-muted-foreground mt-2">
-          Skriv <span className="font-medium text-whatsapp-green">@ai</span> för att prata med AI-assistenten
+        <p className="text-center text-xs text-muted-foreground mt-2 max-w-4xl mx-auto">
+          Skriv <span className="font-medium text-primary">@ai</span> för att prata med AI-assistenten
         </p>
       </div>
     </div>

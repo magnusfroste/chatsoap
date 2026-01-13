@@ -36,19 +36,8 @@ const App = () => {
               <Route path="/auth" element={<Auth />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/chats" element={<Chats />} />
-              <Route path="/chat/:id" element={<DirectChat />} />
-              <Route 
-                path="/group/:id" 
-                element={
-                  <Suspense fallback={
-                    <div className="min-h-screen flex items-center justify-center bg-background">
-                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                    </div>
-                  }>
-                    <GroupChat />
-                  </Suspense>
-                } 
-              />
+              <Route path="/chat/:id" element={<Chats />} />
+              <Route path="/group/:id" element={<Chats />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>
