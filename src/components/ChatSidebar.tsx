@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { MessageSquare, Users, LogOut, Search, MoreVertical, CheckCheck, Settings, Star, Archive } from "lucide-react";
+import { MessageSquare, Users, LogOut, Search, MoreVertical, CheckCheck, Settings, Star, Archive, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import NewChatDialog from "@/components/NewChatDialog";
 import NewGroupDialog from "@/components/NewGroupDialog";
@@ -236,6 +236,10 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect }: ChatSidebar
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => navigate("/profile")}>
+                  <User className="w-4 h-4 mr-2" />
+                  Profil
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setNewGroupOpen(true)}>
                   <Users className="w-4 h-4 mr-2" />
                   Ny grupp

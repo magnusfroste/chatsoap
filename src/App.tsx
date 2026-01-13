@@ -10,6 +10,7 @@ import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
 import Chats from "./pages/Chats";
 import DirectChat from "./pages/DirectChat";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -38,6 +39,7 @@ const App = () => {
               <Route path="/chats" element={<Chats />} />
               <Route path="/chat/:id" element={<Chats />} />
               <Route path="/group/:id" element={<Chats />} />
+              <Route path="/profile" element={<Profile />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>
