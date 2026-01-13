@@ -426,11 +426,19 @@ export type Database = {
     }
     Functions: {
       add_admin_by_email: { Args: { _email: string }; Returns: undefined }
+      get_user_conversation_ids: {
+        Args: { _user_id: string }
+        Returns: string[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_conversation_member: {
+        Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
       }
       is_room_member: {
