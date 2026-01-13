@@ -76,7 +76,7 @@ const DirectChat = () => {
       fetchConversation();
       fetchMessages();
 
-      // Subscribe to new messages
+      // Subscribe to new messages with realtime
       const channel = supabase
         .channel(`chat-${id}`)
         .on(
@@ -87,11 +87,67 @@ const DirectChat = () => {
             table: "messages",
             filter: `conversation_id=eq.${id}`,
           },
-          (payload) => {
-            const newMsg = payload.new as Message;
+          async (payload) => {
+            const newMsg = payload.new as any;
+            
+            // Skip if message already exists (e.g., from optimistic update)
             setMessages((prev) => {
               if (prev.find((m) => m.id === newMsg.id)) return prev;
-              return [...prev, newMsg];
+              
+              // Skip temp messages that will be replaced
+              const filtered = prev.filter(m => !m.id.startsWith('temp-') && !m.id.startsWith('ai-temp-'));
+              return filtered;
+            });
+
+            // Fetch profile for the new message if it has a user_id
+            let profile = undefined;
+            if (newMsg.user_id) {
+              const { data: profileData } = await supabase
+                .from("profiles")
+                .select("display_name")
+                .eq("user_id", newMsg.user_id)
+                .single();
+              profile = profileData || undefined;
+            }
+
+            // Fetch reply_to if exists
+            let reply_to = undefined;
+            if (newMsg.reply_to_id) {
+              const { data: replyData } = await supabase
+                .from("messages")
+                .select("id, content, user_id, is_ai")
+                .eq("id", newMsg.reply_to_id)
+                .single();
+              
+              if (replyData) {
+                let replyProfile = undefined;
+                if (replyData.user_id) {
+                  const { data: rp } = await supabase
+                    .from("profiles")
+                    .select("display_name")
+                    .eq("user_id", replyData.user_id)
+                    .single();
+                  replyProfile = rp || undefined;
+                }
+                reply_to = { ...replyData, profile: replyProfile };
+              }
+            }
+
+            const enrichedMessage: Message = {
+              id: newMsg.id,
+              content: newMsg.content,
+              is_ai: newMsg.is_ai || false,
+              user_id: newMsg.user_id,
+              created_at: newMsg.created_at,
+              reply_to_id: newMsg.reply_to_id,
+              reply_to,
+              profile,
+            };
+
+            setMessages((prev) => {
+              // Check again to avoid duplicates
+              if (prev.find((m) => m.id === newMsg.id)) return prev;
+              return [...prev, enrichedMessage];
             });
           }
         )
