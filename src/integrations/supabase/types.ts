@@ -167,7 +167,7 @@ export type Database = {
           id: string
           is_ai: boolean | null
           reply_to_id: string | null
-          room_id: string
+          room_id: string | null
           user_id: string | null
         }
         Insert: {
@@ -177,7 +177,7 @@ export type Database = {
           id?: string
           is_ai?: boolean | null
           reply_to_id?: string | null
-          room_id: string
+          room_id?: string | null
           user_id?: string | null
         }
         Update: {
@@ -187,7 +187,7 @@ export type Database = {
           id?: string
           is_ai?: boolean | null
           reply_to_id?: string | null
-          room_id?: string
+          room_id?: string | null
           user_id?: string | null
         }
         Relationships: [

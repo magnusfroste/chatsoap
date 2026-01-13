@@ -234,7 +234,6 @@ const DirectChat = () => {
         is_ai: false,
         user_id: user.id,
         conversation_id: id,
-        room_id: id, // Using conversation_id as room_id for compatibility
         reply_to_id: currentReplyTo?.id || null,
       });
 
@@ -286,7 +285,6 @@ const DirectChat = () => {
               is_ai: true,
               user_id: null,
               conversation_id: id,
-              room_id: id,
             });
 
             await supabase
