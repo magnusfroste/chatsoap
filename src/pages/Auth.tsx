@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useAppSettings } from "@/hooks/useAppSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,16 +16,19 @@ const loginSchema = z.object({
   password: z.string().min(6, "Lösenordet måste vara minst 6 tecken"),
 });
 
-const signupSchema = z.object({
+const createSignupSchema = (requireInviteCode: boolean) => z.object({
   email: z.string().email("Ogiltig e-postadress"),
   password: z.string().min(6, "Lösenordet måste vara minst 6 tecken"),
   displayName: z.string().min(2, "Namnet måste vara minst 2 tecken").optional(),
-  inviteCode: z.string().min(1, "Inbjudningskod krävs"),
+  inviteCode: requireInviteCode 
+    ? z.string().min(1, "Inbjudningskod krävs") 
+    : z.string().optional(),
 });
 
 export default function Auth() {
   const navigate = useNavigate();
   const { user, signIn, signUp, loading } = useAuth();
+  const { requireInviteCode, loading: settingsLoading } = useAppSettings();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Form states
@@ -66,11 +70,12 @@ export default function Auth() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    const signupSchema = createSignupSchema(requireInviteCode);
     const result = signupSchema.safeParse({ 
       email: signupEmail, 
       password: signupPassword,
       displayName: signupName || undefined,
-      inviteCode 
+      inviteCode: requireInviteCode ? inviteCode : undefined
     });
     
     if (!result.success) {
@@ -79,7 +84,7 @@ export default function Auth() {
     }
 
     setIsSubmitting(true);
-    const { error } = await signUp(signupEmail, signupPassword, signupName, inviteCode);
+    const { error } = await signUp(signupEmail, signupPassword, signupName, requireInviteCode ? inviteCode : undefined);
     setIsSubmitting(false);
 
     if (error) {
@@ -93,7 +98,7 @@ export default function Auth() {
     }
   };
 
-  if (loading) {
+  if (loading || settingsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -167,18 +172,20 @@ export default function Auth() {
               
               <TabsContent value="signup">
                 <form onSubmit={handleSignup} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="invite-code">Inbjudningskod *</Label>
-                    <Input
-                      id="invite-code"
-                      type="text"
-                      placeholder="VALHALLA-XXXX"
-                      value={inviteCode}
-                      onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                      className="font-mono"
-                      required
-                    />
-                  </div>
+                  {requireInviteCode && (
+                    <div className="space-y-2">
+                      <Label htmlFor="invite-code">Inbjudningskod *</Label>
+                      <Input
+                        id="invite-code"
+                        type="text"
+                        placeholder="VALHALLA-XXXX"
+                        value={inviteCode}
+                        onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                        className="font-mono"
+                        required
+                      />
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="signup-name">Visningsnamn</Label>
                     <Input
@@ -227,9 +234,11 @@ export default function Auth() {
           </CardContent>
         </Card>
 
-        <p className="text-center text-sm text-muted-foreground mt-6">
-          Ingen inbjudningskod? Kontakta en befintlig medlem.
-        </p>
+        {requireInviteCode && (
+          <p className="text-center text-sm text-muted-foreground mt-6">
+            Ingen inbjudningskod? Kontakta en befintlig medlem.
+          </p>
+        )}
       </div>
     </div>
   );
