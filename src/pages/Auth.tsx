@@ -41,7 +41,7 @@ export default function Auth() {
 
   useEffect(() => {
     if (user && !loading) {
-      navigate("/dashboard");
+      navigate("/chats");
     }
   }, [user, loading, navigate]);
 
