@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAIChat } from "@/hooks/useAIChat";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
+import { useReadReceipts } from "@/hooks/useReadReceipts";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +54,7 @@ const DirectChat = () => {
     user?.id,
     profile?.display_name || undefined
   );
+  const { isMessageRead, markMessagesAsRead } = useReadReceipts(id, user?.id);
 
   const [conversation, setConversation] = useState<ConversationInfo | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -163,6 +165,20 @@ const DirectChat = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, aiResponse]);
+
+  // Mark incoming messages as read when viewing the chat
+  useEffect(() => {
+    if (!user || !messages.length) return;
+    
+    // Find messages from other users that need to be marked as read
+    const unreadMessageIds = messages
+      .filter((m) => m.user_id !== user.id && m.user_id !== null && !m.id.startsWith('temp-'))
+      .map((m) => m.id);
+    
+    if (unreadMessageIds.length > 0) {
+      markMessagesAsRead(unreadMessageIds);
+    }
+  }, [messages, user, markMessagesAsRead]);
 
   const fetchConversation = async () => {
     if (!user || !id) return;
@@ -525,6 +541,7 @@ const DirectChat = () => {
                     userId={user?.id}
                     formatTime={formatMessageTime}
                     onReply={(m) => setReplyTo(m)}
+                    isRead={isOwn ? isMessageRead(msg.id, msg.user_id) : undefined}
                   />
                 </div>
               );

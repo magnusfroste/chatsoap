@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bot, CheckCheck, Reply, X } from "lucide-react";
+import { Bot, Check, CheckCheck, Reply, X } from "lucide-react";
 import { MessageReactions, ReactionPicker } from "./MessageReactions";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +32,7 @@ interface MessageBubbleProps {
   getUserColor?: (userId: string) => string;
   formatTime: (dateStr: string) => string;
   onReply?: (message: { id: string; content: string; user_id: string | null; is_ai: boolean; profile?: { display_name: string | null } }) => void;
+  isRead?: boolean;
 }
 
 export const MessageBubble = ({
@@ -42,6 +43,7 @@ export const MessageBubble = ({
   getUserColor,
   formatTime,
   onReply,
+  isRead,
 }: MessageBubbleProps) => {
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const isAI = message.is_ai;
@@ -169,8 +171,12 @@ export const MessageBubble = ({
         <span className="text-[10px]">
           {formatTime(message.created_at)}
         </span>
-        {isOwn && (
-          <CheckCheck className="w-3.5 h-3.5 text-whatsapp-green" />
+        {isOwn && !message.is_ai && (
+          isRead ? (
+            <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
+          ) : (
+            <CheckCheck className="w-3.5 h-3.5 text-muted-foreground" />
+          )
         )}
       </div>
 
