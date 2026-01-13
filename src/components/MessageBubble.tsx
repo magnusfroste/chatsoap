@@ -158,26 +158,25 @@ export const MessageBubble = ({
         </div>
       )}
 
-      {/* Message Content */}
-      <p className="whitespace-pre-wrap text-sm leading-relaxed break-words">
-        {message.content}
-      </p>
-
-      {/* Time and Read Status */}
-      <div className={cn(
-        "flex items-center justify-end gap-1 mt-1",
-        isAI ? "text-purple-500" : "text-muted-foreground"
-      )}>
-        <span className="text-[10px]">
+      {/* Message Content with inline time */}
+      <div className="flex flex-wrap items-end gap-x-2">
+        <p className="whitespace-pre-wrap text-sm leading-relaxed break-words">
+          {message.content}
+        </p>
+        {/* Time and Read Status - inline */}
+        <span className={cn(
+          "inline-flex items-center gap-1 ml-auto text-[10px] flex-shrink-0 translate-y-0.5",
+          isAI ? "text-purple-500" : "text-muted-foreground/70"
+        )}>
           {formatTime(message.created_at)}
+          {isOwn && !message.is_ai && (
+            isRead ? (
+              <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
+            ) : (
+              <CheckCheck className="w-3.5 h-3.5 text-muted-foreground" />
+            )
+          )}
         </span>
-        {isOwn && !message.is_ai && (
-          isRead ? (
-            <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
-          ) : (
-            <CheckCheck className="w-3.5 h-3.5 text-muted-foreground" />
-          )
-        )}
       </div>
 
       {/* Message tail */}
