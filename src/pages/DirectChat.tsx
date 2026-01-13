@@ -227,17 +227,40 @@ const DirectChat = () => {
     setReplyTo(null);
     setSending(true);
 
+    // Create optimistic message to show immediately
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMessage: Message = {
+      id: tempId,
+      content,
+      is_ai: false,
+      user_id: user.id,
+      created_at: new Date().toISOString(),
+      reply_to_id: currentReplyTo?.id || null,
+      reply_to: currentReplyTo,
+      profile: { display_name: profile?.display_name || null },
+    };
+
+    // Add message to UI immediately (optimistic update)
+    setMessages((prev) => [...prev, optimisticMessage]);
+
     try {
       // Insert message with reply_to_id if replying
-      const { error } = await supabase.from("messages").insert({
+      const { data: insertedMsg, error } = await supabase.from("messages").insert({
         content,
         is_ai: false,
         user_id: user.id,
         conversation_id: id,
         reply_to_id: currentReplyTo?.id || null,
-      });
+      }).select().single();
 
       if (error) throw error;
+
+      // Replace temp message with real one (with correct ID)
+      if (insertedMsg) {
+        setMessages((prev) => 
+          prev.map((m) => m.id === tempId ? { ...optimisticMessage, id: insertedMsg.id } : m)
+        );
+      }
 
       // Update conversation last_message_at
       await supabase
@@ -263,7 +286,7 @@ const DirectChat = () => {
         }));
 
         recentMessages.push({
-          id: "temp",
+          id: insertedMsg?.id || tempId,
           content,
           is_ai: false,
           user_id: user.id,
@@ -279,13 +302,31 @@ const DirectChat = () => {
             setAiTyping(false);
             setAiResponse("");
 
+            // Create optimistic AI message
+            const aiTempId = `ai-temp-${Date.now()}`;
+            const optimisticAiMessage: Message = {
+              id: aiTempId,
+              content: fullText,
+              is_ai: true,
+              user_id: null,
+              created_at: new Date().toISOString(),
+            };
+            setMessages((prev) => [...prev, optimisticAiMessage]);
+
             // Save AI response
-            await supabase.from("messages").insert({
+            const { data: aiMsg } = await supabase.from("messages").insert({
               content: fullText,
               is_ai: true,
               user_id: null,
               conversation_id: id,
-            });
+            }).select().single();
+
+            // Replace temp AI message with real one
+            if (aiMsg) {
+              setMessages((prev) => 
+                prev.map((m) => m.id === aiTempId ? { ...optimisticAiMessage, id: aiMsg.id } : m)
+              );
+            }
 
             await supabase
               .from("conversations")
@@ -296,6 +337,8 @@ const DirectChat = () => {
       }
     } catch (error) {
       console.error("Error sending message:", error);
+      // Remove optimistic message on error
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
     } finally {
       setSending(false);
     }
