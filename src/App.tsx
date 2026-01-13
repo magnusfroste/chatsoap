@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
+import Admin from "./pages/Admin";
 import Chats from "./pages/Chats";
 import DirectChat from "./pages/DirectChat";
 import NotFound from "./pages/NotFound";
@@ -33,6 +34,7 @@ const App = () => {
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/admin" element={<Admin />} />
               <Route path="/chats" element={<Chats />} />
               <Route path="/chat/:id" element={<DirectChat />} />
               <Route 
