@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -52,6 +52,8 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [newGroupOpen, setNewGroupOpen] = useState(false);
   const [filter, setFilter] = useState<"all" | "favorites" | "archived">("all");
+  const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+  const conversationRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -264,6 +266,43 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
     }
   };
 
+  // Keyboard navigation for conversations
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (filteredConversations.length === 0) return;
+    
+    // Only handle if not typing in an input
+    if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
+      return;
+    }
+
+    if (e.key === 'ArrowDown' || e.key === 'j') {
+      e.preventDefault();
+      setFocusedIndex(prev => {
+        const newIndex = prev < filteredConversations.length - 1 ? prev + 1 : 0;
+        conversationRefs.current[newIndex]?.focus();
+        return newIndex;
+      });
+    } else if (e.key === 'ArrowUp' || e.key === 'k') {
+      e.preventDefault();
+      setFocusedIndex(prev => {
+        const newIndex = prev > 0 ? prev - 1 : filteredConversations.length - 1;
+        conversationRefs.current[newIndex]?.focus();
+        return newIndex;
+      });
+    } else if (e.key === 'Enter' && focusedIndex >= 0) {
+      e.preventDefault();
+      const conv = filteredConversations[focusedIndex];
+      if (conv) {
+        handleConversationClick(conv);
+      }
+    }
+  }, [filteredConversations, focusedIndex, handleConversationClick]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
   const formatTime = (dateStr: string | null) => {
     if (!dateStr) return "";
     const date = new Date(dateStr);
@@ -390,16 +429,19 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
             {filteredConversations.map((conv, index) => {
               const isActive = activeConversationId === conv.id;
               const hasUnread = (conv.unread_count ?? 0) > 0;
+              const isFocused = focusedIndex === index;
               
               return (
                 <button
                   key={conv.id}
+                  ref={(el) => { conversationRefs.current[index] = el; }}
                   onClick={() => handleConversationClick(conv)}
-                  className={`w-full flex items-center transition-all duration-300 ease-in-out text-left ${
+                  onFocus={() => setFocusedIndex(index)}
+                  className={`w-full flex items-center transition-all duration-300 ease-in-out text-left outline-none ${
                     isCollapsed 
                       ? 'justify-center px-0 py-2 hover:bg-muted/50' 
                       : 'gap-3 px-3 py-3 hover:bg-muted/50 border-b border-border/50'
-                  } ${isActive ? (isCollapsed ? '' : 'bg-muted') : ''}`}
+                  } ${isActive ? (isCollapsed ? '' : 'bg-muted') : ''} ${isFocused ? 'ring-2 ring-inset ring-primary/50 bg-muted/30' : ''}`}
                   title={isCollapsed ? getDisplayName(conv) : undefined}
                   style={{ 
                     animationDelay: `${index * 30}ms`,
