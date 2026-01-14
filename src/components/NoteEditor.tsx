@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   Dialog,
   DialogContent,
@@ -8,12 +10,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Save,
   Trash2,
@@ -23,6 +31,17 @@ import {
   Languages,
   Loader2,
   X,
+  Bold,
+  Italic,
+  List,
+  ListOrdered,
+  Heading1,
+  Heading2,
+  Link,
+  Code,
+  Quote,
+  Eye,
+  Edit3,
 } from "lucide-react";
 import { Note } from "@/hooks/useNotes";
 import { useNoteAI, NoteAIAction } from "@/hooks/useNoteAI";
@@ -48,6 +67,26 @@ const LANGUAGES = [
   { code: "pt", name: "Portuguese" },
 ];
 
+interface FormatAction {
+  icon: React.ReactNode;
+  label: string;
+  prefix: string;
+  suffix: string;
+  block?: boolean;
+}
+
+const FORMAT_ACTIONS: FormatAction[] = [
+  { icon: <Bold className="h-3.5 w-3.5" />, label: "Bold", prefix: "**", suffix: "**" },
+  { icon: <Italic className="h-3.5 w-3.5" />, label: "Italic", prefix: "_", suffix: "_" },
+  { icon: <Code className="h-3.5 w-3.5" />, label: "Code", prefix: "`", suffix: "`" },
+  { icon: <Heading1 className="h-3.5 w-3.5" />, label: "Heading 1", prefix: "# ", suffix: "", block: true },
+  { icon: <Heading2 className="h-3.5 w-3.5" />, label: "Heading 2", prefix: "## ", suffix: "", block: true },
+  { icon: <List className="h-3.5 w-3.5" />, label: "Bullet List", prefix: "- ", suffix: "", block: true },
+  { icon: <ListOrdered className="h-3.5 w-3.5" />, label: "Numbered List", prefix: "1. ", suffix: "", block: true },
+  { icon: <Quote className="h-3.5 w-3.5" />, label: "Quote", prefix: "> ", suffix: "", block: true },
+  { icon: <Link className="h-3.5 w-3.5" />, label: "Link", prefix: "[", suffix: "](url)" },
+];
+
 export const NoteEditor = ({
   note,
   isOpen,
@@ -60,13 +99,16 @@ export const NoteEditor = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [aiResult, setAiResult] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"edit" | "preview">("edit");
   const { processNote, isProcessing, cancel } = useNoteAI();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (note) {
       setTitle(note.title);
       setContent(note.content);
       setAiResult(null);
+      setActiveTab("edit");
     }
   }, [note]);
 
@@ -119,11 +161,53 @@ export const NoteEditor = ({
     cancel();
   };
 
+  const applyFormat = (action: FormatAction) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = content.substring(start, end);
+    
+    let newContent: string;
+    let newCursorPos: number;
+
+    if (action.block) {
+      // For block-level formatting, apply to beginning of line
+      const lineStart = content.lastIndexOf("\n", start - 1) + 1;
+      const beforeLine = content.substring(0, lineStart);
+      const afterStart = content.substring(lineStart);
+      
+      newContent = beforeLine + action.prefix + afterStart;
+      newCursorPos = start + action.prefix.length;
+    } else {
+      // For inline formatting, wrap selection
+      const before = content.substring(0, start);
+      const after = content.substring(end);
+      
+      if (selectedText) {
+        newContent = before + action.prefix + selectedText + action.suffix + after;
+        newCursorPos = end + action.prefix.length + action.suffix.length;
+      } else {
+        newContent = before + action.prefix + action.suffix + after;
+        newCursorPos = start + action.prefix.length;
+      }
+    }
+
+    setContent(newContent);
+    
+    // Restore focus and cursor position
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
+  };
+
   if (!note) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl w-[95vw] h-[90vh] sm:h-[80vh] flex flex-col p-4 sm:p-6 gap-4">
+      <DialogContent className="max-w-4xl w-[95vw] h-[90vh] sm:h-[85vh] flex flex-col p-4 sm:p-6 gap-3">
         <DialogHeader className="flex-shrink-0 pb-2">
           <div className="flex items-center justify-between gap-2">
             <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
@@ -178,7 +262,7 @@ export const NoteEditor = ({
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap flex-shrink-0">
             <span className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1">
               <Sparkles className="h-3 w-3" />
-              <span className="hidden sm:inline">AI Actions:</span>
+              <span className="hidden sm:inline">AI:</span>
             </span>
             <Button
               variant="outline"
@@ -233,21 +317,71 @@ export const NoteEditor = ({
           <div className="flex-1 flex flex-col sm:flex-row gap-3 sm:gap-4 min-h-0 overflow-hidden">
             {/* Original/Editable Content */}
             <div className="flex-1 flex flex-col min-h-0">
-              <label className="text-[10px] sm:text-xs text-muted-foreground mb-1 uppercase tracking-wide">
-                Content
-              </label>
-              <Textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Write your note here..."
-                className="flex-1 resize-none text-sm leading-relaxed min-h-[150px] sm:min-h-0"
-              />
+              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "edit" | "preview")} className="flex-1 flex flex-col min-h-0">
+                <div className="flex items-center justify-between mb-2">
+                  <TabsList className="h-8">
+                    <TabsTrigger value="edit" className="h-7 text-xs px-3 gap-1.5">
+                      <Edit3 className="h-3 w-3" />
+                      Edit
+                    </TabsTrigger>
+                    <TabsTrigger value="preview" className="h-7 text-xs px-3 gap-1.5">
+                      <Eye className="h-3 w-3" />
+                      Preview
+                    </TabsTrigger>
+                  </TabsList>
+
+                  {/* Formatting Toolbar - only show in edit mode */}
+                  {activeTab === "edit" && (
+                    <div className="flex items-center gap-0.5 sm:gap-1">
+                      {FORMAT_ACTIONS.map((action, index) => (
+                        <Tooltip key={index}>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => applyFormat(action)}
+                              className="h-7 w-7 p-0"
+                            >
+                              {action.icon}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="text-xs">
+                            {action.label}
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <TabsContent value="edit" className="flex-1 m-0 min-h-0">
+                  <Textarea
+                    ref={textareaRef}
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    placeholder="Write your note in Markdown..."
+                    className="h-full resize-none text-sm leading-relaxed font-mono"
+                  />
+                </TabsContent>
+
+                <TabsContent value="preview" className="flex-1 m-0 min-h-0 overflow-auto">
+                  <div className="h-full p-4 rounded-md border border-border bg-card prose prose-sm dark:prose-invert max-w-none overflow-auto">
+                    {content ? (
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {content}
+                      </ReactMarkdown>
+                    ) : (
+                      <p className="text-muted-foreground italic">Nothing to preview...</p>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
             </div>
 
             {/* AI Result */}
             {aiResult !== null && (
               <div className="flex-1 flex flex-col min-h-0">
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between mb-2">
                   <label className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1 uppercase tracking-wide">
                     <Sparkles className="h-3 w-3" />
                     AI Result
@@ -272,10 +406,14 @@ export const NoteEditor = ({
                     </Button>
                   </div>
                 </div>
-                <div className="flex-1 p-3 rounded-md bg-muted/30 border border-border overflow-auto min-h-[150px] sm:min-h-0">
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                    {aiResult || (isProcessing ? "..." : "")}
-                  </p>
+                <div className="flex-1 p-3 rounded-md bg-muted/30 border border-border overflow-auto min-h-[150px] sm:min-h-0 prose prose-sm dark:prose-invert max-w-none">
+                  {aiResult ? (
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {aiResult}
+                    </ReactMarkdown>
+                  ) : (
+                    <p className="text-muted-foreground">{isProcessing ? "..." : ""}</p>
+                  )}
                 </div>
               </div>
             )}
