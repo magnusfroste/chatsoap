@@ -20,13 +20,16 @@ interface Participant {
 
 export function useWebRTC(roomId: string | undefined, userId: string | undefined) {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [videoEnabled, setVideoEnabled] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   
   const peersRef = useRef<Map<string, PeerConnection>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
 
   // Get local media stream
   const startLocalStream = useCallback(async (video: boolean, audio: boolean) => {
@@ -118,6 +121,61 @@ export function useWebRTC(roomId: string | undefined, userId: string | undefined
       }
     }
   }, [videoEnabled, roomId, userId, startLocalStream]);
+
+  // Toggle screen sharing
+  const toggleScreenShare = useCallback(async () => {
+    if (isScreenSharing && screenStreamRef.current) {
+      // Stop screen sharing
+      screenStreamRef.current.getTracks().forEach(track => track.stop());
+      screenStreamRef.current = null;
+      setScreenStream(null);
+      setIsScreenSharing(false);
+      
+      // Replace screen track with video track in all peers
+      const videoTrack = localStreamRef.current?.getVideoTracks()[0];
+      if (videoTrack) {
+        peersRef.current.forEach(({ peer }) => {
+          const sender = (peer as any)._pc?.getSenders?.()?.find(
+            (s: RTCRtpSender) => s.track?.kind === 'video'
+          );
+          if (sender) {
+            sender.replaceTrack(videoTrack);
+          }
+        });
+      }
+    } else {
+      // Start screen sharing
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { cursor: "always" } as any,
+          audio: false,
+        });
+        
+        screenStreamRef.current = stream;
+        setScreenStream(stream);
+        setIsScreenSharing(true);
+        
+        const screenTrack = stream.getVideoTracks()[0];
+        
+        // Replace video track with screen track in all peers
+        peersRef.current.forEach(({ peer }) => {
+          const sender = (peer as any)._pc?.getSenders?.()?.find(
+            (s: RTCRtpSender) => s.track?.kind === 'video'
+          );
+          if (sender) {
+            sender.replaceTrack(screenTrack);
+          }
+        });
+        
+        // Handle when user stops sharing via browser UI
+        screenTrack.onended = () => {
+          toggleScreenShare();
+        };
+      } catch (error) {
+        console.error("Error starting screen share:", error);
+      }
+    }
+  }, [isScreenSharing]);
 
   // Create peer connection
   const createPeer = useCallback((targetUserId: string, initiator: boolean, stream: MediaStream) => {
@@ -370,17 +428,23 @@ export function useWebRTC(roomId: string | undefined, userId: string | undefined
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((track) => track.stop());
       }
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
     };
   }, []);
 
   return {
     localStream,
+    screenStream,
     participants,
     videoEnabled,
     audioEnabled,
+    isScreenSharing,
     isConnecting,
     toggleVideo,
     toggleAudio,
+    toggleScreenShare,
     joinRoom,
     leaveRoom,
   };

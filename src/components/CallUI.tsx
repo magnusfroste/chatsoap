@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, X } from "lucide-react";
+import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, Monitor, MonitorOff } from "lucide-react";
 import { CallStatus, CallType } from "@/hooks/useDirectCall";
 import { cn } from "@/lib/utils";
 
@@ -12,13 +12,16 @@ interface CallUIProps {
   remoteUserName: string | null;
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
+  screenStream?: MediaStream | null;
   audioEnabled: boolean;
   videoEnabled: boolean;
+  isScreenSharing?: boolean;
   onAccept: () => void;
   onDecline: () => void;
   onEnd: () => void;
   onToggleAudio: () => void;
   onToggleVideo: () => void;
+  onToggleScreenShare?: () => void;
 }
 
 export function CallUI({
@@ -28,13 +31,16 @@ export function CallUI({
   remoteUserName,
   localStream,
   remoteStream,
+  screenStream,
   audioEnabled,
   videoEnabled,
+  isScreenSharing = false,
   onAccept,
   onDecline,
   onEnd,
   onToggleAudio,
   onToggleVideo,
+  onToggleScreenShare,
 }: CallUIProps) {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -190,6 +196,20 @@ export function CallUI({
             >
               {videoEnabled ? <Video className="w-6 h-6" /> : <VideoOff className="w-6 h-6" />}
             </Button>
+
+            {onToggleScreenShare && (
+              <Button
+                onClick={onToggleScreenShare}
+                size="lg"
+                variant="ghost"
+                className={cn(
+                  "w-14 h-14 rounded-full",
+                  isScreenSharing ? "bg-primary/20 text-primary" : "bg-white/10 text-white"
+                )}
+              >
+                {isScreenSharing ? <Monitor className="w-6 h-6" /> : <MonitorOff className="w-6 h-6" />}
+              </Button>
+            )}
 
             <Button
               onClick={onEnd}
