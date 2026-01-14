@@ -10,8 +10,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, Loader2, Bot, Sparkles, Code, Pen, Lightbulb, GraduationCap, ArrowLeft } from "lucide-react";
+import { Search, Loader2, Bot, Sparkles, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AI_PERSONAS } from "@/components/PersonaSwitcher";
 
 interface Profile {
   user_id: string;
@@ -23,45 +24,6 @@ interface NewChatDialogProps {
   onOpenChange: (open: boolean) => void;
   onChatCreated: (conversationId: string) => void;
 }
-
-// AI Personas
-const AI_PERSONAS = [
-  {
-    id: "general",
-    name: "Generell Assistent",
-    description: "Hjälpsam AI för alla typer av frågor",
-    icon: Bot,
-    gradient: "from-primary to-accent",
-  },
-  {
-    id: "code",
-    name: "Kodhjälp",
-    description: "Expert på programmering och felsökning",
-    icon: Code,
-    gradient: "from-emerald-500 to-teal-500",
-  },
-  {
-    id: "writer",
-    name: "Skrivassistent",
-    description: "Hjälper med texter och kommunikation",
-    icon: Pen,
-    gradient: "from-blue-500 to-indigo-500",
-  },
-  {
-    id: "creative",
-    name: "Kreativ Brainstorming",
-    description: "Genererar idéer och tänker utanför boxen",
-    icon: Lightbulb,
-    gradient: "from-amber-500 to-orange-500",
-  },
-  {
-    id: "learning",
-    name: "Lärare & Mentor",
-    description: "Pedagogiska förklaringar anpassade för dig",
-    icon: GraduationCap,
-    gradient: "from-purple-500 to-pink-500",
-  },
-];
 
 const NewChatDialog = ({ open, onOpenChange, onChatCreated }: NewChatDialogProps) => {
   const { user } = useAuth();
