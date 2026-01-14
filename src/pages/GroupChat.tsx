@@ -13,6 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VideoSidebar } from "@/components/VideoSidebar";
 import { VideoGrid } from "@/components/VideoGrid";
 import { MessageBubble, ReplyPreview } from "@/components/MessageBubble";
+import { EmojiPicker } from "@/components/EmojiPicker";
+import { ImageUploadButton, ImagePreview } from "@/components/ImageUploadButton";
 import {
   ArrowLeft,
   Send,
@@ -21,8 +23,6 @@ import {
   MessageSquare,
   PenTool,
   Users,
-  Smile,
-  Paperclip,
   Mic,
   CheckCheck,
   Video,
@@ -96,6 +96,7 @@ const GroupChat = () => {
   const [activeTab, setActiveTab] = useState("chat");
   const [inCall, setInCall] = useState(false);
   const [replyTo, setReplyTo] = useState<ReplyToMessage | null>(null);
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -329,12 +330,13 @@ const GroupChat = () => {
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !user || !id || sending) return;
+    if ((!newMessage.trim() && !pendingImage) || !user || !id || sending) return;
 
-    const content = newMessage.trim();
+    const content = pendingImage || newMessage.trim();
     const currentReplyTo = replyTo;
     setNewMessage("");
     setReplyTo(null);
+    setPendingImage(null);
     setSending(true);
 
     // Create optimistic message to show immediately
@@ -717,6 +719,13 @@ const GroupChat = () => {
 
             {/* WhatsApp-style Message Input */}
             <div className="bg-whatsapp-chat-bg border-t border-border/50 p-2">
+              {/* Image preview */}
+              {pendingImage && (
+                <div className="max-w-3xl mx-auto mb-3">
+                  <ImagePreview imageUrl={pendingImage} onRemove={() => setPendingImage(null)} />
+                </div>
+              )}
+              
               {/* Reply preview */}
               {replyTo && (
                 <div className="max-w-3xl mx-auto mb-2">
@@ -729,14 +738,9 @@ const GroupChat = () => {
               )}
               
               <form onSubmit={sendMessage} className="flex items-center gap-2 max-w-3xl mx-auto">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="flex-shrink-0 text-muted-foreground hover:text-foreground"
-                >
-                  <Smile className="w-6 h-6" />
-                </Button>
+                <EmojiPicker 
+                  onEmojiSelect={(emoji) => setNewMessage(prev => prev + emoji)} 
+                />
                 
                 <div className="flex-1 flex items-center bg-white dark:bg-card rounded-full px-4 py-2 shadow-sm">
                   <Input
@@ -750,17 +754,13 @@ const GroupChat = () => {
                     className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0 text-sm"
                     disabled={sending}
                   />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="flex-shrink-0 text-muted-foreground hover:text-foreground h-8 w-8"
-                  >
-                    <Paperclip className="w-5 h-5" />
-                  </Button>
+                  <ImageUploadButton 
+                    onImageSelect={(url) => setPendingImage(url)} 
+                    className="h-8 w-8"
+                  />
                 </div>
 
-                {newMessage.trim() ? (
+                {(newMessage.trim() || pendingImage) ? (
                   <Button 
                     type="submit" 
                     size="icon" 
