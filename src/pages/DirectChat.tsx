@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAIChat } from "@/hooks/useAIChat";
@@ -20,6 +20,7 @@ import { ImageUploadButton, ImagePreview } from "@/components/ImageUploadButton"
 import { NotesSidebar } from "@/components/NotesSidebar";
 import { NoteEditor } from "@/components/NoteEditor";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ChatMessageSearch } from "@/components/ChatMessageSearch";
 
 interface ReplyToMessage {
   id: string;
@@ -80,8 +81,10 @@ const DirectChat = () => {
   const [aiResponse, setAiResponse] = useState("");
   const [replyTo, setReplyTo] = useState<ReplyToMessage | null>(null);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Direct call hook
   const {
@@ -204,6 +207,21 @@ const DirectChat = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, aiResponse]);
+
+  // Scroll to highlighted message
+  useEffect(() => {
+    if (highlightedMessageId) {
+      const element = messageRefs.current.get(highlightedMessageId);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+  }, [highlightedMessageId]);
+
+  // Handler for search highlight
+  const handleHighlightMessage = useCallback((messageId: string | null) => {
+    setHighlightedMessageId(messageId);
+  }, []);
 
   // Mark incoming messages as read when viewing the chat
   useEffect(() => {
@@ -608,6 +626,10 @@ const DirectChat = () => {
                 >
                   <Phone className="w-5 h-5" />
                 </Button>
+                <ChatMessageSearch
+                  messages={messages}
+                  onHighlightMessage={handleHighlightMessage}
+                />
                 <Button 
                   variant="ghost" 
                   size="icon" 
@@ -646,7 +668,13 @@ const DirectChat = () => {
                   const isAI = msg.is_ai;
 
                   return (
-                    <div key={msg.id} className="group">
+                    <div 
+                      key={msg.id} 
+                      className="group"
+                      ref={(el) => {
+                        if (el) messageRefs.current.set(msg.id, el);
+                      }}
+                    >
                       {/* Date Separator */}
                       {showDateSeparator && (
                         <div className="flex justify-center my-4">
@@ -657,15 +685,17 @@ const DirectChat = () => {
                       )}
 
                       {/* Message Bubble */}
-                      <MessageBubble
-                        message={msg}
-                        isOwn={isOwn}
-                        userId={user?.id}
-                        formatTime={formatMessageTime}
-                        onReply={(m) => setReplyTo(m)}
-                        isRead={isOwn ? isMessageRead(msg.id, msg.user_id) : undefined}
-                        onSaveToNotes={handleSaveToNotes}
-                      />
+                      <div className={highlightedMessageId === msg.id ? "ring-2 ring-primary rounded-lg transition-all duration-300" : ""}>
+                        <MessageBubble
+                          message={msg}
+                          isOwn={isOwn}
+                          userId={user?.id}
+                          formatTime={formatMessageTime}
+                          onReply={(m) => setReplyTo(m)}
+                          isRead={isOwn ? isMessageRead(msg.id, msg.user_id) : undefined}
+                          onSaveToNotes={handleSaveToNotes}
+                        />
+                      </div>
                     </div>
                   );
                 })}
