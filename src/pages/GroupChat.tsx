@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VideoSidebar } from "@/components/VideoSidebar";
+import { VideoGrid } from "@/components/VideoGrid";
 import { MessageBubble, ReplyPreview } from "@/components/MessageBubble";
 import {
   ArrowLeft,
@@ -619,7 +620,24 @@ const GroupChat = () => {
 
         {/* Content */}
         {activeTab === "chat" ? (
-          <div className="flex-1 flex flex-col bg-whatsapp-chat-bg">
+          <div className="flex-1 flex flex-col bg-whatsapp-chat-bg overflow-hidden">
+            {/* Video Grid when in call */}
+            {inCall && (
+              <div className="p-3 border-b border-border/50 bg-background/95">
+                <VideoGrid
+                  localStream={localStream}
+                  participants={participants}
+                  videoEnabled={videoEnabled}
+                  audioEnabled={audioEnabled}
+                  displayName={profile?.display_name}
+                  onToggleVideo={toggleVideo}
+                  onToggleAudio={toggleAudio}
+                  onLeaveCall={handleLeaveCall}
+                />
+              </div>
+            )}
+            
+            {/* Messages with WhatsApp pattern background */}
             {/* Messages with WhatsApp pattern background */}
             <ScrollArea className="flex-1">
               <div 
