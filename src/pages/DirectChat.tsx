@@ -4,13 +4,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAIChat } from "@/hooks/useAIChat";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useReadReceipts } from "@/hooks/useReadReceipts";
+import { useDirectCall } from "@/hooks/useDirectCall";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Send, Bot, Loader2, Smile, Paperclip, Mic, Check, CheckCheck, Search, MoreVertical } from "lucide-react";
+import { ArrowLeft, Send, Bot, Loader2, Smile, Paperclip, Mic, Check, CheckCheck, Search, MoreVertical, Phone, Video } from "lucide-react";
 import { MessageBubble, ReplyPreview } from "@/components/MessageBubble";
+import { CallUI } from "@/components/CallUI";
 
 interface ReplyToMessage {
   id: string;
@@ -66,6 +68,26 @@ const DirectChat = () => {
   const [replyTo, setReplyTo] = useState<ReplyToMessage | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Direct call hook
+  const {
+    callState,
+    localStream,
+    remoteStream,
+    audioEnabled,
+    videoEnabled,
+    startCall,
+    acceptCall,
+    declineCall,
+    endCall,
+    toggleAudio,
+    toggleVideo,
+  } = useDirectCall(
+    id,
+    user?.id,
+    conversation?.other_user?.id,
+    conversation?.other_user?.display_name
+  );
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -465,7 +487,27 @@ const DirectChat = () => {
   }
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <>
+      {/* Call UI Overlay */}
+      {callState.status !== "idle" && (
+        <CallUI
+          status={callState.status}
+          callType={callState.callType}
+          isIncoming={callState.isIncoming}
+          remoteUserName={callState.remoteUserName}
+          localStream={localStream}
+          remoteStream={remoteStream}
+          audioEnabled={audioEnabled}
+          videoEnabled={videoEnabled}
+          onAccept={acceptCall}
+          onDecline={declineCall}
+          onEnd={endCall}
+          onToggleAudio={toggleAudio}
+          onToggleVideo={toggleVideo}
+        />
+      )}
+
+      <div className="h-full flex flex-col bg-background">
       {/* Header - WhatsApp desktop style */}
       <header className="flex-shrink-0 bg-card border-b border-border px-4 py-2">
         <div className="flex items-center gap-3">
@@ -496,10 +538,25 @@ const DirectChat = () => {
             </p>
           </div>
 
-          {/* Action icons */}
+          {/* Action icons - Call buttons */}
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-              <Search className="w-5 h-5" />
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => startCall("video")}
+              disabled={callState.status !== "idle"}
+            >
+              <Video className="w-5 h-5" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => startCall("audio")}
+              disabled={callState.status !== "idle"}
+            >
+              <Phone className="w-5 h-5" />
             </Button>
             <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
               <MoreVertical className="w-5 h-5" />
@@ -644,7 +701,8 @@ const DirectChat = () => {
           Skriv <span className="font-medium text-primary">@ai</span> för att prata med AI-assistenten
         </p>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 
