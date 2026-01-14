@@ -153,6 +153,42 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_personas: {
+        Row: {
+          created_at: string
+          description: string | null
+          gradient: string | null
+          icon: string | null
+          id: string
+          name: string
+          system_prompt: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          gradient?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          system_prompt: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          gradient?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          system_prompt?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       direct_calls: {
         Row: {
           call_type: string
