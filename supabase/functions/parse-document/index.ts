@@ -43,11 +43,12 @@ serve(async (req) => {
     }
 
     const documentBuffer = await documentResponse.arrayBuffer();
+    const fileSizeMB = (documentBuffer.byteLength / 1024 / 1024).toFixed(2);
     const base64Document = btoa(
       new Uint8Array(documentBuffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
     );
 
-    console.log(`Document fetched, size: ${documentBuffer.byteLength} bytes`);
+    console.log(`Document fetched, size: ${fileSizeMB}MB`);
 
     // Build the multimodal message with document
     const userMessage = {
@@ -91,7 +92,7 @@ Regler:
           { role: "system", content: systemPrompt },
           userMessage,
         ],
-        stream: false,
+        stream: true,
       }),
     });
 
@@ -118,15 +119,12 @@ Regler:
       );
     }
 
-    const result = await response.json();
-    const markdown = result.choices?.[0]?.message?.content || "";
+    console.log("Streaming markdown response...");
 
-    console.log(`Document parsed, markdown length: ${markdown.length} chars`);
-
-    return new Response(
-      JSON.stringify({ markdown, documentName }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    // Stream the response back
+    return new Response(response.body, {
+      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+    });
   } catch (error) {
     console.error("parse-document error:", error);
     return new Response(
