@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { MessageSquare, Users, LogOut, Search, MoreVertical, CheckCheck, Settings, Star, Archive, User, Pin, BellOff, ArchiveRestore } from "lucide-react";
+import { MessageSquare, Users, LogOut, Search, MoreVertical, CheckCheck, Settings, Star, Archive, User, Pin, BellOff, ArchiveRestore, PanelLeftClose, PanelLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import NewChatDialog from "@/components/NewChatDialog";
 import NewGroupDialog from "@/components/NewGroupDialog";
@@ -38,9 +38,11 @@ interface Conversation {
 interface ChatSidebarProps {
   activeConversationId?: string;
   onConversationSelect?: (conv: Conversation) => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-const ChatSidebar = ({ activeConversationId, onConversationSelect }: ChatSidebarProps) => {
+const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed = false, onToggleCollapse }: ChatSidebarProps) => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -279,6 +281,115 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect }: ChatSidebar
     }
   };
 
+  // Collapsed view - only avatars
+  if (isCollapsed) {
+    return (
+      <div className="h-full flex flex-col bg-card border-r border-border w-[72px]">
+        {/* Collapsed Header */}
+        <header className="flex-shrink-0 px-2 py-3 border-b border-border bg-card flex justify-center">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="text-muted-foreground hover:text-foreground hover:bg-muted"
+            onClick={onToggleCollapse}
+            title="Expandera sidebar"
+          >
+            <PanelLeft className="w-5 h-5" />
+          </Button>
+        </header>
+
+        {/* Collapsed Conversations - Only avatars */}
+        <ScrollArea className="flex-1 py-2">
+          {loading ? (
+            <div className="flex items-center justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent"></div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2 px-2">
+              {filteredConversations.map((conv) => {
+                const isActive = activeConversationId === conv.id;
+                const hasUnread = (conv.unread_count ?? 0) > 0;
+                
+                return (
+                  <button
+                    key={conv.id}
+                    onClick={() => handleConversationClick(conv)}
+                    className={`relative p-1 rounded-full transition-colors ${
+                      isActive ? "ring-2 ring-primary" : "hover:bg-muted"
+                    }`}
+                    title={getDisplayName(conv)}
+                  >
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback
+                        className={
+                          conv.type === "group"
+                            ? "bg-muted text-muted-foreground font-medium text-sm"
+                            : "bg-gradient-to-br from-primary/80 to-accent/80 text-primary-foreground font-medium text-sm"
+                        }
+                      >
+                        {conv.type === "group" ? (
+                          <Users className="w-4 h-4" />
+                        ) : (
+                          getInitials(getDisplayName(conv))
+                        )}
+                      </AvatarFallback>
+                    </Avatar>
+                    {/* Unread indicator */}
+                    {hasUnread && (
+                      <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-medium flex items-center justify-center">
+                        {(conv.unread_count ?? 0) > 99 ? "99+" : conv.unread_count}
+                      </span>
+                    )}
+                    {/* Favorite indicator */}
+                    {conv.is_favorite && (
+                      <span className="absolute -bottom-0.5 -right-0.5">
+                        <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </ScrollArea>
+
+        {/* Collapsed bottom nav */}
+        <div className="flex-shrink-0 border-t border-border py-2 flex flex-col items-center gap-1">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="text-muted-foreground hover:bg-muted"
+            onClick={() => setNewChatOpen(true)}
+            title="Ny chatt"
+          >
+            <MessageSquare className="w-5 h-5" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="hover:bg-muted" 
+            onClick={() => navigate("/admin")}
+            title="Inställningar"
+          >
+            <Settings className="w-5 h-5 text-muted-foreground" />
+          </Button>
+        </div>
+
+        {/* Dialogs */}
+        <NewChatDialog
+          open={newChatOpen}
+          onOpenChange={setNewChatOpen}
+          onChatCreated={(id) => navigate(`/chat/${id}`)}
+        />
+        <NewGroupDialog
+          open={newGroupOpen}
+          onOpenChange={setNewGroupOpen}
+          onGroupCreated={(id) => navigate(`/group/${id}`)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col bg-card border-r border-border">
       {/* Header */}
@@ -286,6 +397,17 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect }: ChatSidebar
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold text-foreground">Chats</h1>
           <div className="flex items-center gap-1">
+            {onToggleCollapse && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-muted-foreground hover:text-foreground hover:bg-muted"
+                onClick={onToggleCollapse}
+                title="Minimera sidebar"
+              >
+                <PanelLeftClose className="w-5 h-5" />
+              </Button>
+            )}
             <Button 
               variant="ghost" 
               size="icon" 
