@@ -898,7 +898,11 @@ const GroupChat = () => {
           setNoteEditorOpen(false);
           setSelectedNote(null);
         }}
-        onSave={updateNote}
+        onSave={async (noteId, updates) => {
+          const updated = await updateNote(noteId, updates);
+          if (updated) setSelectedNote(updated);
+          return updated;
+        }}
         onDelete={deleteNote}
       />
     </div>
