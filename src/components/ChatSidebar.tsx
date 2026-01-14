@@ -49,7 +49,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect }: ChatSidebar
   const [showSearch, setShowSearch] = useState(false);
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [newGroupOpen, setNewGroupOpen] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
+  const [filter, setFilter] = useState<"all" | "favorites" | "archived">("all");
 
   useEffect(() => {
     if (user) {
@@ -225,11 +225,14 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect }: ChatSidebar
       const name = getDisplayName(conv).toLowerCase();
       const matchesSearch = name.includes(searchQuery.toLowerCase());
       
-      // Show archived only in archived view
-      if (showArchived) {
+      // Apply filter based on current view
+      if (filter === "archived") {
         return matchesSearch && conv.is_archived;
       }
-      // Hide archived in normal view
+      if (filter === "favorites") {
+        return matchesSearch && conv.is_favorite && !conv.is_archived;
+      }
+      // "all" - show non-archived
       return matchesSearch && !conv.is_archived;
     })
     .sort((a, b) => {
@@ -426,21 +429,26 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect }: ChatSidebar
         <Button 
           variant="ghost" 
           size="icon" 
-          className={`hover:bg-muted ${!showArchived ? "text-primary" : ""}`}
-          onClick={() => setShowArchived(false)}
+          className={`hover:bg-muted ${filter === "all" ? "text-primary" : ""}`}
+          onClick={() => setFilter("all")}
         >
           <MessageSquare className="w-5 h-5" />
-        </Button>
-        <Button variant="ghost" size="icon" className="hover:bg-muted">
-          <Star className="w-5 h-5" />
         </Button>
         <Button 
           variant="ghost" 
           size="icon" 
-          className={`hover:bg-muted ${showArchived ? "text-primary" : ""}`}
-          onClick={() => setShowArchived(!showArchived)}
+          className={`hover:bg-muted ${filter === "favorites" ? "text-primary" : ""}`}
+          onClick={() => setFilter("favorites")}
         >
-          {showArchived ? <ArchiveRestore className="w-5 h-5" /> : <Archive className="w-5 h-5" />}
+          <Star className={`w-5 h-5 ${filter === "favorites" ? "fill-primary" : ""}`} />
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className={`hover:bg-muted ${filter === "archived" ? "text-primary" : ""}`}
+          onClick={() => setFilter("archived")}
+        >
+          {filter === "archived" ? <ArchiveRestore className="w-5 h-5" /> : <Archive className="w-5 h-5" />}
         </Button>
         <Button variant="ghost" size="icon" className="hover:bg-muted" onClick={() => navigate("/admin")}>
           <Settings className="w-5 h-5" />
