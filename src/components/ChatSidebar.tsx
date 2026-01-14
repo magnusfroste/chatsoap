@@ -79,6 +79,17 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect }: ChatSidebar
             fetchConversations();
           }
         )
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "message_read_receipts",
+          },
+          () => {
+            fetchConversations();
+          }
+        )
         .subscribe();
 
       return () => {
@@ -153,12 +164,23 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect }: ChatSidebar
             .limit(1)
             .single();
 
+          // Count unread messages (messages not read by current user)
+          const { count: unreadCount } = await supabase
+            .from("messages")
+            .select("id", { count: "exact", head: true })
+            .eq("conversation_id", conv.id)
+            .neq("user_id", user.id)
+            .not("id", "in", `(
+              SELECT message_id FROM message_read_receipts WHERE user_id = '${user.id}'
+            )`);
+
           const settings = memberSettingsMap.get(conv.id);
 
           return {
             ...conv,
             other_user: otherUser,
             last_message: lastMsg?.content || null,
+            unread_count: unreadCount || 0,
             is_pinned: settings?.is_pinned || false,
             is_favorite: settings?.is_favorite || false,
             is_archived: settings?.is_archived || false,
@@ -217,6 +239,11 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect }: ChatSidebar
       // Then favorites
       if (a.is_favorite && !b.is_favorite) return -1;
       if (!a.is_favorite && b.is_favorite) return 1;
+      // Then unread
+      const aUnread = a.unread_count ?? 0;
+      const bUnread = b.unread_count ?? 0;
+      if (aUnread > 0 && bUnread === 0) return -1;
+      if (aUnread === 0 && bUnread > 0) return 1;
       // Then by date
       return 0;
     });
@@ -376,6 +403,15 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect }: ChatSidebar
                         {conv.last_message || (conv.type === "group" ? "Gruppchatt" : "Ny konversation")}
                       </p>
                       {conv.is_muted && <BellOff className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
+                      {(conv.unread_count ?? 0) > 0 && (
+                        <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-xs font-medium flex items-center justify-center flex-shrink-0 ${
+                          conv.is_muted 
+                            ? "bg-muted-foreground/30 text-muted-foreground" 
+                            : "bg-primary text-primary-foreground"
+                        }`}>
+                          {(conv.unread_count ?? 0) > 99 ? "99+" : conv.unread_count}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </button>
