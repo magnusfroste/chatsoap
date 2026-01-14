@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import * as fabric from "fabric";
+import { Canvas as FabricCanvas, PencilBrush, IText } from "fabric";
 import { supabase } from "@/integrations/supabase/client";
 
 export const useCollaborativeCanvas = (roomId: string | undefined, userId: string | undefined) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fabricRef = useRef<fabric.Canvas | null>(null);
+  const fabricRef = useRef<FabricCanvas | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const isSyncing = useRef(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
@@ -85,18 +85,18 @@ export const useCollaborativeCanvas = (roomId: string | undefined, userId: strin
   useEffect(() => {
     if (!canvasRef.current || !roomId) return;
 
-    const canvas = new fabric.Canvas(canvasRef.current, {
+    const canvas = new FabricCanvas(canvasRef.current, {
       width: 800,
       height: 500,
       backgroundColor: "#1a1a2e",
       isDrawingMode: true,
     });
 
-    // Set up drawing brush
-    if (canvas.freeDrawingBrush) {
-      canvas.freeDrawingBrush.color = "#c4a7ff";
-      canvas.freeDrawingBrush.width = 2;
-    }
+    // Set up drawing brush explicitly for Fabric.js v6
+    const brush = new PencilBrush(canvas);
+    brush.color = "#c4a7ff";
+    brush.width = 2;
+    canvas.freeDrawingBrush = brush;
 
     fabricRef.current = canvas;
     
@@ -201,7 +201,7 @@ export const useCollaborativeCanvas = (roomId: string | undefined, userId: strin
   const addText = useCallback((color: string) => {
     if (!fabricRef.current) return;
     
-    const text = new fabric.IText("Type here...", {
+    const text = new IText("Type here...", {
       left: 100,
       top: 100,
       fontSize: 20,
