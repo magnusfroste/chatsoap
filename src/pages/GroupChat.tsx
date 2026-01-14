@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, lazy, Suspense, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAIChat } from "@/hooks/useAIChat";
@@ -19,6 +19,7 @@ import { ImageUploadButton, ImagePreview } from "@/components/ImageUploadButton"
 import { NotesSidebar } from "@/components/NotesSidebar";
 import { NoteEditor } from "@/components/NoteEditor";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ChatMessageSearch } from "@/components/ChatMessageSearch";
 import {
   ArrowLeft,
   Send,
@@ -115,8 +116,11 @@ const GroupChat = () => {
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [noteEditorOpen, setNoteEditorOpen] = useState(false);
 
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const {
     localStream,
@@ -238,6 +242,21 @@ const GroupChat = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, aiResponse]);
+
+  // Scroll to highlighted message
+  useEffect(() => {
+    if (highlightedMessageId) {
+      const element = messageRefs.current.get(highlightedMessageId);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+  }, [highlightedMessageId]);
+
+  // Handler for search highlight
+  const handleHighlightMessage = useCallback((messageId: string | null) => {
+    setHighlightedMessageId(messageId);
+  }, []);
 
   const fetchGroup = async () => {
     if (!id) return;
@@ -626,6 +645,11 @@ const GroupChat = () => {
               >
                 <Video className={`w-5 h-5 ${inCall ? "text-red-300" : ""}`} />
               </Button>
+              <ChatMessageSearch
+                messages={messages}
+                onHighlightMessage={handleHighlightMessage}
+                className="text-white"
+              />
               <Button
                 variant="ghost"
                 size="icon"
@@ -725,7 +749,12 @@ const GroupChat = () => {
                     );
 
                     return (
-                      <div key={msg.id}>
+                      <div 
+                        key={msg.id}
+                        ref={(el) => {
+                          if (el) messageRefs.current.set(msg.id, el);
+                        }}
+                      >
                         {/* Date Separator */}
                         {showDateSeparator && (
                           <div className="flex justify-center my-3">
@@ -736,16 +765,18 @@ const GroupChat = () => {
                         )}
 
                         {/* Message Bubble */}
-                        <MessageBubble
-                          message={msg}
-                          isOwn={isOwn}
-                          userId={user?.id}
-                          showSenderName={showSender}
-                          getUserColor={getUserColor}
-                          formatTime={formatMessageTime}
-                          onReply={(m) => setReplyTo(m)}
-                          onSaveToNotes={(content, messageId) => handleSaveToNotes(content, messageId)}
-                        />
+                        <div className={highlightedMessageId === msg.id ? "ring-2 ring-primary rounded-lg transition-all duration-300" : ""}>
+                          <MessageBubble
+                            message={msg}
+                            isOwn={isOwn}
+                            userId={user?.id}
+                            showSenderName={showSender}
+                            getUserColor={getUserColor}
+                            formatTime={formatMessageTime}
+                            onReply={(m) => setReplyTo(m)}
+                            onSaveToNotes={(content, messageId) => handleSaveToNotes(content, messageId)}
+                          />
+                        </div>
                       </div>
                     );
                   })}
