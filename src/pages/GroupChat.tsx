@@ -39,6 +39,10 @@ const CollaborativeCanvas = lazy(() =>
   import("@/components/CollaborativeCanvas").then(mod => ({ default: mod.CollaborativeCanvas }))
 );
 
+const GroupWhiteboardWrapper = lazy(() =>
+  import("@/components/GroupWhiteboardWrapper").then(mod => ({ default: mod.GroupWhiteboardWrapper }))
+);
+
 interface ReplyToMessage {
   id: string;
   content: string;
@@ -795,7 +799,11 @@ const GroupChat = () => {
                 </div>
               }
             >
-              <CollaborativeCanvas roomId={id || ""} userId={user?.id || ""} />
+              <GroupWhiteboardWrapper 
+                conversationId={id || ""} 
+                userId={user?.id || ""} 
+                groupName={group?.name || "Grupp"}
+              />
             </Suspense>
           </div>
         )}
