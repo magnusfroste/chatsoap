@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import {
   Dialog,
   DialogContent,
@@ -42,9 +44,79 @@ import {
   Quote,
   Eye,
   Edit3,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Note } from "@/hooks/useNotes";
 import { useNoteAI, NoteAIAction } from "@/hooks/useNoteAI";
+
+// Custom code block component with syntax highlighting
+interface CodeBlockProps {
+  inline?: boolean;
+  className?: string;
+  children?: React.ReactNode;
+}
+
+const CodeBlock = ({ inline, className, children, ...props }: CodeBlockProps) => {
+  const [copied, setCopied] = useState(false);
+  const match = /language-(\w+)/.exec(className || "");
+  const language = match ? match[1] : "";
+  const codeString = String(children).replace(/\n$/, "");
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(codeString);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (inline) {
+    return (
+      <code className="px-1.5 py-0.5 rounded bg-muted text-sm font-mono" {...props}>
+        {children}
+      </code>
+    );
+  }
+
+  return (
+    <div className="relative group my-4">
+      {language && (
+        <div className="absolute top-0 left-0 px-3 py-1 text-xs text-muted-foreground bg-muted/50 rounded-tl-md rounded-br-md font-mono">
+          {language}
+        </div>
+      )}
+      <button
+        onClick={handleCopy}
+        className="absolute top-2 right-2 p-1.5 rounded bg-muted/80 hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
+        title="Copy code"
+      >
+        {copied ? (
+          <Check className="h-3.5 w-3.5 text-green-500" />
+        ) : (
+          <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+        )}
+      </button>
+      <SyntaxHighlighter
+        style={oneDark}
+        language={language || "text"}
+        PreTag="div"
+        customStyle={{
+          margin: 0,
+          borderRadius: "0.5rem",
+          fontSize: "0.875rem",
+          padding: language ? "2.5rem 1rem 1rem" : "1rem",
+        }}
+        {...props}
+      >
+        {codeString}
+      </SyntaxHighlighter>
+    </div>
+  );
+};
+
+// Markdown components configuration
+const markdownComponents = {
+  code: CodeBlock,
+};
 
 interface NoteEditorProps {
   note: Note | null;
@@ -367,7 +439,10 @@ export const NoteEditor = ({
                 <TabsContent value="preview" className="flex-1 m-0 min-h-0 overflow-auto">
                   <div className="h-full p-4 rounded-md border border-border bg-card prose prose-sm dark:prose-invert max-w-none overflow-auto">
                     {content ? (
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      <ReactMarkdown 
+                        remarkPlugins={[remarkGfm]}
+                        components={markdownComponents}
+                      >
                         {content}
                       </ReactMarkdown>
                     ) : (
@@ -408,7 +483,10 @@ export const NoteEditor = ({
                 </div>
                 <div className="flex-1 p-3 rounded-md bg-muted/30 border border-border overflow-auto min-h-[150px] sm:min-h-0 prose prose-sm dark:prose-invert max-w-none">
                   {aiResult ? (
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    <ReactMarkdown 
+                      remarkPlugins={[remarkGfm]}
+                      components={markdownComponents}
+                    >
                       {aiResult}
                     </ReactMarkdown>
                   ) : (
