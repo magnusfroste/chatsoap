@@ -133,11 +133,72 @@ const GroupChat = () => {
             table: "messages",
             filter: `conversation_id=eq.${id}`,
           },
-          (payload) => {
-            const newMsg = payload.new as Message;
+          async (payload) => {
+            const newMsg = payload.new as any;
+            
+            // Skip if message already exists (from optimistic update or duplicate)
             setMessages((prev) => {
               if (prev.find((m) => m.id === newMsg.id)) return prev;
-              return [...prev, newMsg];
+              // Skip temp messages - they'll be replaced by real ones
+              if (prev.find((m) => m.id.startsWith('temp-') && m.content === newMsg.content && m.user_id === newMsg.user_id)) {
+                return prev;
+              }
+              return prev;
+            });
+
+            // Fetch profile for the new message if it has a user_id
+            let msgProfile = undefined;
+            if (newMsg.user_id) {
+              const { data: profileData } = await supabase
+                .from("profiles")
+                .select("display_name")
+                .eq("user_id", newMsg.user_id)
+                .single();
+              msgProfile = profileData || undefined;
+            }
+
+            // Fetch reply_to if exists
+            let reply_to = undefined;
+            if (newMsg.reply_to_id) {
+              const { data: replyData } = await supabase
+                .from("messages")
+                .select("id, content, user_id, is_ai")
+                .eq("id", newMsg.reply_to_id)
+                .single();
+              
+              if (replyData) {
+                let replyProfile = undefined;
+                if (replyData.user_id) {
+                  const { data: rp } = await supabase
+                    .from("profiles")
+                    .select("display_name")
+                    .eq("user_id", replyData.user_id)
+                    .single();
+                  replyProfile = rp || undefined;
+                }
+                reply_to = { ...replyData, profile: replyProfile };
+              }
+            }
+
+            const enrichedMessage: Message = {
+              id: newMsg.id,
+              content: newMsg.content,
+              is_ai: newMsg.is_ai || false,
+              user_id: newMsg.user_id,
+              created_at: newMsg.created_at,
+              reply_to_id: newMsg.reply_to_id,
+              reply_to,
+              profile: msgProfile,
+            };
+
+            setMessages((prev) => {
+              // Skip if already exists
+              if (prev.find((m) => m.id === newMsg.id)) return prev;
+              // Filter out temp messages that match this real message
+              const filtered = prev.filter(m => 
+                !(m.id.startsWith('temp-') && m.content === newMsg.content && m.user_id === newMsg.user_id)
+              );
+              return [...filtered, enrichedMessage];
             });
           }
         )
@@ -272,16 +333,39 @@ const GroupChat = () => {
     setReplyTo(null);
     setSending(true);
 
+    // Create optimistic message to show immediately
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMessage: Message = {
+      id: tempId,
+      content,
+      is_ai: false,
+      user_id: user.id,
+      created_at: new Date().toISOString(),
+      reply_to_id: currentReplyTo?.id || null,
+      reply_to: currentReplyTo,
+      profile: { display_name: profile?.display_name || null },
+    };
+
+    // Add message to UI immediately (optimistic update)
+    setMessages((prev) => [...prev, optimisticMessage]);
+
     try {
-      const { error } = await supabase.from("messages").insert({
+      const { data: insertedMsg, error } = await supabase.from("messages").insert({
         content,
         is_ai: false,
         user_id: user.id,
         conversation_id: id,
         reply_to_id: currentReplyTo?.id || null,
-      });
+      }).select().single();
 
       if (error) throw error;
+
+      // Replace temp message with real one (with correct ID)
+      if (insertedMsg) {
+        setMessages((prev) => 
+          prev.map((m) => m.id === tempId ? { ...optimisticMessage, id: insertedMsg.id } : m)
+        );
+      }
 
       await supabase
         .from("conversations")
