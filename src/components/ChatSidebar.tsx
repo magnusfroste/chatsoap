@@ -281,172 +281,79 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
     }
   };
 
-  // Collapsed view - only avatars
-  if (isCollapsed) {
-    return (
-      <div className="h-full flex flex-col bg-card border-r border-border w-[72px]">
-        {/* Collapsed Header */}
-        <header className="flex-shrink-0 px-2 py-3 border-b border-border bg-card flex justify-center">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-muted-foreground hover:text-foreground hover:bg-muted"
-            onClick={onToggleCollapse}
-            title="Expandera sidebar"
-          >
-            <PanelLeft className="w-5 h-5" />
-          </Button>
-        </header>
-
-        {/* Collapsed Conversations - Only avatars */}
-        <ScrollArea className="flex-1 py-2">
-          {loading ? (
-            <div className="flex items-center justify-center py-4">
-              <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent"></div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-2 px-2">
-              {filteredConversations.map((conv) => {
-                const isActive = activeConversationId === conv.id;
-                const hasUnread = (conv.unread_count ?? 0) > 0;
-                
-                return (
-                  <button
-                    key={conv.id}
-                    onClick={() => handleConversationClick(conv)}
-                    className={`relative p-1 rounded-full transition-colors ${
-                      isActive ? "ring-2 ring-primary" : "hover:bg-muted"
-                    }`}
-                    title={getDisplayName(conv)}
-                  >
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback
-                        className={
-                          conv.type === "group"
-                            ? "bg-muted text-muted-foreground font-medium text-sm"
-                            : "bg-gradient-to-br from-primary/80 to-accent/80 text-primary-foreground font-medium text-sm"
-                        }
-                      >
-                        {conv.type === "group" ? (
-                          <Users className="w-4 h-4" />
-                        ) : (
-                          getInitials(getDisplayName(conv))
-                        )}
-                      </AvatarFallback>
-                    </Avatar>
-                    {/* Unread indicator */}
-                    {hasUnread && (
-                      <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-medium flex items-center justify-center">
-                        {(conv.unread_count ?? 0) > 99 ? "99+" : conv.unread_count}
-                      </span>
-                    )}
-                    {/* Favorite indicator */}
-                    {conv.is_favorite && (
-                      <span className="absolute -bottom-0.5 -right-0.5">
-                        <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </ScrollArea>
-
-        {/* Collapsed bottom nav */}
-        <div className="flex-shrink-0 border-t border-border py-2 flex flex-col items-center gap-1">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-muted-foreground hover:bg-muted"
-            onClick={() => setNewChatOpen(true)}
-            title="Ny chatt"
-          >
-            <MessageSquare className="w-5 h-5" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="hover:bg-muted" 
-            onClick={() => navigate("/admin")}
-            title="Inställningar"
-          >
-            <Settings className="w-5 h-5 text-muted-foreground" />
-          </Button>
-        </div>
-
-        {/* Dialogs */}
-        <NewChatDialog
-          open={newChatOpen}
-          onOpenChange={setNewChatOpen}
-          onChatCreated={(id) => navigate(`/chat/${id}`)}
-        />
-        <NewGroupDialog
-          open={newGroupOpen}
-          onOpenChange={setNewGroupOpen}
-          onGroupCreated={(id) => navigate(`/group/${id}`)}
-        />
-      </div>
-    );
-  }
-
   return (
-    <div className="h-full flex flex-col bg-card border-r border-border">
+    <div className={`h-full flex flex-col bg-card border-r border-border transition-all duration-300 ease-in-out ${isCollapsed ? 'w-[72px]' : 'w-full'}`}>
       {/* Header */}
-      <header className="flex-shrink-0 px-4 py-3 border-b border-border bg-card">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-foreground">Chats</h1>
-          <div className="flex items-center gap-1">
+      <header className={`flex-shrink-0 border-b border-border bg-card transition-all duration-300 ${isCollapsed ? 'px-2 py-3' : 'px-4 py-3'}`}>
+        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
+          {/* Title - animated fade */}
+          <h1 
+            className={`text-xl font-semibold text-foreground transition-all duration-300 overflow-hidden whitespace-nowrap ${
+              isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
+            }`}
+          >
+            Chats
+          </h1>
+          <div className={`flex items-center gap-1 ${isCollapsed ? '' : ''}`}>
             {onToggleCollapse && (
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="text-muted-foreground hover:text-foreground hover:bg-muted"
+                className="text-muted-foreground hover:text-foreground hover:bg-muted transition-transform duration-200 hover:scale-105"
                 onClick={onToggleCollapse}
-                title="Minimera sidebar"
+                title={isCollapsed ? "Expandera sidebar" : "Minimera sidebar"}
               >
-                <PanelLeftClose className="w-5 h-5" />
+                <div className="transition-transform duration-300" style={{ transform: isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                  <PanelLeftClose className="w-5 h-5" />
+                </div>
               </Button>
             )}
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="text-muted-foreground hover:text-foreground hover:bg-muted"
-              onClick={() => setNewChatOpen(true)}
-            >
-              <MessageSquare className="w-5 h-5" />
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground hover:bg-muted">
-                  <MoreVertical className="w-5 h-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => navigate("/profile")}>
-                  <User className="w-4 h-4 mr-2" />
-                  Profil
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setNewGroupOpen(true)}>
-                  <Users className="w-4 h-4 mr-2" />
-                  Ny grupp
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/admin")}>
-                  <Settings className="w-4 h-4 mr-2" />
-                  Inställningar
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Logga ut
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* These buttons fade out when collapsed */}
+            <div className={`flex items-center gap-1 transition-all duration-300 overflow-hidden ${isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-muted-foreground hover:text-foreground hover:bg-muted"
+                onClick={() => setNewChatOpen(true)}
+              >
+                <MessageSquare className="w-5 h-5" />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground hover:bg-muted">
+                    <MoreVertical className="w-5 h-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => navigate("/profile")}>
+                    <User className="w-4 h-4 mr-2" />
+                    Profil
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setNewGroupOpen(true)}>
+                    <Users className="w-4 h-4 mr-2" />
+                    Ny grupp
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/admin")}>
+                    <Settings className="w-4 h-4 mr-2" />
+                    Inställningar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logga ut
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Search */}
-      <div className="flex-shrink-0 px-3 py-2">
+      {/* Search - slides up and fades out when collapsed */}
+      <div 
+        className={`flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden ${
+          isCollapsed ? 'h-0 opacity-0 py-0' : 'h-auto opacity-100 px-3 py-2'
+        }`}
+      >
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -465,7 +372,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
             <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent"></div>
           </div>
         ) : filteredConversations.length === 0 ? (
-          <div className="text-center py-12 px-4">
+          <div className={`text-center py-12 px-4 transition-opacity duration-300 ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}>
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
               <MessageSquare className="w-8 h-8 text-muted-foreground" />
             </div>
@@ -479,37 +386,62 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
             </Button>
           </div>
         ) : (
-          <div>
-            {filteredConversations.map((conv) => {
+          <div className={`transition-all duration-300 ${isCollapsed ? 'py-2' : ''}`}>
+            {filteredConversations.map((conv, index) => {
               const isActive = activeConversationId === conv.id;
+              const hasUnread = (conv.unread_count ?? 0) > 0;
               
               return (
                 <button
                   key={conv.id}
                   onClick={() => handleConversationClick(conv)}
-                  className={`w-full flex items-center gap-3 px-3 py-3 hover:bg-muted/50 transition-colors text-left border-b border-border/50 ${
-                    isActive ? "bg-muted" : ""
-                  }`}
+                  className={`w-full flex items-center transition-all duration-300 ease-in-out text-left ${
+                    isCollapsed 
+                      ? 'justify-center px-0 py-2 hover:bg-muted/50' 
+                      : 'gap-3 px-3 py-3 hover:bg-muted/50 border-b border-border/50'
+                  } ${isActive ? (isCollapsed ? '' : 'bg-muted') : ''}`}
+                  title={isCollapsed ? getDisplayName(conv) : undefined}
+                  style={{ 
+                    animationDelay: `${index * 30}ms`,
+                  }}
                 >
-                  {/* Avatar */}
-                  <Avatar className="h-12 w-12 flex-shrink-0">
-                    <AvatarFallback
-                      className={
-                        conv.type === "group"
-                          ? "bg-muted text-muted-foreground font-medium"
-                          : "bg-gradient-to-br from-primary/80 to-accent/80 text-primary-foreground font-medium"
-                      }
-                    >
-                      {conv.type === "group" ? (
-                        <Users className="w-5 h-5" />
-                      ) : (
-                        getInitials(getDisplayName(conv))
-                      )}
-                    </AvatarFallback>
-                  </Avatar>
+                  {/* Avatar - always visible */}
+                  <div className={`relative flex-shrink-0 transition-all duration-300 ${isCollapsed ? '' : ''}`}>
+                    <Avatar className={`transition-all duration-300 ${isCollapsed ? 'h-10 w-10' : 'h-12 w-12'} ${isActive && isCollapsed ? 'ring-2 ring-primary ring-offset-2 ring-offset-card' : ''}`}>
+                      <AvatarFallback
+                        className={`transition-all duration-300 ${
+                          conv.type === "group"
+                            ? "bg-muted text-muted-foreground font-medium"
+                            : "bg-gradient-to-br from-primary/80 to-accent/80 text-primary-foreground font-medium"
+                        } ${isCollapsed ? 'text-sm' : ''}`}
+                      >
+                        {conv.type === "group" ? (
+                          <Users className={`transition-all duration-300 ${isCollapsed ? 'w-4 h-4' : 'w-5 h-5'}`} />
+                        ) : (
+                          getInitials(getDisplayName(conv))
+                        )}
+                      </AvatarFallback>
+                    </Avatar>
+                    {/* Collapsed: Unread indicator */}
+                    {isCollapsed && hasUnread && (
+                      <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-medium flex items-center justify-center animate-scale-in">
+                        {(conv.unread_count ?? 0) > 99 ? "99+" : conv.unread_count}
+                      </span>
+                    )}
+                    {/* Collapsed: Favorite indicator */}
+                    {isCollapsed && conv.is_favorite && (
+                      <span className="absolute -bottom-1 -right-1 animate-scale-in">
+                        <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+                      </span>
+                    )}
+                  </div>
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
+                  {/* Content - fades out when collapsed */}
+                  <div 
+                    className={`flex-1 min-w-0 transition-all duration-300 overflow-hidden ${
+                      isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
+                    }`}
+                  >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
                         {conv.is_pinned && <Pin className="w-3 h-3 text-primary flex-shrink-0" />}
@@ -528,7 +460,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
                         {conv.last_message || (conv.type === "group" ? "Gruppchatt" : "Ny konversation")}
                       </p>
                       {conv.is_muted && <BellOff className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
-                      {(conv.unread_count ?? 0) > 0 && (
+                      {hasUnread && (
                         <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-xs font-medium flex items-center justify-center flex-shrink-0 ${
                           conv.is_muted 
                             ? "bg-muted-foreground/30 text-muted-foreground" 
@@ -546,33 +478,45 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
         )}
       </ScrollArea>
 
-      {/* Bottom nav icons like WhatsApp */}
-      <div className="flex-shrink-0 border-t border-border px-4 py-2 flex items-center justify-around text-muted-foreground">
+      {/* Bottom nav icons */}
+      <div className={`flex-shrink-0 border-t border-border py-2 flex items-center text-muted-foreground transition-all duration-300 ${
+        isCollapsed ? 'flex-col gap-1 px-2' : 'justify-around px-4'
+      }`}>
         <Button 
           variant="ghost" 
           size="icon" 
-          className={`hover:bg-muted ${filter === "all" ? "text-primary" : ""}`}
-          onClick={() => setFilter("all")}
+          className={`hover:bg-muted transition-all duration-200 hover:scale-105 ${filter === "all" ? "text-primary" : ""}`}
+          onClick={() => isCollapsed ? setNewChatOpen(true) : setFilter("all")}
+          title={isCollapsed ? "Ny chatt" : "Alla chattar"}
         >
           <MessageSquare className="w-5 h-5" />
         </Button>
+        {/* These only show when expanded */}
+        <div className={`transition-all duration-300 overflow-hidden ${isCollapsed ? 'h-0 opacity-0' : 'h-auto opacity-100 flex items-center gap-0'}`}>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className={`hover:bg-muted transition-all duration-200 hover:scale-105 ${filter === "favorites" ? "text-primary" : ""}`}
+            onClick={() => setFilter("favorites")}
+          >
+            <Star className={`w-5 h-5 ${filter === "favorites" ? "fill-primary" : ""}`} />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className={`hover:bg-muted transition-all duration-200 hover:scale-105 ${filter === "archived" ? "text-primary" : ""}`}
+            onClick={() => setFilter("archived")}
+          >
+            {filter === "archived" ? <ArchiveRestore className="w-5 h-5" /> : <Archive className="w-5 h-5" />}
+          </Button>
+        </div>
         <Button 
           variant="ghost" 
           size="icon" 
-          className={`hover:bg-muted ${filter === "favorites" ? "text-primary" : ""}`}
-          onClick={() => setFilter("favorites")}
+          className="hover:bg-muted transition-all duration-200 hover:scale-105" 
+          onClick={() => navigate("/admin")}
+          title="Inställningar"
         >
-          <Star className={`w-5 h-5 ${filter === "favorites" ? "fill-primary" : ""}`} />
-        </Button>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className={`hover:bg-muted ${filter === "archived" ? "text-primary" : ""}`}
-          onClick={() => setFilter("archived")}
-        >
-          {filter === "archived" ? <ArchiveRestore className="w-5 h-5" /> : <Archive className="w-5 h-5" />}
-        </Button>
-        <Button variant="ghost" size="icon" className="hover:bg-muted" onClick={() => navigate("/admin")}>
           <Settings className="w-5 h-5" />
         </Button>
       </div>
