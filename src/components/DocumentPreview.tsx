@@ -1,6 +1,8 @@
-import { FileText, File, Download, Bot } from "lucide-react";
+import { FileText, File, Download, Bot, BookOpen, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface DocumentPreviewProps {
   url: string;
@@ -9,6 +11,8 @@ interface DocumentPreviewProps {
   isOwnMessage?: boolean;
   onAnalyze?: () => void;
   showAnalyzeButton?: boolean;
+  onSaveToNotes?: (title: string, content: string) => void;
+  showSaveToNotesButton?: boolean;
 }
 
 export const DocumentPreview = ({
@@ -18,7 +22,56 @@ export const DocumentPreview = ({
   isOwnMessage = false,
   onAnalyze,
   showAnalyzeButton = true,
+  onSaveToNotes,
+  showSaveToNotesButton = true,
 }: DocumentPreviewProps) => {
+  const [isParsing, setIsParsing] = useState(false);
+
+  const handleParseToNotes = async () => {
+    if (!onSaveToNotes) return;
+    
+    setIsParsing(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-document`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            documentUrl: url,
+            documentName: name,
+            mimeType: type === "pdf" ? "application/pdf" : "application/octet-stream",
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 429) {
+          toast.error("Rate limit. Vänta lite och försök igen.");
+        } else if (response.status === 402) {
+          toast.error("AI credits slut. Kontakta admin.");
+        } else {
+          toast.error(errorData.error || "Kunde inte parsa dokumentet");
+        }
+        return;
+      }
+
+      const data = await response.json();
+      const title = name.replace(/\.[^/.]+$/, "") || "Importerat dokument";
+      onSaveToNotes(title, data.markdown);
+      toast.success("Dokument sparat som anteckning!");
+    } catch (error) {
+      console.error("Parse to notes error:", error);
+      toast.error("Något gick fel vid parsning");
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
   if (type === "image") {
     return (
       <img
@@ -89,6 +142,28 @@ export const DocumentPreview = ({
           </Button>
         )}
       </div>
+      
+      {showSaveToNotesButton && onSaveToNotes && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full h-8 text-xs"
+          onClick={handleParseToNotes}
+          disabled={isParsing}
+        >
+          {isParsing ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              Parsar...
+            </>
+          ) : (
+            <>
+              <BookOpen className="w-3.5 h-3.5 mr-1.5" />
+              Till anteckningar
+            </>
+          )}
+        </Button>
+      )}
     </div>
   );
 };
