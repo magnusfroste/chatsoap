@@ -363,9 +363,14 @@ const DirectChat = () => {
     e.preventDefault();
     if ((!newMessage.trim() && !pendingFile) || !user || !id || sending) return;
 
-    const content = pendingFile?.url || newMessage.trim();
-    const currentReplyTo = replyTo;
+    const messageText = newMessage.trim();
     const currentFile = pendingFile;
+    const currentReplyTo = replyTo;
+    
+    // Determine content: if we have a file, store both file URL and message
+    // If file + text, we send file URL as content and text separately
+    const content = currentFile ? currentFile.url : messageText;
+    
     setNewMessage("");
     setReplyTo(null);
     setPendingFile(null);
@@ -381,6 +386,8 @@ const DirectChat = () => {
       created_at: new Date().toISOString(),
       reply_to_id: currentReplyTo?.id || null,
       reply_to: currentReplyTo,
+      attachment_type: currentFile?.type || null,
+      attachment_name: currentFile?.name || null,
       profile: { display_name: profile?.display_name || null },
     };
 
@@ -388,13 +395,15 @@ const DirectChat = () => {
     setMessages((prev) => [...prev, optimisticMessage]);
 
     try {
-      // Insert message with reply_to_id if replying
+      // Insert file message first if we have a file
       const { data: insertedMsg, error } = await supabase.from("messages").insert({
         content,
         is_ai: false,
         user_id: user.id,
         conversation_id: id,
         reply_to_id: currentReplyTo?.id || null,
+        attachment_type: currentFile?.type || null,
+        attachment_name: currentFile?.name || null,
       }).select().single();
 
       if (error) throw error;
@@ -406,17 +415,96 @@ const DirectChat = () => {
         );
       }
 
-      // Update conversation last_message_at
-      await supabase
-        .from("conversations")
-        .update({ last_message_at: new Date().toISOString() })
-        .eq("id", id);
+      // If we have both file and text with @ai, send the text as a separate message and trigger analysis
+      const isAIMessage = messageText.toLowerCase().startsWith("@ai") || 
+                          messageText.toLowerCase().startsWith("/ai");
+      
+      // If file + @ai message, send text message and analyze document
+      if (currentFile && messageText && isAIMessage) {
+        // Insert the text question as a separate message
+        const textTempId = `temp-text-${Date.now()}`;
+        const textMessage: Message = {
+          id: textTempId,
+          content: messageText,
+          is_ai: false,
+          user_id: user.id,
+          created_at: new Date().toISOString(),
+          profile: { display_name: profile?.display_name || null },
+        };
+        setMessages((prev) => [...prev, textMessage]);
 
-      // Check if AI should respond
-      const isAIMessage = content.toLowerCase().startsWith("@ai") || 
-                          content.toLowerCase().startsWith("/ai");
+        const { data: textMsgData } = await supabase.from("messages").insert({
+          content: messageText,
+          is_ai: false,
+          user_id: user.id,
+          conversation_id: id,
+        }).select().single();
 
-      if (isAIMessage) {
+        if (textMsgData) {
+          setMessages((prev) => 
+            prev.map((m) => m.id === textTempId ? { ...textMessage, id: textMsgData.id } : m)
+          );
+        }
+
+        // Now analyze the document with the question
+        setAiTyping(true);
+        setAiResponse("");
+
+        const question = messageText.replace(/^[@/]ai\s*/i, "").trim() || "Sammanfatta detta dokument";
+        
+        const recentMessages = messages.slice(-5).map((m) => ({
+          content: m.content,
+          is_ai: m.is_ai,
+          display_name: m.profile?.display_name || "Användare",
+        }));
+
+        await analyzeDocument(
+          {
+            url: currentFile.url,
+            name: currentFile.name,
+            mimeType: currentFile.mimeType,
+          },
+          question,
+          recentMessages,
+          (delta) => {
+            setAiResponse((prev) => prev + delta);
+          },
+          async (fullText) => {
+            setAiTyping(false);
+            setAiResponse("");
+
+            const aiTempId = `ai-temp-${Date.now()}`;
+            const optimisticAiMessage: Message = {
+              id: aiTempId,
+              content: fullText,
+              is_ai: true,
+              user_id: null,
+              created_at: new Date().toISOString(),
+            };
+            setMessages((prev) => [...prev, optimisticAiMessage]);
+
+            const { data: aiMsg } = await supabase.from("messages").insert({
+              content: fullText,
+              is_ai: true,
+              user_id: null,
+              conversation_id: id,
+            }).select().single();
+
+            if (aiMsg) {
+              setMessages((prev) => 
+                prev.map((m) => m.id === aiTempId ? { ...optimisticAiMessage, id: aiMsg.id } : m)
+              );
+            }
+
+            await supabase
+              .from("conversations")
+              .update({ last_message_at: new Date().toISOString() })
+              .eq("id", id);
+          }
+        );
+      } 
+      // Regular @ai message without document
+      else if (isAIMessage && !currentFile) {
         setAiTyping(true);
         setAiResponse("");
 
@@ -446,7 +534,6 @@ const DirectChat = () => {
             setAiTyping(false);
             setAiResponse("");
 
-            // Create optimistic AI message
             const aiTempId = `ai-temp-${Date.now()}`;
             const optimisticAiMessage: Message = {
               id: aiTempId,
@@ -457,7 +544,6 @@ const DirectChat = () => {
             };
             setMessages((prev) => [...prev, optimisticAiMessage]);
 
-            // Save AI response
             const { data: aiMsg } = await supabase.from("messages").insert({
               content: fullText,
               is_ai: true,
@@ -465,7 +551,6 @@ const DirectChat = () => {
               conversation_id: id,
             }).select().single();
 
-            // Replace temp AI message with real one
             if (aiMsg) {
               setMessages((prev) => 
                 prev.map((m) => m.id === aiTempId ? { ...optimisticAiMessage, id: aiMsg.id } : m)
@@ -479,14 +564,26 @@ const DirectChat = () => {
           }
         );
       }
+
+      // Update conversation last_message_at
+      await supabase
+        .from("conversations")
+        .update({ last_message_at: new Date().toISOString() })
+        .eq("id", id);
+
     } catch (error) {
       console.error("Error sending message:", error);
-      // Remove optimistic message on error
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
     } finally {
       setSending(false);
     }
   };
+
+  // Handler for analyzing document from message bubble
+  const handleAnalyzeFromMessage = useCallback((url: string, name: string, mimeType: string) => {
+    setPendingFile({ url, name, type: mimeType.includes("pdf") ? "pdf" : "document", mimeType });
+    setNewMessage("@ai ");
+  }, []);
 
   const getInitials = (name: string) => {
     return name
@@ -708,6 +805,7 @@ const DirectChat = () => {
                           onReply={(m) => setReplyTo(m)}
                           isRead={isOwn ? isMessageRead(msg.id, msg.user_id) : undefined}
                           onSaveToNotes={handleSaveToNotes}
+                          onAnalyzeDocument={handleAnalyzeFromMessage}
                         />
                       </div>
                     </div>
@@ -809,7 +907,10 @@ const DirectChat = () => {
 
             {/* AI hint */}
             <p className="text-center text-xs text-muted-foreground mt-2 max-w-4xl mx-auto">
-              Skriv <span className="font-medium text-primary">@ai</span> för att prata med AI-assistenten
+              Skriv <span className="font-medium text-primary">@ai</span> för att chatta med AI
+              {pendingFile && pendingFile.type !== "image" && (
+                <span> • Bifoga dokument + @ai för att analysera</span>
+              )}
             </p>
           </div>
         </div>
