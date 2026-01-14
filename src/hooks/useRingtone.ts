@@ -5,6 +5,32 @@ export const useRingtone = () => {
   const intervalRef = useRef<number | null>(null);
   const isPlayingRef = useRef(false);
 
+  // Check if vibration is supported
+  const supportsVibration = "vibrate" in navigator;
+
+  // Trigger vibration pattern
+  const vibrate = useCallback(() => {
+    if (supportsVibration) {
+      try {
+        // Vibration pattern: vibrate 200ms, pause 100ms, vibrate 200ms
+        navigator.vibrate([200, 100, 200, 100, 200]);
+      } catch (error) {
+        console.error("Vibration error:", error);
+      }
+    }
+  }, [supportsVibration]);
+
+  // Stop vibration
+  const stopVibration = useCallback(() => {
+    if (supportsVibration) {
+      try {
+        navigator.vibrate(0);
+      } catch (error) {
+        console.error("Stop vibration error:", error);
+      }
+    }
+  }, [supportsVibration]);
+
   // Play a single ring tone
   const playRingTone = useCallback(() => {
     if (!audioContextRef.current) {
@@ -42,7 +68,7 @@ export const useRingtone = () => {
     playTone(480, now + 0.45, 0.15);
   }, []);
 
-  // Start looping ringtone
+  // Start looping ringtone with vibration
   const startRingtone = useCallback(() => {
     if (isPlayingRef.current) return;
     
@@ -50,16 +76,18 @@ export const useRingtone = () => {
     
     // Play immediately
     playRingTone();
+    vibrate();
     
     // Then repeat every 2 seconds (ring pattern with pause)
     intervalRef.current = window.setInterval(() => {
       if (isPlayingRef.current) {
         playRingTone();
+        vibrate();
       }
     }, 2000);
-  }, [playRingTone]);
+  }, [playRingTone, vibrate]);
 
-  // Stop ringtone
+  // Stop ringtone and vibration
   const stopRingtone = useCallback(() => {
     isPlayingRef.current = false;
     
@@ -67,7 +95,9 @@ export const useRingtone = () => {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-  }, []);
+    
+    stopVibration();
+  }, [stopVibration]);
 
   // Cleanup on unmount
   useEffect(() => {
