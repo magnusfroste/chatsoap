@@ -76,19 +76,37 @@ export type Database = {
       conversation_members: {
         Row: {
           conversation_id: string
+          deleted_at: string | null
           id: string
+          is_archived: boolean
+          is_deleted: boolean
+          is_favorite: boolean
+          is_muted: boolean
+          is_pinned: boolean
           joined_at: string
           user_id: string
         }
         Insert: {
           conversation_id: string
+          deleted_at?: string | null
           id?: string
+          is_archived?: boolean
+          is_deleted?: boolean
+          is_favorite?: boolean
+          is_muted?: boolean
+          is_pinned?: boolean
           joined_at?: string
           user_id: string
         }
         Update: {
           conversation_id?: string
+          deleted_at?: string | null
           id?: string
+          is_archived?: boolean
+          is_deleted?: boolean
+          is_favorite?: boolean
+          is_muted?: boolean
+          is_pinned?: boolean
           joined_at?: string
           user_id?: string
         }

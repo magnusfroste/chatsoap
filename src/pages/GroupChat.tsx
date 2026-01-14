@@ -34,6 +34,7 @@ import {
   PanelRightOpen,
   PanelRightClose,
 } from "lucide-react";
+import { ChatActionsMenu } from "@/components/ChatActionsMenu";
 import {
   DropdownMenu,
   DropdownMenuContent,

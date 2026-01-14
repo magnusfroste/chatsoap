@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Send, Bot, Loader2, Mic, Check, CheckCheck, Search, MoreVertical, Phone, Video, FileText, PanelRightOpen, PanelRightClose } from "lucide-react";
+import { ArrowLeft, Send, Bot, Loader2, Mic, Check, CheckCheck, Search, Phone, Video, FileText, PanelRightOpen, PanelRightClose } from "lucide-react";
+import { ChatActionsMenu } from "@/components/ChatActionsMenu";
 import { MessageBubble, ReplyPreview } from "@/components/MessageBubble";
 import { CallUI } from "@/components/CallUI";
 import { EmojiPicker } from "@/components/EmojiPicker";
@@ -619,9 +620,12 @@ const DirectChat = () => {
                     <PanelRightOpen className="w-5 h-5" />
                   )}
                 </Button>
-                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-                  <MoreVertical className="w-5 h-5" />
-                </Button>
+                <ChatActionsMenu
+                  conversationId={id || ""}
+                  userId={user?.id}
+                  chatName={conversation?.other_user?.display_name || "Chatt"}
+                  onDeleted={() => navigate("/chats")}
+                />
               </div>
             </div>
           </header>

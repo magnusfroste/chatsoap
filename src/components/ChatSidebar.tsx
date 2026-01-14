@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { MessageSquare, Users, LogOut, Search, MoreVertical, CheckCheck, Settings, Star, Archive, User } from "lucide-react";
+import { MessageSquare, Users, LogOut, Search, MoreVertical, CheckCheck, Settings, Star, Archive, User, Pin, BellOff, ArchiveRestore } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import NewChatDialog from "@/components/NewChatDialog";
 import NewGroupDialog from "@/components/NewGroupDialog";
@@ -28,6 +28,11 @@ interface Conversation {
   };
   last_message?: string;
   unread_count?: number;
+  is_pinned?: boolean;
+  is_favorite?: boolean;
+  is_archived?: boolean;
+  is_muted?: boolean;
+  is_deleted?: boolean;
 }
 
 interface ChatSidebarProps {
@@ -44,6 +49,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect }: ChatSidebar
   const [showSearch, setShowSearch] = useState(false);
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [newGroupOpen, setNewGroupOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -85,10 +91,12 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect }: ChatSidebar
     if (!user) return;
 
     try {
+      // Fetch member data with settings
       const { data: memberData, error: memberError } = await supabase
         .from("conversation_members")
-        .select("conversation_id")
-        .eq("user_id", user.id);
+        .select("conversation_id, is_pinned, is_favorite, is_archived, is_muted, is_deleted")
+        .eq("user_id", user.id)
+        .eq("is_deleted", false); // Don't show soft-deleted
 
       if (memberError) throw memberError;
 
@@ -99,6 +107,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect }: ChatSidebar
       }
 
       const conversationIds = memberData.map((m) => m.conversation_id);
+      const memberSettingsMap = new Map(memberData.map(m => [m.conversation_id, m]));
 
       const { data: convData, error: convError } = await supabase
         .from("conversations")
@@ -144,10 +153,17 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect }: ChatSidebar
             .limit(1)
             .single();
 
+          const settings = memberSettingsMap.get(conv.id);
+
           return {
             ...conv,
             other_user: otherUser,
             last_message: lastMsg?.content || null,
+            is_pinned: settings?.is_pinned || false,
+            is_favorite: settings?.is_favorite || false,
+            is_archived: settings?.is_archived || false,
+            is_muted: settings?.is_muted || false,
+            is_deleted: settings?.is_deleted || false,
           } as Conversation;
         })
       );
@@ -181,10 +197,29 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect }: ChatSidebar
       .slice(0, 2);
   };
 
-  const filteredConversations = conversations.filter((conv) => {
-    const name = getDisplayName(conv).toLowerCase();
-    return name.includes(searchQuery.toLowerCase());
-  });
+  // Filter and sort conversations
+  const filteredConversations = conversations
+    .filter((conv) => {
+      const name = getDisplayName(conv).toLowerCase();
+      const matchesSearch = name.includes(searchQuery.toLowerCase());
+      
+      // Show archived only in archived view
+      if (showArchived) {
+        return matchesSearch && conv.is_archived;
+      }
+      // Hide archived in normal view
+      return matchesSearch && !conv.is_archived;
+    })
+    .sort((a, b) => {
+      // Pinned first
+      if (a.is_pinned && !b.is_pinned) return -1;
+      if (!a.is_pinned && b.is_pinned) return 1;
+      // Then favorites
+      if (a.is_favorite && !b.is_favorite) return -1;
+      if (!a.is_favorite && b.is_favorite) return 1;
+      // Then by date
+      return 0;
+    });
 
   const handleConversationClick = (conv: Conversation) => {
     if (onConversationSelect) {
@@ -324,18 +359,23 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect }: ChatSidebar
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium text-foreground truncate">
-                        {getDisplayName(conv)}
-                      </span>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {conv.is_pinned && <Pin className="w-3 h-3 text-primary flex-shrink-0" />}
+                        <span className="font-medium text-foreground truncate">
+                          {getDisplayName(conv)}
+                        </span>
+                        {conv.is_favorite && <Star className="w-3 h-3 text-yellow-500 flex-shrink-0 fill-yellow-500" />}
+                      </div>
                       <span className="text-xs text-muted-foreground flex-shrink-0">
                         {formatTime(conv.last_message_at)}
                       </span>
                     </div>
                     <div className="flex items-center gap-1 mt-0.5">
                       <CheckCheck className="w-4 h-4 text-primary flex-shrink-0" />
-                      <p className="text-sm text-muted-foreground truncate">
+                      <p className="text-sm text-muted-foreground truncate flex-1">
                         {conv.last_message || (conv.type === "group" ? "Gruppchatt" : "Ny konversation")}
                       </p>
+                      {conv.is_muted && <BellOff className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
                     </div>
                   </div>
                 </button>
@@ -347,14 +387,24 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect }: ChatSidebar
 
       {/* Bottom nav icons like WhatsApp */}
       <div className="flex-shrink-0 border-t border-border px-4 py-2 flex items-center justify-around text-muted-foreground">
-        <Button variant="ghost" size="icon" className="hover:bg-muted">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className={`hover:bg-muted ${!showArchived ? "text-primary" : ""}`}
+          onClick={() => setShowArchived(false)}
+        >
           <MessageSquare className="w-5 h-5" />
         </Button>
         <Button variant="ghost" size="icon" className="hover:bg-muted">
           <Star className="w-5 h-5" />
         </Button>
-        <Button variant="ghost" size="icon" className="hover:bg-muted">
-          <Archive className="w-5 h-5" />
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className={`hover:bg-muted ${showArchived ? "text-primary" : ""}`}
+          onClick={() => setShowArchived(!showArchived)}
+        >
+          {showArchived ? <ArchiveRestore className="w-5 h-5" /> : <Archive className="w-5 h-5" />}
         </Button>
         <Button variant="ghost" size="icon" className="hover:bg-muted" onClick={() => navigate("/admin")}>
           <Settings className="w-5 h-5" />
