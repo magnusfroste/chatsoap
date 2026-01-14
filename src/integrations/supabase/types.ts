@@ -638,7 +638,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
-      conversation_type: "direct" | "group"
+      conversation_type: "direct" | "group" | "ai_chat"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -767,7 +767,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
-      conversation_type: ["direct", "group"],
+      conversation_type: ["direct", "group", "ai_chat"],
     },
   },
 } as const
