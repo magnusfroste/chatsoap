@@ -52,27 +52,52 @@ export const useNotes = (userId: string | undefined) => {
     if (!userId) return;
 
     const channel = supabase
-      .channel("notes-changes")
+      .channel(`notes-changes-${userId}`)
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "INSERT",
           schema: "public",
           table: "notes",
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
-          if (payload.eventType === "INSERT") {
-            setNotes((prev) => [payload.new as Note, ...prev]);
-          } else if (payload.eventType === "UPDATE") {
-            setNotes((prev) =>
-              prev.map((note) =>
-                note.id === (payload.new as Note).id ? (payload.new as Note) : note
-              )
-            );
-          } else if (payload.eventType === "DELETE") {
-            setNotes((prev) => prev.filter((note) => note.id !== (payload.old as Note).id));
-          }
+          const newNote = payload.new as Note;
+          setNotes((prev) => {
+            // Avoid duplicates
+            if (prev.some((n) => n.id === newNote.id)) return prev;
+            return [newNote, ...prev];
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "notes",
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          const updatedNote = payload.new as Note;
+          setNotes((prev) =>
+            prev.map((note) =>
+              note.id === updatedNote.id ? updatedNote : note
+            )
+          );
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "notes",
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          const deletedNote = payload.old as Note;
+          setNotes((prev) => prev.filter((note) => note.id !== deletedNote.id));
         }
       )
       .subscribe();
@@ -92,6 +117,23 @@ export const useNotes = (userId: string | undefined) => {
     }) => {
       if (!userId) return null;
 
+      // Create optimistic note
+      const tempId = `temp-${Date.now()}`;
+      const optimisticNote: Note = {
+        id: tempId,
+        user_id: userId,
+        title: params.title || "Untitled Note",
+        content: params.content,
+        conversation_id: params.conversationId || null,
+        room_id: params.roomId || null,
+        source_message_id: params.sourceMessageId || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // Add optimistically
+      setNotes((prev) => [optimisticNote, ...prev]);
+
       try {
         const { data, error } = await supabase
           .from("notes")
@@ -108,6 +150,11 @@ export const useNotes = (userId: string | undefined) => {
 
         if (error) throw error;
 
+        // Replace optimistic note with real one
+        setNotes((prev) =>
+          prev.map((n) => (n.id === tempId ? (data as Note) : n))
+        );
+
         toast({
           title: "Note created",
           description: "Message saved to notes",
@@ -115,6 +162,8 @@ export const useNotes = (userId: string | undefined) => {
 
         return data as Note;
       } catch (error) {
+        // Remove optimistic note on error
+        setNotes((prev) => prev.filter((n) => n.id !== tempId));
         console.error("Error creating note:", error);
         toast({
           title: "Error",

@@ -71,15 +71,10 @@ export const NoteEditor = ({
   }, [note]);
 
   const handleSave = async () => {
-    console.log("handleSave called, note:", note?.id, "title:", title, "content length:", content?.length);
-    if (!note) {
-      console.log("No note to save");
-      return;
-    }
+    if (!note) return;
     setIsSaving(true);
     try {
-      const result = await onSave(note.id, { title, content });
-      console.log("Save result:", result);
+      await onSave(note.id, { title, content });
     } catch (err) {
       console.error("Save error:", err);
     }
@@ -128,82 +123,88 @@ export const NoteEditor = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl h-[80vh] flex flex-col">
-        <DialogHeader className="flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              Edit Note
+      <DialogContent className="max-w-3xl w-[95vw] h-[90vh] sm:h-[80vh] flex flex-col p-4 sm:p-6 gap-4">
+        <DialogHeader className="flex-shrink-0 pb-2">
+          <div className="flex items-center justify-between gap-2">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+              <span className="hidden sm:inline">Edit Note</span>
+              <span className="sm:hidden">Note</span>
             </DialogTitle>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               <Button
-                variant="outline"
+                variant="default"
                 size="sm"
                 onClick={handleSave}
                 disabled={isSaving}
+                className="h-8 px-2 sm:px-3"
               >
                 {isSaving ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Save className="h-4 w-4 mr-1" />
+                  <>
+                    <Save className="h-4 w-4 sm:mr-1" />
+                    <span className="hidden sm:inline">Save</span>
+                  </>
                 )}
-                Save
               </Button>
               <Button
-                variant="destructive"
+                variant="ghost"
                 size="sm"
                 onClick={handleDelete}
                 disabled={isDeleting}
+                className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
               >
                 {isDeleting ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Trash2 className="h-4 w-4 mr-1" />
+                  <Trash2 className="h-4 w-4" />
                 )}
-                Delete
               </Button>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+        <div className="flex-1 flex flex-col gap-3 overflow-hidden min-h-0">
           {/* Title */}
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Note title..."
-            className="text-lg font-semibold"
+            className="text-base sm:text-lg font-semibold h-10 sm:h-11"
           />
 
           {/* AI Actions */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap flex-shrink-0">
+            <span className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1">
               <Sparkles className="h-3 w-3" />
-              AI Actions:
+              <span className="hidden sm:inline">AI Actions:</span>
             </span>
             <Button
               variant="outline"
               size="sm"
               onClick={() => handleAIAction("summarize")}
               disabled={isProcessing}
+              className="h-7 text-xs px-2"
             >
-              <FileText className="h-3 w-3 mr-1" />
-              Summarize
+              <FileText className="h-3 w-3 sm:mr-1" />
+              <span className="hidden sm:inline">Summarize</span>
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => handleAIAction("enhance")}
               disabled={isProcessing}
+              className="h-7 text-xs px-2"
             >
-              <Wand2 className="h-3 w-3 mr-1" />
-              Enhance
+              <Wand2 className="h-3 w-3 sm:mr-1" />
+              <span className="hidden sm:inline">Enhance</span>
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" disabled={isProcessing}>
-                  <Languages className="h-3 w-3 mr-1" />
-                  Translate
+                <Button variant="outline" size="sm" disabled={isProcessing} className="h-7 text-xs px-2">
+                  <Languages className="h-3 w-3 sm:mr-1" />
+                  <span className="hidden sm:inline">Translate</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
@@ -218,10 +219,10 @@ export const NoteEditor = ({
               </DropdownMenuContent>
             </DropdownMenu>
             {isProcessing && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Processing...
-                <Button variant="ghost" size="sm" onClick={cancel}>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span className="hidden sm:inline">Processing...</span>
+                <Button variant="ghost" size="sm" onClick={cancel} className="h-6 text-xs px-1.5">
                   Cancel
                 </Button>
               </div>
@@ -229,17 +230,17 @@ export const NoteEditor = ({
           </div>
 
           {/* Content Area */}
-          <div className="flex-1 flex gap-4 min-h-0">
+          <div className="flex-1 flex flex-col sm:flex-row gap-3 sm:gap-4 min-h-0 overflow-hidden">
             {/* Original/Editable Content */}
             <div className="flex-1 flex flex-col min-h-0">
-              <label className="text-xs text-muted-foreground mb-1">
+              <label className="text-[10px] sm:text-xs text-muted-foreground mb-1 uppercase tracking-wide">
                 Content
               </label>
               <Textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="Write your note here..."
-                className="flex-1 resize-none"
+                className="flex-1 resize-none text-sm leading-relaxed min-h-[150px] sm:min-h-0"
               />
             </div>
 
@@ -247,17 +248,17 @@ export const NoteEditor = ({
             {aiResult !== null && (
               <div className="flex-1 flex flex-col min-h-0">
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs text-muted-foreground flex items-center gap-1">
+                  <label className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1 uppercase tracking-wide">
                     <Sparkles className="h-3 w-3" />
                     AI Result
                   </label>
                   <div className="flex items-center gap-1">
                     <Button
-                      variant="ghost"
+                      variant="default"
                       size="sm"
                       onClick={applyAIResult}
                       disabled={isProcessing}
-                      className="h-6 text-xs"
+                      className="h-6 text-xs px-2"
                     >
                       Apply
                     </Button>
@@ -265,14 +266,14 @@ export const NoteEditor = ({
                       variant="ghost"
                       size="sm"
                       onClick={discardAIResult}
-                      className="h-6 text-xs"
+                      className="h-6 text-xs px-1.5"
                     >
                       <X className="h-3 w-3" />
                     </Button>
                   </div>
                 </div>
-                <div className="flex-1 p-3 rounded-md bg-muted/50 border border-border overflow-auto">
-                  <p className="text-sm whitespace-pre-wrap">
+                <div className="flex-1 p-3 rounded-md bg-muted/30 border border-border overflow-auto min-h-[150px] sm:min-h-0">
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed">
                     {aiResult || (isProcessing ? "..." : "")}
                   </p>
                 </div>
