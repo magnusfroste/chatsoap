@@ -74,14 +74,17 @@ const DirectChat = () => {
     callState,
     localStream,
     remoteStream,
+    screenStream,
     audioEnabled,
     videoEnabled,
+    isScreenSharing,
     startCall,
     acceptCall,
     declineCall,
     endCall,
     toggleAudio,
     toggleVideo,
+    toggleScreenShare,
   } = useDirectCall(
     id,
     user?.id,
@@ -497,13 +500,16 @@ const DirectChat = () => {
           remoteUserName={callState.remoteUserName}
           localStream={localStream}
           remoteStream={remoteStream}
+          screenStream={screenStream}
           audioEnabled={audioEnabled}
           videoEnabled={videoEnabled}
+          isScreenSharing={isScreenSharing}
           onAccept={acceptCall}
           onDecline={declineCall}
           onEnd={endCall}
           onToggleAudio={toggleAudio}
           onToggleVideo={toggleVideo}
+          onToggleScreenShare={toggleScreenShare}
         />
       )}
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Video, VideoOff, PhoneOff, Maximize2, Minimize2 } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, PhoneOff, Maximize2, Minimize2, Monitor, MonitorOff } from "lucide-react";
 import { useState } from "react";
 
 interface Participant {
@@ -15,12 +15,15 @@ interface Participant {
 
 interface VideoGridProps {
   localStream: MediaStream | null;
+  screenStream?: MediaStream | null;
   participants: Participant[];
   videoEnabled: boolean;
   audioEnabled: boolean;
+  isScreenSharing?: boolean;
   displayName?: string | null;
   onToggleVideo: () => void;
   onToggleAudio: () => void;
+  onToggleScreenShare?: () => void;
   onLeaveCall: () => void;
 }
 
@@ -127,12 +130,15 @@ function VideoTile({
 
 export function VideoGrid({
   localStream,
+  screenStream,
   participants,
   videoEnabled,
   audioEnabled,
+  isScreenSharing = false,
   displayName,
   onToggleVideo,
   onToggleAudio,
+  onToggleScreenShare,
   onLeaveCall,
 }: VideoGridProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -238,6 +244,21 @@ export function VideoGrid({
             <VideoOff className="w-5 h-5" />
           )}
         </Button>
+
+        {onToggleScreenShare && (
+          <Button
+            variant="secondary"
+            size="lg"
+            className={`w-14 h-14 rounded-full ${isScreenSharing ? 'bg-primary/20 text-primary' : 'bg-white/10 hover:bg-white/20 text-white'}`}
+            onClick={onToggleScreenShare}
+          >
+            {isScreenSharing ? (
+              <Monitor className="w-5 h-5" />
+            ) : (
+              <MonitorOff className="w-5 h-5" />
+            )}
+          </Button>
+        )}
         
         <Button
           variant="destructive"

@@ -32,11 +32,14 @@ export function useDirectCall(
   
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [videoEnabled, setVideoEnabled] = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
   
   const peerRef = useRef<PeerInstance | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
   const callIdRef = useRef<string | null>(null);
 
   // Get local media
@@ -262,6 +265,59 @@ export function useDirectCall(
     }
   }, []);
 
+  // Toggle screen sharing
+  const toggleScreenShare = useCallback(async () => {
+    if (isScreenSharing && screenStreamRef.current) {
+      // Stop screen sharing
+      screenStreamRef.current.getTracks().forEach(track => track.stop());
+      screenStreamRef.current = null;
+      setScreenStream(null);
+      setIsScreenSharing(false);
+      
+      // Replace screen track with video track
+      const videoTrack = localStreamRef.current?.getVideoTracks()[0];
+      if (videoTrack && peerRef.current) {
+        const sender = (peerRef.current as any)._pc?.getSenders?.()?.find(
+          (s: RTCRtpSender) => s.track?.kind === 'video'
+        );
+        if (sender) {
+          sender.replaceTrack(videoTrack);
+        }
+      }
+    } else {
+      // Start screen sharing
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { cursor: "always" } as any,
+          audio: false,
+        });
+        
+        screenStreamRef.current = stream;
+        setScreenStream(stream);
+        setIsScreenSharing(true);
+        
+        const screenTrack = stream.getVideoTracks()[0];
+        
+        // Replace video track with screen track
+        if (peerRef.current) {
+          const sender = (peerRef.current as any)._pc?.getSenders?.()?.find(
+            (s: RTCRtpSender) => s.track?.kind === 'video'
+          );
+          if (sender) {
+            sender.replaceTrack(screenTrack);
+          }
+        }
+        
+        // Handle when user stops sharing via browser UI
+        screenTrack.onended = () => {
+          toggleScreenShare();
+        };
+      } catch (error) {
+        console.error("Error starting screen share:", error);
+      }
+    }
+  }, [isScreenSharing]);
+
   // Listen for incoming calls
   useEffect(() => {
     if (!userId) return;
@@ -380,6 +436,9 @@ export function useDirectCall(
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((track) => track.stop());
       }
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
     };
   }, []);
 
@@ -387,13 +446,16 @@ export function useDirectCall(
     callState,
     localStream,
     remoteStream,
+    screenStream,
     audioEnabled,
     videoEnabled,
+    isScreenSharing,
     startCall,
     acceptCall,
     declineCall,
     endCall,
     toggleAudio,
     toggleVideo,
+    toggleScreenShare,
   };
 }

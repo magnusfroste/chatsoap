@@ -101,12 +101,15 @@ const GroupChat = () => {
 
   const {
     localStream,
+    screenStream,
     participants,
     audioEnabled,
     videoEnabled,
+    isScreenSharing,
     isConnecting,
     toggleAudio,
     toggleVideo,
+    toggleScreenShare,
     joinRoom,
     leaveRoom,
   } = useWebRTC(id, user?.id);
@@ -626,12 +629,15 @@ const GroupChat = () => {
               <div className="p-3 border-b border-border/50 bg-background/95">
                 <VideoGrid
                   localStream={localStream}
+                  screenStream={screenStream}
                   participants={participants}
                   videoEnabled={videoEnabled}
                   audioEnabled={audioEnabled}
+                  isScreenSharing={isScreenSharing}
                   displayName={profile?.display_name}
                   onToggleVideo={toggleVideo}
                   onToggleAudio={toggleAudio}
+                  onToggleScreenShare={toggleScreenShare}
                   onLeaveCall={handleLeaveCall}
                 />
               </div>
