@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { MessageSquare, Users, LogOut, Search, MoreVertical, CheckCheck, Settings, Star, Archive, User, Pin, BellOff, ArchiveRestore, PanelLeftClose, PanelLeft } from "lucide-react";
+import { MessageSquare, Users, LogOut, Search, MoreVertical, CheckCheck, Settings, Star, Archive, User, Pin, BellOff, ArchiveRestore, PanelLeftClose, PanelLeft, Bot } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import NewChatDialog from "@/components/NewChatDialog";
 import NewGroupDialog from "@/components/NewGroupDialog";
@@ -18,7 +18,7 @@ import {
 
 interface Conversation {
   id: string;
-  type: "direct" | "group";
+  type: "direct" | "group" | "ai_chat";
   name: string | null;
   last_message_at: string | null;
   created_at: string;
@@ -208,6 +208,9 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
   };
 
   const getDisplayName = (conv: Conversation) => {
+    if (conv.type === "ai_chat") {
+      return conv.name || "AI Assistent";
+    }
     if (conv.type === "direct") {
       return conv.other_user?.display_name || "Användare";
     }
@@ -259,7 +262,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
     if (onConversationSelect) {
       onConversationSelect(conv);
     }
-    if (conv.type === "direct") {
+    if (conv.type === "direct" || conv.type === "ai_chat") {
       navigate(`/chat/${conv.id}`);
     } else {
       navigate(`/group/${conv.id}`);
@@ -454,11 +457,15 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
                         className={`transition-all duration-300 ${
                           conv.type === "group"
                             ? "bg-muted text-muted-foreground font-medium"
+                            : conv.type === "ai_chat"
+                            ? "bg-gradient-to-br from-primary to-accent text-primary-foreground font-medium"
                             : "bg-gradient-to-br from-primary/80 to-accent/80 text-primary-foreground font-medium"
                         } ${isCollapsed ? 'text-sm' : ''}`}
                       >
                         {conv.type === "group" ? (
                           <Users className={`transition-all duration-300 ${isCollapsed ? 'w-4 h-4' : 'w-5 h-5'}`} />
+                        ) : conv.type === "ai_chat" ? (
+                          <Bot className={`transition-all duration-300 ${isCollapsed ? 'w-4 h-4' : 'w-5 h-5'}`} />
                         ) : (
                           getInitials(getDisplayName(conv))
                         )}

@@ -503,8 +503,11 @@ const DirectChat = () => {
           }
         );
       } 
-      // Regular @ai message without document
-      else if (isAIMessage && !currentFile) {
+      // Regular @ai message without document OR AI-chat auto-response
+      const isAIChat = conversation?.type === "ai_chat";
+      const triggerAI = (isAIMessage && !currentFile) || (isAIChat && !currentFile);
+      
+      if (triggerAI) {
         setAiTyping(true);
         setAiResponse("");
 
@@ -709,42 +712,56 @@ const DirectChat = () => {
               </Button>
               
               <Avatar className="h-10 w-10">
-                <AvatarFallback className="bg-gradient-to-br from-primary/80 to-accent/80 text-primary-foreground font-medium">
-                  {conversation?.other_user
-                    ? getInitials(conversation.other_user.display_name)
-                    : "?"}
+                <AvatarFallback className={`font-medium ${
+                  conversation?.type === "ai_chat" 
+                    ? "bg-gradient-to-br from-primary to-accent text-primary-foreground"
+                    : "bg-gradient-to-br from-primary/80 to-accent/80 text-primary-foreground"
+                }`}>
+                  {conversation?.type === "ai_chat" ? (
+                    <Bot className="w-5 h-5" />
+                  ) : conversation?.other_user ? (
+                    getInitials(conversation.other_user.display_name)
+                  ) : "?"}
                 </AvatarFallback>
               </Avatar>
               
               <div className="flex-1 min-w-0">
                 <h1 className="font-semibold text-foreground truncate">
-                  {conversation?.other_user?.display_name || "Chatt"}
+                  {conversation?.type === "ai_chat" 
+                    ? "AI Assistent" 
+                    : conversation?.other_user?.display_name || "Chatt"}
                 </h1>
                 <p className="text-xs text-muted-foreground">
-                  {typingUsers.length > 0 ? "skriver..." : "online"}
+                  {conversation?.type === "ai_chat" 
+                    ? (aiTyping ? "skriver..." : "redo att hjälpa")
+                    : (typingUsers.length > 0 ? "skriver..." : "online")}
                 </p>
               </div>
 
-              {/* Action icons - Call buttons */}
+              {/* Action icons - Call buttons (hidden for AI chat) */}
               <div className="flex items-center gap-1">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="text-muted-foreground hover:text-foreground"
-                  onClick={() => startCall("video")}
-                  disabled={callState.status !== "idle"}
-                >
-                  <Video className="w-5 h-5" />
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="text-muted-foreground hover:text-foreground"
-                  onClick={() => startCall("audio")}
-                  disabled={callState.status !== "idle"}
-                >
-                  <Phone className="w-5 h-5" />
-                </Button>
+                {conversation?.type !== "ai_chat" && (
+                  <>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => startCall("video")}
+                      disabled={callState.status !== "idle"}
+                    >
+                      <Video className="w-5 h-5" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => startCall("audio")}
+                      disabled={callState.status !== "idle"}
+                    >
+                      <Phone className="w-5 h-5" />
+                    </Button>
+                  </>
+                )}
                 <ChatMessageSearch
                   messages={messages}
                   onHighlightMessage={handleHighlightMessage}
@@ -888,7 +905,7 @@ const DirectChat = () => {
                     handleInputChange();
                   }}
                   onBlur={stopTyping}
-                  placeholder="Skriv ett meddelande"
+                  placeholder={conversation?.type === "ai_chat" ? "Skriv ett meddelande till AI..." : "Skriv ett meddelande"}
                   className="bg-muted/50 border-0 rounded-lg h-10 focus-visible:ring-1 focus-visible:ring-ring"
                   disabled={sending}
                 />
@@ -914,13 +931,20 @@ const DirectChat = () => {
               )}
             </form>
 
-            {/* AI hint */}
-            <p className="text-center text-xs text-muted-foreground mt-2 max-w-4xl mx-auto">
-              Skriv <span className="font-medium text-primary">@ai</span> för att chatta med AI
-              {pendingFile && pendingFile.type !== "image" && (
-                <span> • Bifoga dokument + @ai för att analysera</span>
-              )}
-            </p>
+            {/* AI hint - only show for non-AI chats */}
+            {conversation?.type !== "ai_chat" && (
+              <p className="text-center text-xs text-muted-foreground mt-2 max-w-4xl mx-auto">
+                Skriv <span className="font-medium text-primary">@ai</span> för att chatta med AI
+                {pendingFile && pendingFile.type !== "image" && (
+                  <span> • Bifoga dokument + @ai för att analysera</span>
+                )}
+              </p>
+            )}
+            {conversation?.type === "ai_chat" && pendingFile && pendingFile.type !== "image" && (
+              <p className="text-center text-xs text-muted-foreground mt-2 max-w-4xl mx-auto">
+                Skriv en fråga för att analysera dokumentet
+              </p>
+            )}
           </div>
         </div>
 
