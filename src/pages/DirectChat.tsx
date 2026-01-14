@@ -635,6 +635,14 @@ const DirectChat = () => {
     });
   };
 
+  const handleSaveDocumentToNotes = async (title: string, content: string) => {
+    await createNote({
+      title,
+      content,
+      conversationId: id,
+    });
+  };
+
   const handleNoteSelect = (note: Note) => {
     setSelectedNote(note);
     setNoteEditorOpen(true);
@@ -806,6 +814,7 @@ const DirectChat = () => {
                           isRead={isOwn ? isMessageRead(msg.id, msg.user_id) : undefined}
                           onSaveToNotes={handleSaveToNotes}
                           onAnalyzeDocument={handleAnalyzeFromMessage}
+                          onSaveDocumentToNotes={handleSaveDocumentToNotes}
                         />
                       </div>
                     </div>

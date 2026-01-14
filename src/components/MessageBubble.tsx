@@ -77,6 +77,7 @@ interface MessageBubbleProps {
   isRead?: boolean;
   onSaveToNotes?: (content: string, messageId: string) => void;
   onAnalyzeDocument?: (url: string, name: string, mimeType: string) => void;
+  onSaveDocumentToNotes?: (title: string, content: string) => void;
 }
 
 export const MessageBubble = ({
@@ -90,6 +91,7 @@ export const MessageBubble = ({
   isRead,
   onSaveToNotes,
   onAnalyzeDocument,
+  onSaveDocumentToNotes,
 }: MessageBubbleProps) => {
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const isAI = message.is_ai;
@@ -233,6 +235,8 @@ export const MessageBubble = ({
                   mimeType
                 );
               } : undefined}
+              showSaveToNotesButton={!!onSaveDocumentToNotes}
+              onSaveToNotes={onSaveDocumentToNotes}
             />
           </div>
         ) : (
