@@ -17,7 +17,10 @@ const Chats = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const params = useParams();
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem('sidebar-collapsed');
+    return saved === 'true';
+  });
   
   // Global incoming call listener
   const { incomingCall, acceptCall, declineCall } = useIncomingCallListener(user?.id);
@@ -31,7 +34,11 @@ const Chats = () => {
   const activeConversationId = params.id;
 
   const toggleSidebarCollapse = () => {
-    setIsSidebarCollapsed(!isSidebarCollapsed);
+    setIsSidebarCollapsed(prev => {
+      const newValue = !prev;
+      localStorage.setItem('sidebar-collapsed', String(newValue));
+      return newValue;
+    });
   };
 
   useEffect(() => {
