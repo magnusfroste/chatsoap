@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.notes-ai]
 verify_jwt = false
+
+[functions.analyze-document]
+verify_jwt = false

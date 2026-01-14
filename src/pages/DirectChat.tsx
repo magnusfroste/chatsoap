@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAIChat } from "@/hooks/useAIChat";
+import { useDocumentAI } from "@/hooks/useDocumentAI";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useReadReceipts } from "@/hooks/useReadReceipts";
 import { useDirectCall } from "@/hooks/useDirectCall";
@@ -17,12 +18,12 @@ import { ChatActionsMenu } from "@/components/ChatActionsMenu";
 import { MessageBubble, ReplyPreview } from "@/components/MessageBubble";
 import { CallUI } from "@/components/CallUI";
 import { EmojiPicker } from "@/components/EmojiPicker";
-import { ImageUploadButton, ImagePreview } from "@/components/ImageUploadButton";
+import { FileUploadButton, FilePreview, UploadedFile } from "@/components/FileUploadButton";
+import { DocumentPreview } from "@/components/DocumentPreview";
 import { NotesSidebar } from "@/components/NotesSidebar";
 import { NoteEditor } from "@/components/NoteEditor";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChatMessageSearch } from "@/components/ChatMessageSearch";
-
 interface ReplyToMessage {
   id: string;
   content: string;
@@ -41,6 +42,8 @@ interface Message {
   created_at: string;
   reply_to_id?: string | null;
   reply_to?: ReplyToMessage | null;
+  attachment_type?: string | null;
+  attachment_name?: string | null;
   profile?: {
     display_name: string | null;
   };
@@ -60,6 +63,7 @@ const DirectChat = () => {
   const navigate = useNavigate();
   const { user, profile, loading: authLoading } = useAuth();
   const { streamAIResponse, cancelStream } = useAIChat(id);
+  const { analyzeDocument, cancelAnalysis } = useDocumentAI();
   const { typingUsers, handleInputChange, stopTyping } = useTypingPresence(
     id,
     user?.id,
@@ -82,8 +86,9 @@ const DirectChat = () => {
   const [aiTyping, setAiTyping] = useState(false);
   const [aiResponse, setAiResponse] = useState("");
   const [replyTo, setReplyTo] = useState<ReplyToMessage | null>(null);
-  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<UploadedFile | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [analyzingDocument, setAnalyzingDocument] = useState<{ url: string; name: string; mimeType: string } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -356,13 +361,14 @@ const DirectChat = () => {
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!newMessage.trim() && !pendingImage) || !user || !id || sending) return;
+    if ((!newMessage.trim() && !pendingFile) || !user || !id || sending) return;
 
-    const content = pendingImage || newMessage.trim();
+    const content = pendingFile?.url || newMessage.trim();
     const currentReplyTo = replyTo;
+    const currentFile = pendingFile;
     setNewMessage("");
     setReplyTo(null);
-    setPendingImage(null);
+    setPendingFile(null);
     setSending(true);
 
     // Create optimistic message to show immediately
@@ -736,10 +742,14 @@ const DirectChat = () => {
 
           {/* Message Input */}
           <div className="flex-shrink-0 bg-card border-t border-border px-4 py-3">
-            {/* Image preview */}
-            {pendingImage && (
+            {/* File preview */}
+            {pendingFile && (
               <div className="max-w-4xl mx-auto mb-3">
-                <ImagePreview imageUrl={pendingImage} onRemove={() => setPendingImage(null)} />
+                <FilePreview 
+                  file={pendingFile} 
+                  onRemove={() => setPendingFile(null)} 
+                  showAnalyzeHint={pendingFile.type !== "image"}
+                />
               </div>
             )}
             
@@ -759,8 +769,8 @@ const DirectChat = () => {
                 onEmojiSelect={(emoji) => setNewMessage(prev => prev + emoji)} 
               />
               
-              <ImageUploadButton 
-                onImageSelect={(url) => setPendingImage(url)} 
+              <FileUploadButton 
+                onFileSelect={(file) => setPendingFile(file)} 
               />
               
               <div className="flex-1">
@@ -777,7 +787,7 @@ const DirectChat = () => {
                 />
               </div>
 
-              {(newMessage.trim() || pendingImage) ? (
+              {(newMessage.trim() || pendingFile) ? (
                 <Button 
                   type="submit" 
                   size="icon" 
@@ -829,6 +839,7 @@ const DirectChat = () => {
           return updated;
         }}
         onDelete={deleteNote}
+        userId={user?.id}
       />
     </TooltipProvider>
   );
