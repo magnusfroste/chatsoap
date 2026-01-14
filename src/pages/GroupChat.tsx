@@ -429,6 +429,39 @@ const GroupChat = () => {
   };
 
   const handleJoinCall = async () => {
+    if (!id || !user || !group) return;
+    
+    // Ensure a room exists for this conversation (for WebRTC presence/signals)
+    const { data: existingRoom } = await supabase
+      .from("rooms")
+      .select("id")
+      .eq("id", id)
+      .single();
+    
+    if (!existingRoom) {
+      // Create a room with the same ID as the conversation
+      await supabase.from("rooms").insert({
+        id: id,
+        name: group.name || "Gruppsamtal",
+        created_by: user.id,
+      });
+    }
+    
+    // Ensure user is a room member
+    const { data: existingMember } = await supabase
+      .from("room_members")
+      .select("id")
+      .eq("room_id", id)
+      .eq("user_id", user.id)
+      .single();
+    
+    if (!existingMember) {
+      await supabase.from("room_members").insert({
+        room_id: id,
+        user_id: user.id,
+      });
+    }
+    
     await joinRoom(true, true);
     setInCall(true);
   };
