@@ -10,8 +10,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, Loader2, Bot, Sparkles } from "lucide-react";
+import { Search, Loader2, Bot, Sparkles, Code, Pen, Lightbulb, GraduationCap, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
 interface Profile {
   user_id: string;
   display_name: string;
@@ -23,16 +24,57 @@ interface NewChatDialogProps {
   onChatCreated: (conversationId: string) => void;
 }
 
+// AI Personas
+const AI_PERSONAS = [
+  {
+    id: "general",
+    name: "Generell Assistent",
+    description: "Hjälpsam AI för alla typer av frågor",
+    icon: Bot,
+    gradient: "from-primary to-accent",
+  },
+  {
+    id: "code",
+    name: "Kodhjälp",
+    description: "Expert på programmering och felsökning",
+    icon: Code,
+    gradient: "from-emerald-500 to-teal-500",
+  },
+  {
+    id: "writer",
+    name: "Skrivassistent",
+    description: "Hjälper med texter och kommunikation",
+    icon: Pen,
+    gradient: "from-blue-500 to-indigo-500",
+  },
+  {
+    id: "creative",
+    name: "Kreativ Brainstorming",
+    description: "Genererar idéer och tänker utanför boxen",
+    icon: Lightbulb,
+    gradient: "from-amber-500 to-orange-500",
+  },
+  {
+    id: "learning",
+    name: "Lärare & Mentor",
+    description: "Pedagogiska förklaringar anpassade för dig",
+    icon: GraduationCap,
+    gradient: "from-purple-500 to-pink-500",
+  },
+];
+
 const NewChatDialog = ({ open, onOpenChange, onChatCreated }: NewChatDialogProps) => {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [showPersonaSelect, setShowPersonaSelect] = useState(false);
 
   useEffect(() => {
     if (open) {
       fetchUsers();
+      setShowPersonaSelect(false);
     }
   }, [open]);
 
@@ -141,17 +183,20 @@ const NewChatDialog = ({ open, onOpenChange, onChatCreated }: NewChatDialogProps
     u.display_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleCreateAIChat = async () => {
+  const handleCreateAIChat = async (personaId: string) => {
     if (!user || creating) return;
     setCreating(true);
 
+    const persona = AI_PERSONAS.find(p => p.id === personaId);
+
     try {
-      // Create new AI conversation
+      // Create new AI conversation with persona
       const { data: newConv, error: convError } = await supabase
         .from("conversations")
         .insert({
           type: "ai_chat",
-          name: "AI Assistent",
+          name: persona?.name || "AI Assistent",
+          persona: personaId,
           created_by: user.id,
         })
         .select()
@@ -177,6 +222,54 @@ const NewChatDialog = ({ open, onOpenChange, onChatCreated }: NewChatDialogProps
     }
   };
 
+  // Persona selection view
+  if (showPersonaSelect) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowPersonaSelect(false)}
+                className="h-8 w-8"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+              <DialogTitle>Välj AI Persona</DialogTitle>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            {AI_PERSONAS.map((persona) => {
+              const Icon = persona.icon;
+              return (
+                <button
+                  key={persona.id}
+                  onClick={() => handleCreateAIChat(persona.id)}
+                  disabled={creating}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl border border-border hover:border-primary/50 hover:bg-accent/30 transition-all text-left disabled:opacity-50"
+                >
+                  <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${persona.gradient} flex items-center justify-center flex-shrink-0`}>
+                    <Icon className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-foreground">{persona.name}</div>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {persona.description}
+                    </p>
+                  </div>
+                  {creating && <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />}
+                </button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -187,7 +280,7 @@ const NewChatDialog = ({ open, onOpenChange, onChatCreated }: NewChatDialogProps
         <div className="space-y-4">
           {/* AI Chat Button - Prominent placement */}
           <Button
-            onClick={handleCreateAIChat}
+            onClick={() => setShowPersonaSelect(true)}
             disabled={creating}
             className="w-full h-auto p-4 flex items-center gap-4 bg-gradient-to-r from-primary/90 to-accent/90 hover:from-primary hover:to-accent text-primary-foreground rounded-xl transition-all"
           >
@@ -200,10 +293,9 @@ const NewChatDialog = ({ open, onOpenChange, onChatCreated }: NewChatDialogProps
                 <Sparkles className="w-4 h-4" />
               </div>
               <p className="text-sm opacity-80 font-normal">
-                Starta en privat AI-konversation
+                Välj persona och börja chatta
               </p>
             </div>
-            {creating && <Loader2 className="w-5 h-5 animate-spin" />}
           </Button>
 
           <div className="relative flex items-center gap-2 py-2">

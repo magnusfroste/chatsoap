@@ -52,6 +52,7 @@ interface Message {
 interface ConversationInfo {
   id: string;
   type: string;
+  persona?: string | null;
   other_user?: {
     id: string;
     display_name: string;
@@ -265,6 +266,7 @@ const DirectChat = () => {
       const convInfo: ConversationInfo = {
         id: conv.id,
         type: conv.type,
+        persona: conv.persona,
       };
 
       // Get other user for direct chats
@@ -564,7 +566,8 @@ const DirectChat = () => {
               .from("conversations")
               .update({ last_message_at: new Date().toISOString() })
               .eq("id", id);
-          }
+          },
+          conversation?.persona || undefined
         );
       }
 
