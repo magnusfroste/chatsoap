@@ -66,16 +66,15 @@ export const CollaborativeCanvas = ({ roomId, userId }: CollaborativeCanvasProps
     setBrushWidth(size);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-6 h-6 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
+      {/* Loading overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        </div>
+      )}
+      
       {/* Toolbar */}
       <div className="flex items-center gap-2 p-2 border-b border-border/50 bg-card/50 flex-wrap">
         {/* Tools */}
