@@ -23,7 +23,8 @@ export function useAIChat(roomId: string | undefined) {
       messageHistory: Message[],
       onDelta: (text: string) => void,
       onDone: (fullText: string) => void,
-      persona?: string
+      persona?: string,
+      customSystemPrompt?: string
     ) => {
       if (!roomId) return;
 
@@ -46,7 +47,12 @@ export function useAIChat(roomId: string | undefined) {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ roomId, messageHistory: historyForAI, persona }),
+          body: JSON.stringify({ 
+            roomId, 
+            messageHistory: historyForAI, 
+            persona,
+            customSystemPrompt 
+          }),
           signal: abortControllerRef.current.signal,
         });
 

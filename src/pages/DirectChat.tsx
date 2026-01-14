@@ -54,6 +54,8 @@ interface ConversationInfo {
   id: string;
   type: string;
   persona?: string | null;
+  personaName?: string | null;
+  customSystemPrompt?: string | null;
   other_user?: {
     id: string;
     display_name: string;
@@ -268,7 +270,30 @@ const DirectChat = () => {
         id: conv.id,
         type: conv.type,
         persona: conv.persona,
+        personaName: null,
+        customSystemPrompt: null,
       };
+
+      // If using a custom persona, fetch its details
+      if (conv.persona?.startsWith("custom:")) {
+        const customPersonaId = conv.persona.replace("custom:", "");
+        const { data: customPersona } = await supabase
+          .from("custom_personas")
+          .select("system_prompt, name")
+          .eq("id", customPersonaId)
+          .single();
+        
+        if (customPersona) {
+          convInfo.customSystemPrompt = customPersona.system_prompt;
+          convInfo.personaName = customPersona.name;
+        }
+      } else if (conv.persona) {
+        // Built-in persona
+        const builtIn = AI_PERSONAS.find(p => p.id === conv.persona);
+        if (builtIn) {
+          convInfo.personaName = builtIn.name;
+        }
+      }
 
       // Get other user for direct chats
       if (conv.type === "direct") {
@@ -568,7 +593,8 @@ const DirectChat = () => {
               .update({ last_message_at: new Date().toISOString() })
               .eq("id", id);
           },
-          conversation?.persona || undefined
+          conversation?.persona || undefined,
+          conversation?.customSystemPrompt || undefined
         );
       }
 
@@ -733,15 +759,19 @@ const DirectChat = () => {
                 <div className="flex items-center gap-2">
                   <h1 className="font-semibold text-foreground truncate">
                     {conversation?.type === "ai_chat" 
-                      ? (AI_PERSONAS.find(p => p.id === conversation.persona)?.name || "AI Assistent")
+                      ? (conversation.personaName || AI_PERSONAS.find(p => p.id === conversation.persona)?.name || "AI Assistent")
                       : conversation?.other_user?.display_name || "Chatt"}
                   </h1>
                   {conversation?.type === "ai_chat" && (
                     <PersonaSwitcher 
                       conversationId={id || ""}
                       currentPersona={conversation.persona}
-                      onPersonaChange={(persona) => {
-                        setConversation(prev => prev ? { ...prev, persona } : null);
+                      onPersonaChange={(persona, customSystemPrompt) => {
+                        setConversation(prev => prev ? { 
+                          ...prev, 
+                          persona,
+                          customSystemPrompt: customSystemPrompt || null 
+                        } : null);
                       }}
                     />
                   )}

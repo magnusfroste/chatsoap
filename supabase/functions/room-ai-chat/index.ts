@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { roomId, messageHistory, persona } = await req.json();
+    const { roomId, messageHistory, persona, customSystemPrompt } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -25,7 +25,7 @@ serve(async (req) => {
       content: msg.is_ai ? msg.content : `[${msg.display_name || "Användare"}]: ${msg.content}`,
     }));
 
-    console.log("Sending to AI with", conversationMessages.length, "messages, persona:", persona);
+    console.log("Sending to AI with", conversationMessages.length, "messages, persona:", persona, "custom:", !!customSystemPrompt);
 
     // Define persona-specific system prompts
     const personaPrompts: Record<string, string> = {
@@ -102,7 +102,8 @@ Fira framsteg och uppmuntra nyfikenhet!
 Anpassa komplexiteten efter användarens förkunskaper.`,
     };
 
-    const systemPrompt = personaPrompts[persona] || personaPrompts.general;
+    // Use custom system prompt if provided, otherwise use built-in persona
+    const systemPrompt = customSystemPrompt || personaPrompts[persona] || personaPrompts.general;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
