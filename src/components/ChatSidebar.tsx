@@ -255,7 +255,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
       return 0;
     });
 
-  const handleConversationClick = (conv: Conversation) => {
+  const handleConversationClick = useCallback((conv: Conversation) => {
     if (onConversationSelect) {
       onConversationSelect(conv);
     }
@@ -264,7 +264,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
     } else {
       navigate(`/group/${conv.id}`);
     }
-  };
+  }, [navigate, onConversationSelect]);
 
   // Keyboard navigation for conversations
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
