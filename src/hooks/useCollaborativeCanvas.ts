@@ -51,19 +51,31 @@ export const useCollaborativeCanvas = (roomId: string | undefined, userId: strin
 
   // Load canvas from database
   const loadCanvas = useCallback(async () => {
-    if (!fabricRef.current || !roomId) return;
+    if (!fabricRef.current || !roomId) {
+      setIsLoading(false);
+      return;
+    }
     
-    const { data } = await supabase
-      .from("room_canvas")
-      .select("canvas_data")
-      .eq("room_id", roomId)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from("room_canvas")
+        .select("canvas_data")
+        .eq("room_id", roomId)
+        .maybeSingle();
 
-    if (data?.canvas_data && typeof data.canvas_data === 'object') {
-      isSyncing.current = true;
-      await fabricRef.current.loadFromJSON(data.canvas_data as Record<string, unknown>);
-      fabricRef.current.renderAll();
-      isSyncing.current = false;
+      // If there's an error (possibly RLS), just continue with empty canvas
+      if (error) {
+        console.log("No existing canvas data or RLS error:", error.message);
+      }
+
+      if (data?.canvas_data && typeof data.canvas_data === 'object') {
+        isSyncing.current = true;
+        await fabricRef.current.loadFromJSON(data.canvas_data as Record<string, unknown>);
+        fabricRef.current.renderAll();
+        isSyncing.current = false;
+      }
+    } catch (err) {
+      console.error("Error loading canvas:", err);
     }
     
     setIsLoading(false);
