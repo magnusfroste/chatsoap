@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAIChat } from "@/hooks/useAIChat";
 import { useWebRTC } from "@/hooks/useWebRTC";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
+import { useNotes, Note } from "@/hooks/useNotes";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,9 @@ import { VideoGrid } from "@/components/VideoGrid";
 import { MessageBubble, ReplyPreview } from "@/components/MessageBubble";
 import { EmojiPicker } from "@/components/EmojiPicker";
 import { ImageUploadButton, ImagePreview } from "@/components/ImageUploadButton";
+import { NotesSidebar } from "@/components/NotesSidebar";
+import { NoteEditor } from "@/components/NoteEditor";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   ArrowLeft,
   Send,
@@ -27,6 +31,8 @@ import {
   CheckCheck,
   Video,
   MoreVertical,
+  PanelRightOpen,
+  PanelRightClose,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -102,7 +108,11 @@ const GroupChat = () => {
   const [replyTo, setReplyTo] = useState<ReplyToMessage | null>(null);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  // Notes
+  const { notes, isLoading: notesLoading, createNote, updateNote, deleteNote } = useNotes(user?.id);
+  const [notesSidebarOpen, setNotesSidebarOpen] = useState(false);
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [noteEditorOpen, setNoteEditorOpen] = useState(false);
 
   const {
     localStream,
