@@ -1,6 +1,8 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { useIncomingCallListener, IncomingCall } from "@/hooks/useIncomingCallListener";
+import { IncomingCallOverlay } from "@/components/IncomingCallOverlay";
 
 interface Profile {
   id: string;
@@ -18,6 +20,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  incomingCall: IncomingCall | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,6 +30,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Global incoming call listener
+  const { incomingCall, acceptCall, declineCall } = useIncomingCallListener(user?.id);
 
   // Fetch profile helper
   const fetchProfile = async (userId: string) => {
@@ -139,8 +145,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signUp, signIn, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, signUp, signIn, signOut, refreshProfile, incomingCall }}>
       {children}
+      {/* Global incoming call overlay */}
+      {incomingCall && (
+        <IncomingCallOverlay
+          call={incomingCall}
+          onAccept={acceptCall}
+          onDecline={declineCall}
+        />
+      )}
     </AuthContext.Provider>
   );
 }
