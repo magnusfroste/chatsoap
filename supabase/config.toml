@@ -1,1 +1,7 @@
 project_id = "nitbrsjounnurfjrkwhd"
+
+[functions.room-ai-chat]
+verify_jwt = false
+
+[functions.notes-ai]
+verify_jwt = false

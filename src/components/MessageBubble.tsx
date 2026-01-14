@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Bot, Check, CheckCheck, Reply, X, Image as ImageIcon } from "lucide-react";
+import { Bot, Check, CheckCheck, Reply, X, Image as ImageIcon, FileText } from "lucide-react";
 import { MessageReactions, ReactionPicker } from "./MessageReactions";
+import { SendToNotesButton } from "./SendToNotesButton";
 import { cn } from "@/lib/utils";
-
 // Helper to check if content is an image URL
 const isImageUrl = (content: string): boolean => {
   const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
@@ -40,6 +40,7 @@ interface MessageBubbleProps {
   formatTime: (dateStr: string) => string;
   onReply?: (message: { id: string; content: string; user_id: string | null; is_ai: boolean; profile?: { display_name: string | null } }) => void;
   isRead?: boolean;
+  onSaveToNotes?: (content: string, messageId: string) => void;
 }
 
 export const MessageBubble = ({
@@ -51,6 +52,7 @@ export const MessageBubble = ({
   formatTime,
   onReply,
   isRead,
+  onSaveToNotes,
 }: MessageBubbleProps) => {
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const isAI = message.is_ai;
@@ -225,7 +227,7 @@ export const MessageBubble = ({
 
   return (
     <div className={cn("flex flex-col", isOwn ? "items-end" : "items-start")}>
-      <div className={cn("flex", isOwn ? "justify-end" : "justify-start", "mb-0.5")}>
+      <div className={cn("flex items-end gap-1", isOwn ? "justify-end flex-row-reverse" : "justify-start")}>
         <ReactionPicker
           messageId={message.id}
           userId={userId}
@@ -237,6 +239,14 @@ export const MessageBubble = ({
             {bubbleContent}
           </div>
         </ReactionPicker>
+        
+        {/* Save to Notes button */}
+        {onSaveToNotes && (
+          <SendToNotesButton
+            onClick={() => onSaveToNotes(message.content, message.id)}
+            className="opacity-0 group-hover:opacity-100 transition-opacity"
+          />
+        )}
       </div>
       
       {/* Reactions */}

@@ -5,16 +5,20 @@ import { useAIChat } from "@/hooks/useAIChat";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useReadReceipts } from "@/hooks/useReadReceipts";
 import { useDirectCall } from "@/hooks/useDirectCall";
+import { useNotes, Note } from "@/hooks/useNotes";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Send, Bot, Loader2, Mic, Check, CheckCheck, Search, MoreVertical, Phone, Video } from "lucide-react";
+import { ArrowLeft, Send, Bot, Loader2, Mic, Check, CheckCheck, Search, MoreVertical, Phone, Video, FileText, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { MessageBubble, ReplyPreview } from "@/components/MessageBubble";
 import { CallUI } from "@/components/CallUI";
 import { EmojiPicker } from "@/components/EmojiPicker";
 import { ImageUploadButton, ImagePreview } from "@/components/ImageUploadButton";
+import { NotesSidebar } from "@/components/NotesSidebar";
+import { NoteEditor } from "@/components/NoteEditor";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 interface ReplyToMessage {
   id: string;
@@ -59,6 +63,12 @@ const DirectChat = () => {
     profile?.display_name || undefined
   );
   const { isMessageRead, markMessagesAsRead } = useReadReceipts(id, user?.id);
+  
+  // Notes
+  const { notes, isLoading: notesLoading, createNote, updateNote, deleteNote } = useNotes(user?.id);
+  const [notesSidebarOpen, setNotesSidebarOpen] = useState(false);
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [noteEditorOpen, setNoteEditorOpen] = useState(false);
 
   const [conversation, setConversation] = useState<ConversationInfo | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -485,6 +495,33 @@ const DirectChat = () => {
     return currentDate !== prevDate;
   };
 
+  const handleSaveToNotes = async (content: string, messageId: string) => {
+    const title = content.slice(0, 50) + (content.length > 50 ? "..." : "");
+    await createNote({
+      title,
+      content,
+      conversationId: id,
+      sourceMessageId: messageId,
+    });
+  };
+
+  const handleNoteSelect = (note: Note) => {
+    setSelectedNote(note);
+    setNoteEditorOpen(true);
+  };
+
+  const handleCreateNote = async () => {
+    const newNote = await createNote({
+      title: "New Note",
+      content: "",
+      conversationId: id,
+    });
+    if (newNote) {
+      setSelectedNote(newNote);
+      setNoteEditorOpen(true);
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -494,7 +531,7 @@ const DirectChat = () => {
   }
 
   return (
-    <>
+    <TooltipProvider>
       {/* Call UI Overlay */}
       {callState.status !== "idle" && (
         <CallUI
@@ -517,199 +554,237 @@ const DirectChat = () => {
         />
       )}
 
-      <div className="h-full flex flex-col bg-background">
-      {/* Header - WhatsApp desktop style */}
-      <header className="flex-shrink-0 bg-card border-b border-border px-4 py-2">
-        <div className="flex items-center gap-3">
-          {/* Mobile back button */}
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => navigate("/chats")}
-            className="md:hidden text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          
-          <Avatar className="h-10 w-10">
-            <AvatarFallback className="bg-gradient-to-br from-primary/80 to-accent/80 text-primary-foreground font-medium">
-              {conversation?.other_user
-                ? getInitials(conversation.other_user.display_name)
-                : "?"}
-            </AvatarFallback>
-          </Avatar>
-          
-          <div className="flex-1 min-w-0">
-            <h1 className="font-semibold text-foreground truncate">
-              {conversation?.other_user?.display_name || "Chatt"}
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              {typingUsers.length > 0 ? "skriver..." : "online"}
-            </p>
-          </div>
+      <div className="h-full flex bg-background">
+        {/* Main Chat Area */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Header - WhatsApp desktop style */}
+          <header className="flex-shrink-0 bg-card border-b border-border px-4 py-2">
+            <div className="flex items-center gap-3">
+              {/* Mobile back button */}
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => navigate("/chats")}
+                className="md:hidden text-muted-foreground hover:text-foreground"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              
+              <Avatar className="h-10 w-10">
+                <AvatarFallback className="bg-gradient-to-br from-primary/80 to-accent/80 text-primary-foreground font-medium">
+                  {conversation?.other_user
+                    ? getInitials(conversation.other_user.display_name)
+                    : "?"}
+                </AvatarFallback>
+              </Avatar>
+              
+              <div className="flex-1 min-w-0">
+                <h1 className="font-semibold text-foreground truncate">
+                  {conversation?.other_user?.display_name || "Chatt"}
+                </h1>
+                <p className="text-xs text-muted-foreground">
+                  {typingUsers.length > 0 ? "skriver..." : "online"}
+                </p>
+              </div>
 
-          {/* Action icons - Call buttons */}
-          <div className="flex items-center gap-1">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="text-muted-foreground hover:text-foreground"
-              onClick={() => startCall("video")}
-              disabled={callState.status !== "idle"}
-            >
-              <Video className="w-5 h-5" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="text-muted-foreground hover:text-foreground"
-              onClick={() => startCall("audio")}
-              disabled={callState.status !== "idle"}
-            >
-              <Phone className="w-5 h-5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-              <MoreVertical className="w-5 h-5" />
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      {/* Messages area with subtle pattern */}
-      <ScrollArea className="flex-1 bg-muted/30">
-        <div 
-          className="min-h-full px-4 py-3"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }}
-        >
-          <div className="max-w-4xl mx-auto space-y-1">
-            {messages.map((msg, index) => {
-              const prevMsg = index > 0 ? messages[index - 1] : undefined;
-              const showDateSeparator = shouldShowDateSeparator(msg, prevMsg);
-              const isOwn = msg.user_id === user?.id;
-              const isAI = msg.is_ai;
-
-              return (
-                <div key={msg.id}>
-                  {/* Date Separator */}
-                  {showDateSeparator && (
-                    <div className="flex justify-center my-4">
-                      <span className="bg-card text-muted-foreground text-xs px-3 py-1.5 rounded-lg shadow-sm">
-                        {formatDateSeparator(msg.created_at)}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Message Bubble */}
-                  <MessageBubble
-                    message={msg}
-                    isOwn={isOwn}
-                    userId={user?.id}
-                    formatTime={formatMessageTime}
-                    onReply={(m) => setReplyTo(m)}
-                    isRead={isOwn ? isMessageRead(msg.id, msg.user_id) : undefined}
-                  />
-                </div>
-              );
-            })}
-
-            {/* AI typing indicator */}
-            {aiTyping && (
-              <div className="flex justify-start mb-1">
-                <div className="relative max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 shadow-sm bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-900/30 dark:to-purple-800/20 border border-purple-200 dark:border-purple-700/50">
-                  <div className="flex items-center gap-1.5 mb-1 text-purple-600 dark:text-purple-400">
-                    <Bot className="w-3.5 h-3.5" />
-                    <span className="text-xs font-medium">AI Assistent</span>
-                  </div>
-                  {aiResponse ? (
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed">{aiResponse}</p>
+              {/* Action icons - Call buttons */}
+              <div className="flex items-center gap-1">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => startCall("video")}
+                  disabled={callState.status !== "idle"}
+                >
+                  <Video className="w-5 h-5" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => startCall("audio")}
+                  disabled={callState.status !== "idle"}
+                >
+                  <Phone className="w-5 h-5" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => setNotesSidebarOpen(!notesSidebarOpen)}
+                >
+                  {notesSidebarOpen ? (
+                    <PanelRightClose className="w-5 h-5" />
                   ) : (
-                    <div className="flex gap-1 py-1">
-                      <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                      <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                      <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-                    </div>
+                    <PanelRightOpen className="w-5 h-5" />
                   )}
-                </div>
+                </Button>
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+                  <MoreVertical className="w-5 h-5" />
+                </Button>
+              </div>
+            </div>
+          </header>
+
+          {/* Messages area with subtle pattern */}
+          <ScrollArea className="flex-1 bg-muted/30">
+            <div 
+              className="min-h-full px-4 py-3"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+              }}
+            >
+              <div className="max-w-4xl mx-auto space-y-1">
+                {messages.map((msg, index) => {
+                  const prevMsg = index > 0 ? messages[index - 1] : undefined;
+                  const showDateSeparator = shouldShowDateSeparator(msg, prevMsg);
+                  const isOwn = msg.user_id === user?.id;
+                  const isAI = msg.is_ai;
+
+                  return (
+                    <div key={msg.id} className="group">
+                      {/* Date Separator */}
+                      {showDateSeparator && (
+                        <div className="flex justify-center my-4">
+                          <span className="bg-card text-muted-foreground text-xs px-3 py-1.5 rounded-lg shadow-sm">
+                            {formatDateSeparator(msg.created_at)}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Message Bubble */}
+                      <MessageBubble
+                        message={msg}
+                        isOwn={isOwn}
+                        userId={user?.id}
+                        formatTime={formatMessageTime}
+                        onReply={(m) => setReplyTo(m)}
+                        isRead={isOwn ? isMessageRead(msg.id, msg.user_id) : undefined}
+                        onSaveToNotes={handleSaveToNotes}
+                      />
+                    </div>
+                  );
+                })}
+
+                {/* AI typing indicator */}
+                {aiTyping && (
+                  <div className="flex justify-start mb-1">
+                    <div className="relative max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 shadow-sm bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-900/30 dark:to-purple-800/20 border border-purple-200 dark:border-purple-700/50">
+                      <div className="flex items-center gap-1.5 mb-1 text-purple-600 dark:text-purple-400">
+                        <Bot className="w-3.5 h-3.5" />
+                        <span className="text-xs font-medium">AI Assistent</span>
+                      </div>
+                      {aiResponse ? (
+                        <p className="whitespace-pre-wrap text-sm leading-relaxed">{aiResponse}</p>
+                      ) : (
+                        <div className="flex gap-1 py-1">
+                          <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                          <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                          <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div ref={messagesEndRef} />
+              </div>
+            </div>
+          </ScrollArea>
+
+          {/* Message Input */}
+          <div className="flex-shrink-0 bg-card border-t border-border px-4 py-3">
+            {/* Image preview */}
+            {pendingImage && (
+              <div className="max-w-4xl mx-auto mb-3">
+                <ImagePreview imageUrl={pendingImage} onRemove={() => setPendingImage(null)} />
               </div>
             )}
+            
+            {/* Reply preview */}
+            {replyTo && (
+              <div className="max-w-4xl mx-auto mb-2">
+                <ReplyPreview 
+                  replyTo={replyTo} 
+                  currentUserId={user?.id} 
+                  onCancel={() => setReplyTo(null)} 
+                />
+              </div>
+            )}
+            
+            <form onSubmit={sendMessage} className="flex items-center gap-3 max-w-4xl mx-auto">
+              <EmojiPicker 
+                onEmojiSelect={(emoji) => setNewMessage(prev => prev + emoji)} 
+              />
+              
+              <ImageUploadButton 
+                onImageSelect={(url) => setPendingImage(url)} 
+              />
+              
+              <div className="flex-1">
+                <Input
+                  value={newMessage}
+                  onChange={(e) => {
+                    setNewMessage(e.target.value);
+                    handleInputChange();
+                  }}
+                  onBlur={stopTyping}
+                  placeholder="Skriv ett meddelande"
+                  className="bg-muted/50 border-0 rounded-lg h-10 focus-visible:ring-1 focus-visible:ring-ring"
+                  disabled={sending}
+                />
+              </div>
 
-            <div ref={messagesEndRef} />
+              {(newMessage.trim() || pendingImage) ? (
+                <Button 
+                  type="submit" 
+                  size="icon" 
+                  disabled={sending}
+                  className="flex-shrink-0 rounded-full w-10 h-10 bg-primary hover:bg-primary/90"
+                >
+                  <Send className="w-5 h-5" />
+                </Button>
+              ) : (
+                <Button 
+                  type="button" 
+                  size="icon"
+                  className="flex-shrink-0 rounded-full w-10 h-10 bg-primary hover:bg-primary/90"
+                >
+                  <Mic className="w-5 h-5" />
+                </Button>
+              )}
+            </form>
+
+            {/* AI hint */}
+            <p className="text-center text-xs text-muted-foreground mt-2 max-w-4xl mx-auto">
+              Skriv <span className="font-medium text-primary">@ai</span> för att prata med AI-assistenten
+            </p>
           </div>
         </div>
-      </ScrollArea>
 
-      {/* Message Input */}
-      <div className="flex-shrink-0 bg-card border-t border-border px-4 py-3">
-        {/* Image preview */}
-        {pendingImage && (
-          <div className="max-w-4xl mx-auto mb-3">
-            <ImagePreview imageUrl={pendingImage} onRemove={() => setPendingImage(null)} />
-          </div>
-        )}
-        
-        {/* Reply preview */}
-        {replyTo && (
-          <div className="max-w-4xl mx-auto mb-2">
-            <ReplyPreview 
-              replyTo={replyTo} 
-              currentUserId={user?.id} 
-              onCancel={() => setReplyTo(null)} 
-            />
-          </div>
-        )}
-        
-        <form onSubmit={sendMessage} className="flex items-center gap-3 max-w-4xl mx-auto">
-          <EmojiPicker 
-            onEmojiSelect={(emoji) => setNewMessage(prev => prev + emoji)} 
-          />
-          
-          <ImageUploadButton 
-            onImageSelect={(url) => setPendingImage(url)} 
-          />
-          
-          <div className="flex-1">
-            <Input
-              value={newMessage}
-              onChange={(e) => {
-                setNewMessage(e.target.value);
-                handleInputChange();
-              }}
-              onBlur={stopTyping}
-              placeholder="Skriv ett meddelande"
-              className="bg-muted/50 border-0 rounded-lg h-10 focus-visible:ring-1 focus-visible:ring-ring"
-              disabled={sending}
-            />
-          </div>
-
-          {(newMessage.trim() || pendingImage) ? (
-            <Button 
-              type="submit" 
-              size="icon" 
-              disabled={sending}
-              className="flex-shrink-0 rounded-full w-10 h-10 bg-primary hover:bg-primary/90"
-            >
-              <Send className="w-5 h-5" />
-            </Button>
-          ) : (
-            <Button 
-              type="button" 
-              size="icon"
-              className="flex-shrink-0 rounded-full w-10 h-10 bg-primary hover:bg-primary/90"
-            >
-              <Mic className="w-5 h-5" />
-            </Button>
-          )}
-        </form>
-
-        {/* AI hint */}
-        <p className="text-center text-xs text-muted-foreground mt-2 max-w-4xl mx-auto">
-          Skriv <span className="font-medium text-primary">@ai</span> för att prata med AI-assistenten
-        </p>
+        {/* Notes Sidebar */}
+        <NotesSidebar
+          notes={notes}
+          isLoading={notesLoading}
+          isOpen={notesSidebarOpen}
+          onClose={() => setNotesSidebarOpen(false)}
+          onNoteSelect={handleNoteSelect}
+          onCreateNote={handleCreateNote}
+        />
       </div>
-      </div>
-    </>
+
+      {/* Note Editor Dialog */}
+      <NoteEditor
+        note={selectedNote}
+        isOpen={noteEditorOpen}
+        onClose={() => {
+          setNoteEditorOpen(false);
+          setSelectedNote(null);
+        }}
+        onSave={updateNote}
+        onDelete={deleteNote}
+      />
+    </TooltipProvider>
   );
 };
 
