@@ -10,9 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Send, Bot, Loader2, Smile, Paperclip, Mic, Check, CheckCheck, Search, MoreVertical, Phone, Video } from "lucide-react";
+import { ArrowLeft, Send, Bot, Loader2, Mic, Check, CheckCheck, Search, MoreVertical, Phone, Video } from "lucide-react";
 import { MessageBubble, ReplyPreview } from "@/components/MessageBubble";
 import { CallUI } from "@/components/CallUI";
+import { EmojiPicker } from "@/components/EmojiPicker";
+import { ImageUploadButton, ImagePreview } from "@/components/ImageUploadButton";
 
 interface ReplyToMessage {
   id: string;
@@ -66,6 +68,7 @@ const DirectChat = () => {
   const [aiTyping, setAiTyping] = useState(false);
   const [aiResponse, setAiResponse] = useState("");
   const [replyTo, setReplyTo] = useState<ReplyToMessage | null>(null);
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -316,12 +319,13 @@ const DirectChat = () => {
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !user || !id || sending) return;
+    if ((!newMessage.trim() && !pendingImage) || !user || !id || sending) return;
 
-    const content = newMessage.trim();
+    const content = pendingImage || newMessage.trim();
     const currentReplyTo = replyTo;
     setNewMessage("");
     setReplyTo(null);
+    setPendingImage(null);
     setSending(true);
 
     // Create optimistic message to show immediately
@@ -638,6 +642,13 @@ const DirectChat = () => {
 
       {/* Message Input */}
       <div className="flex-shrink-0 bg-card border-t border-border px-4 py-3">
+        {/* Image preview */}
+        {pendingImage && (
+          <div className="max-w-4xl mx-auto mb-3">
+            <ImagePreview imageUrl={pendingImage} onRemove={() => setPendingImage(null)} />
+          </div>
+        )}
+        
         {/* Reply preview */}
         {replyTo && (
           <div className="max-w-4xl mx-auto mb-2">
@@ -650,23 +661,13 @@ const DirectChat = () => {
         )}
         
         <form onSubmit={sendMessage} className="flex items-center gap-3 max-w-4xl mx-auto">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="flex-shrink-0 text-muted-foreground hover:text-foreground rounded-full"
-          >
-            <Smile className="w-5 h-5" />
-          </Button>
+          <EmojiPicker 
+            onEmojiSelect={(emoji) => setNewMessage(prev => prev + emoji)} 
+          />
           
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="flex-shrink-0 text-muted-foreground hover:text-foreground rounded-full"
-          >
-            <Paperclip className="w-5 h-5" />
-          </Button>
+          <ImageUploadButton 
+            onImageSelect={(url) => setPendingImage(url)} 
+          />
           
           <div className="flex-1">
             <Input
@@ -682,7 +683,7 @@ const DirectChat = () => {
             />
           </div>
 
-          {newMessage.trim() ? (
+          {(newMessage.trim() || pendingImage) ? (
             <Button 
               type="submit" 
               size="icon" 

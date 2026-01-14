@@ -1,8 +1,15 @@
 import { useState } from "react";
-import { Bot, Check, CheckCheck, Reply, X } from "lucide-react";
+import { Bot, Check, CheckCheck, Reply, X, Image as ImageIcon } from "lucide-react";
 import { MessageReactions, ReactionPicker } from "./MessageReactions";
 import { cn } from "@/lib/utils";
 
+// Helper to check if content is an image URL
+const isImageUrl = (content: string): boolean => {
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
+  const lowerContent = content.toLowerCase().trim();
+  return imageExtensions.some(ext => lowerContent.includes(ext)) && 
+         (lowerContent.startsWith('http://') || lowerContent.startsWith('https://'));
+};
 interface ReplyToMessage {
   id: string;
   content: string;
@@ -160,9 +167,21 @@ export const MessageBubble = ({
 
       {/* Message Content with inline time */}
       <div className="flex flex-wrap items-end gap-x-2">
-        <p className="whitespace-pre-wrap text-sm leading-relaxed break-words">
-          {message.content}
-        </p>
+        {isImageUrl(message.content) ? (
+          <div className="w-full">
+            <img
+              src={message.content}
+              alt="Delad bild"
+              className="max-w-full max-h-[300px] rounded-lg object-contain cursor-pointer hover:opacity-90 transition-opacity"
+              onClick={() => window.open(message.content, '_blank')}
+              loading="lazy"
+            />
+          </div>
+        ) : (
+          <p className="whitespace-pre-wrap text-sm leading-relaxed break-words">
+            {message.content}
+          </p>
+        )}
         {/* Time and Read Status - inline */}
         <span className={cn(
           "inline-flex items-center gap-1 ml-auto text-[10px] flex-shrink-0 translate-y-0.5",
