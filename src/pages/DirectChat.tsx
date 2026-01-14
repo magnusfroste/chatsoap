@@ -6,6 +6,7 @@ import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useReadReceipts } from "@/hooks/useReadReceipts";
 import { useDirectCall } from "@/hooks/useDirectCall";
 import { useNotes, Note } from "@/hooks/useNotes";
+import { useNotifications } from "@/hooks/useNotifications";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,6 +66,7 @@ const DirectChat = () => {
     profile?.display_name || undefined
   );
   const { isMessageRead, markMessagesAsRead } = useReadReceipts(id, user?.id);
+  const { showMessageNotification } = useNotifications();
   
   // Notes
   const { notes, isLoading: notesLoading, createNote, updateNote, deleteNote } = useNotes(user?.id);
@@ -193,6 +195,12 @@ const DirectChat = () => {
               if (prev.find((m) => m.id === newMsg.id)) return prev;
               return [...prev, enrichedMessage];
             });
+
+            // Show notification for messages from others
+            if (newMsg.user_id !== user?.id && profile) {
+              const senderName = profile.display_name || "Någon";
+              showMessageNotification(senderName, newMsg.content, id!, false);
+            }
           }
         )
         .subscribe();

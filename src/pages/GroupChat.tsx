@@ -5,6 +5,7 @@ import { useAIChat } from "@/hooks/useAIChat";
 import { useWebRTC } from "@/hooks/useWebRTC";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useNotes, Note } from "@/hooks/useNotes";
+import { useNotifications } from "@/hooks/useNotifications";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,6 +97,7 @@ const GroupChat = () => {
     user?.id,
     profile?.display_name || undefined
   );
+  const { showMessageNotification } = useNotifications();
 
   const [group, setGroup] = useState<GroupInfo | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -227,6 +229,17 @@ const GroupChat = () => {
               );
               return [...filtered, enrichedMessage];
             });
+
+            // Show notification for messages from others
+            if (newMsg.user_id !== user?.id && group) {
+              const senderName = msgProfile?.display_name || "Någon";
+              showMessageNotification(
+                group.name || "Grupp", 
+                `${senderName}: ${newMsg.content}`, 
+                id!, 
+                true
+              );
+            }
           }
         )
         .subscribe();
