@@ -26,11 +26,14 @@ export const DocumentPreview = ({
   showSaveToNotesButton = true,
 }: DocumentPreviewProps) => {
   const [isParsing, setIsParsing] = useState(false);
+  const [parseProgress, setParseProgress] = useState("");
 
   const handleParseToNotes = async () => {
     if (!onSaveToNotes) return;
     
     setIsParsing(true);
+    setParseProgress("Hämtar dokument...");
+    
     try {
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-document`,
@@ -60,15 +63,82 @@ export const DocumentPreview = ({
         return;
       }
 
-      const data = await response.json();
+      // Stream the response
+      if (!response.body) {
+        throw new Error("No response body");
+      }
+
+      setParseProgress("Konverterar till markdown...");
+      
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = "";
+      let fullText = "";
+      let streamDone = false;
+
+      while (!streamDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") {
+            streamDone = true;
+            break;
+          }
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) {
+              fullText += content;
+              // Update progress every ~500 chars
+              if (fullText.length % 500 < 50) {
+                setParseProgress(`Konverterar... ${Math.floor(fullText.length / 100) * 100}+ tecken`);
+              }
+            }
+          } catch {
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+
+      // Final flush
+      if (textBuffer.trim()) {
+        for (let raw of textBuffer.split("\n")) {
+          if (!raw) continue;
+          if (raw.endsWith("\r")) raw = raw.slice(0, -1);
+          if (raw.startsWith(":") || raw.trim() === "") continue;
+          if (!raw.startsWith("data: ")) continue;
+          const jsonStr = raw.slice(6).trim();
+          if (jsonStr === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) fullText += content;
+          } catch { /* ignore */ }
+        }
+      }
+
       const title = name.replace(/\.[^/.]+$/, "") || "Importerat dokument";
-      onSaveToNotes(title, data.markdown);
+      onSaveToNotes(title, fullText);
       toast.success("Dokument sparat som anteckning!");
     } catch (error) {
       console.error("Parse to notes error:", error);
       toast.error("Något gick fel vid parsning");
     } finally {
       setIsParsing(false);
+      setParseProgress("");
     }
   };
 
@@ -154,7 +224,7 @@ export const DocumentPreview = ({
           {isParsing ? (
             <>
               <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-              Parsar...
+              {parseProgress || "Parsar..."}
             </>
           ) : (
             <>
