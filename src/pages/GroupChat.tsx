@@ -114,6 +114,9 @@ const GroupChat = () => {
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [noteEditorOpen, setNoteEditorOpen] = useState(false);
 
+  // Refs
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
   const {
     localStream,
     screenStream,
