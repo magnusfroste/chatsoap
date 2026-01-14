@@ -2,13 +2,46 @@ import { useState } from "react";
 import { Bot, Check, CheckCheck, Reply, X, Image as ImageIcon, FileText } from "lucide-react";
 import { MessageReactions, ReactionPicker } from "./MessageReactions";
 import { SendToNotesButton } from "./SendToNotesButton";
+import { DocumentPreview } from "./DocumentPreview";
 import { cn } from "@/lib/utils";
+
 // Helper to check if content is an image URL
 const isImageUrl = (content: string): boolean => {
   const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
   const lowerContent = content.toLowerCase().trim();
   return imageExtensions.some(ext => lowerContent.includes(ext)) && 
          (lowerContent.startsWith('http://') || lowerContent.startsWith('https://'));
+};
+
+// Helper to check if content is a document URL (PDF, etc.)
+const isDocumentUrl = (content: string): boolean => {
+  const documentExtensions = ['.pdf', '.docx', '.txt', '.doc'];
+  const lowerContent = content.toLowerCase().trim();
+  return documentExtensions.some(ext => lowerContent.includes(ext)) && 
+         (lowerContent.startsWith('http://') || lowerContent.startsWith('https://'));
+};
+
+// Get document type from URL
+const getDocumentType = (content: string): "pdf" | "document" => {
+  const lowerContent = content.toLowerCase();
+  if (lowerContent.includes('.pdf')) return "pdf";
+  return "document";
+};
+
+// Extract filename from URL
+const getFilenameFromUrl = (url: string): string => {
+  try {
+    const pathname = new URL(url).pathname;
+    const filename = pathname.split('/').pop() || "dokument";
+    // Remove timestamp prefix if present (e.g., "1234567890-abc123.pdf" -> "dokument.pdf")
+    const parts = filename.split('-');
+    if (parts.length > 1 && /^\d+$/.test(parts[0])) {
+      return parts.slice(1).join('-');
+    }
+    return filename;
+  } catch {
+    return "dokument";
+  }
 };
 interface ReplyToMessage {
   id: string;
@@ -29,6 +62,8 @@ interface MessageBubbleProps {
     created_at: string;
     reply_to_id?: string | null;
     reply_to?: ReplyToMessage | null;
+    attachment_type?: string | null;
+    attachment_name?: string | null;
     profile?: {
       display_name: string | null;
     };
@@ -41,6 +76,7 @@ interface MessageBubbleProps {
   onReply?: (message: { id: string; content: string; user_id: string | null; is_ai: boolean; profile?: { display_name: string | null } }) => void;
   isRead?: boolean;
   onSaveToNotes?: (content: string, messageId: string) => void;
+  onAnalyzeDocument?: (url: string, name: string, mimeType: string) => void;
 }
 
 export const MessageBubble = ({
@@ -53,6 +89,7 @@ export const MessageBubble = ({
   onReply,
   isRead,
   onSaveToNotes,
+  onAnalyzeDocument,
 }: MessageBubbleProps) => {
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const isAI = message.is_ai;
@@ -177,6 +214,25 @@ export const MessageBubble = ({
               className="max-w-full max-h-[300px] rounded-lg object-contain cursor-pointer hover:opacity-90 transition-opacity"
               onClick={() => window.open(message.content, '_blank')}
               loading="lazy"
+            />
+          </div>
+        ) : isDocumentUrl(message.content) ? (
+          <div className="w-full">
+            <DocumentPreview
+              url={message.content}
+              name={message.attachment_name || getFilenameFromUrl(message.content)}
+              type={getDocumentType(message.content)}
+              isOwnMessage={isOwn}
+              showAnalyzeButton={!!onAnalyzeDocument}
+              onAnalyze={onAnalyzeDocument ? () => {
+                const docType = getDocumentType(message.content);
+                const mimeType = docType === "pdf" ? "application/pdf" : "application/octet-stream";
+                onAnalyzeDocument(
+                  message.content,
+                  message.attachment_name || getFilenameFromUrl(message.content),
+                  mimeType
+                );
+              } : undefined}
             />
           </div>
         ) : (
