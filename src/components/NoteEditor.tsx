@@ -71,9 +71,18 @@ export const NoteEditor = ({
   }, [note]);
 
   const handleSave = async () => {
-    if (!note) return;
+    console.log("handleSave called, note:", note?.id, "title:", title, "content length:", content?.length);
+    if (!note) {
+      console.log("No note to save");
+      return;
+    }
     setIsSaving(true);
-    await onSave(note.id, { title, content });
+    try {
+      const result = await onSave(note.id, { title, content });
+      console.log("Save result:", result);
+    } catch (err) {
+      console.error("Save error:", err);
+    }
     setIsSaving(false);
   };
 
