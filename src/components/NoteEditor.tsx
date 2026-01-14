@@ -46,9 +46,11 @@ import {
   Edit3,
   Copy,
   Check,
+  MessageSquare,
 } from "lucide-react";
 import { Note } from "@/hooks/useNotes";
 import { useNoteAI, NoteAIAction } from "@/hooks/useNoteAI";
+import { SendToChatButton } from "@/components/SendToChatButton";
 
 // Custom code block component with syntax highlighting
 interface CodeBlockProps {
@@ -124,6 +126,7 @@ interface NoteEditorProps {
   onClose: () => void;
   onSave: (noteId: string, updates: { title?: string; content?: string }) => Promise<Note | null>;
   onDelete: (noteId: string) => Promise<boolean>;
+  userId?: string;
 }
 
 const LANGUAGES = [
@@ -166,6 +169,7 @@ export const NoteEditor = ({
   onClose,
   onSave,
   onDelete,
+  userId,
 }: NoteEditorProps) => {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -340,6 +344,16 @@ export const NoteEditor = ({
                   <Trash2 className="h-4 w-4" />
                 )}
               </Button>
+              {userId && content && (
+                <SendToChatButton
+                  content={content}
+                  userId={userId}
+                  sourceNoteId={note?.id}
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                />
+              )}
             </div>
           </div>
         </DialogHeader>
