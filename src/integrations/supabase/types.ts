@@ -127,6 +127,7 @@ export type Database = {
           id: string
           last_message_at: string | null
           name: string | null
+          persona: string | null
           type: Database["public"]["Enums"]["conversation_type"]
           updated_at: string
         }
@@ -136,6 +137,7 @@ export type Database = {
           id?: string
           last_message_at?: string | null
           name?: string | null
+          persona?: string | null
           type: Database["public"]["Enums"]["conversation_type"]
           updated_at?: string
         }
@@ -145,6 +147,7 @@ export type Database = {
           id?: string
           last_message_at?: string | null
           name?: string | null
+          persona?: string | null
           type?: Database["public"]["Enums"]["conversation_type"]
           updated_at?: string
         }
