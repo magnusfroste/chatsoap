@@ -24,6 +24,7 @@ import { NotesSidebar } from "@/components/NotesSidebar";
 import { NoteEditor } from "@/components/NoteEditor";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChatMessageSearch } from "@/components/ChatMessageSearch";
+import { PersonaSwitcher, AI_PERSONAS } from "@/components/PersonaSwitcher";
 interface ReplyToMessage {
   id: string;
   content: string;
@@ -729,11 +730,22 @@ const DirectChat = () => {
               </Avatar>
               
               <div className="flex-1 min-w-0">
-                <h1 className="font-semibold text-foreground truncate">
-                  {conversation?.type === "ai_chat" 
-                    ? "AI Assistent" 
-                    : conversation?.other_user?.display_name || "Chatt"}
-                </h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="font-semibold text-foreground truncate">
+                    {conversation?.type === "ai_chat" 
+                      ? (AI_PERSONAS.find(p => p.id === conversation.persona)?.name || "AI Assistent")
+                      : conversation?.other_user?.display_name || "Chatt"}
+                  </h1>
+                  {conversation?.type === "ai_chat" && (
+                    <PersonaSwitcher 
+                      conversationId={id || ""}
+                      currentPersona={conversation.persona}
+                      onPersonaChange={(persona) => {
+                        setConversation(prev => prev ? { ...prev, persona } : null);
+                      }}
+                    />
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   {conversation?.type === "ai_chat" 
                     ? (aiTyping ? "skriver..." : "redo att hjälpa")
