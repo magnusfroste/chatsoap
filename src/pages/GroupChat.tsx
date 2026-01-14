@@ -494,6 +494,34 @@ const GroupChat = () => {
     setInCall(false);
   };
 
+  // Notes handlers
+  const handleNoteSelect = (note: Note) => {
+    setSelectedNote(note);
+    setNoteEditorOpen(true);
+  };
+
+  const handleCreateNote = async () => {
+    const newNote = await createNote({
+      title: "New Note",
+      content: "",
+      conversationId: id,
+    });
+    if (newNote) {
+      setSelectedNote(newNote);
+      setNoteEditorOpen(true);
+    }
+  };
+
+  const handleSaveToNotes = async (content: string, messageId: string) => {
+    const title = content.slice(0, 50) + (content.length > 50 ? "..." : "");
+    await createNote({
+      title,
+      content,
+      conversationId: id,
+      sourceMessageId: messageId,
+    });
+  };
+
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -596,6 +624,18 @@ const GroupChat = () => {
                 onClick={inCall ? handleLeaveCall : handleJoinCall}
               >
                 <Video className={`w-5 h-5 ${inCall ? "text-red-300" : ""}`} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-whatsapp-green-dark"
+                onClick={() => setNotesSidebarOpen(!notesSidebarOpen)}
+              >
+                {notesSidebarOpen ? (
+                  <PanelRightClose className="w-5 h-5" />
+                ) : (
+                  <PanelRightOpen className="w-5 h-5" />
+                )}
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -703,6 +743,7 @@ const GroupChat = () => {
                           getUserColor={getUserColor}
                           formatTime={formatMessageTime}
                           onReply={(m) => setReplyTo(m)}
+                          onSaveToNotes={(content, messageId) => handleSaveToNotes(content, messageId)}
                         />
                       </div>
                     );
@@ -838,6 +879,28 @@ const GroupChat = () => {
           onLeaveCall={handleLeaveCall}
         />
       )}
+
+      {/* Notes Sidebar */}
+      <NotesSidebar
+        notes={notes}
+        isLoading={notesLoading}
+        isOpen={notesSidebarOpen}
+        onClose={() => setNotesSidebarOpen(false)}
+        onNoteSelect={handleNoteSelect}
+        onCreateNote={handleCreateNote}
+      />
+
+      {/* Note Editor Dialog */}
+      <NoteEditor
+        note={selectedNote}
+        isOpen={noteEditorOpen}
+        onClose={() => {
+          setNoteEditorOpen(false);
+          setSelectedNote(null);
+        }}
+        onSave={updateNote}
+        onDelete={deleteNote}
+      />
     </div>
   );
 };
