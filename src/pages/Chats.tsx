@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import ChatSidebar from "@/components/ChatSidebar";
 import ChatEmptyState from "@/components/ChatEmptyState";
 import DirectChat from "./DirectChat";
+import { NotificationPermissionBanner } from "@/components/NotificationPermissionBanner";
 import { Loader2 } from "lucide-react";
 
 // Lazy load GroupChat
@@ -75,6 +76,9 @@ const Chats = () => {
       <div className="flex-1 hidden md:flex flex-col">
         {renderChatContent()}
       </div>
+
+      {/* Notification Permission Banner */}
+      <NotificationPermissionBanner />
     </div>
   );
 };
