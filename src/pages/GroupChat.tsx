@@ -278,7 +278,6 @@ const GroupChat = () => {
         is_ai: false,
         user_id: user.id,
         conversation_id: id,
-        room_id: id,
         reply_to_id: currentReplyTo?.id || null,
       });
 
@@ -329,7 +328,6 @@ const GroupChat = () => {
               is_ai: true,
               user_id: null,
               conversation_id: id,
-              room_id: id,
             });
 
             await supabase
