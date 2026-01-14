@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNotificationSettings } from "./useNotificationSettings";
 
 interface NotificationOptions {
   title: string;
@@ -12,6 +13,7 @@ interface NotificationOptions {
 export const useNotifications = () => {
   const [permission, setPermission] = useState<NotificationPermission>("default");
   const [isSupported, setIsSupported] = useState(false);
+  const { triggerNotificationEffect } = useNotificationSettings();
 
   useEffect(() => {
     // Check if notifications are supported
@@ -86,6 +88,9 @@ export const useNotifications = () => {
         ? messageContent.slice(0, 100) + "..." 
         : messageContent;
 
+      // Trigger sound and vibration effects
+      triggerNotificationEffect();
+
       return showNotification({
         title: isGroup ? `Nytt meddelande i ${senderName}` : senderName,
         body: truncatedMessage,
@@ -98,7 +103,7 @@ export const useNotifications = () => {
         },
       });
     },
-    [showNotification]
+    [showNotification, triggerNotificationEffect]
   );
 
   return {
