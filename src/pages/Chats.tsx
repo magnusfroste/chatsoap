@@ -1,10 +1,12 @@
 import { useEffect, lazy, Suspense } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useIncomingCallListener } from "@/hooks/useIncomingCallListener";
 import ChatSidebar from "@/components/ChatSidebar";
 import ChatEmptyState from "@/components/ChatEmptyState";
 import DirectChat from "./DirectChat";
 import { NotificationPermissionBanner } from "@/components/NotificationPermissionBanner";
+import { IncomingCallOverlay } from "@/components/IncomingCallOverlay";
 import { Loader2 } from "lucide-react";
 
 // Lazy load GroupChat
@@ -15,6 +17,9 @@ const Chats = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const params = useParams();
+  
+  // Global incoming call listener
+  const { incomingCall, acceptCall, declineCall } = useIncomingCallListener(user?.id);
   
   // Check if we're on a chat subpage
   const isDirectChat = location.pathname.startsWith("/chat/");
@@ -79,6 +84,15 @@ const Chats = () => {
 
       {/* Notification Permission Banner */}
       <NotificationPermissionBanner />
+
+      {/* Incoming Call Overlay */}
+      {incomingCall && (
+        <IncomingCallOverlay
+          call={incomingCall}
+          onAccept={acceptCall}
+          onDecline={declineCall}
+        />
+      )}
     </div>
   );
 };
