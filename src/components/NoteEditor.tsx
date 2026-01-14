@@ -145,18 +145,19 @@ interface FormatAction {
   prefix: string;
   suffix: string;
   block?: boolean;
+  shortcut?: string; // e.g., "b" for Ctrl+B
 }
 
 const FORMAT_ACTIONS: FormatAction[] = [
-  { icon: <Bold className="h-3.5 w-3.5" />, label: "Bold", prefix: "**", suffix: "**" },
-  { icon: <Italic className="h-3.5 w-3.5" />, label: "Italic", prefix: "_", suffix: "_" },
-  { icon: <Code className="h-3.5 w-3.5" />, label: "Code", prefix: "`", suffix: "`" },
-  { icon: <Heading1 className="h-3.5 w-3.5" />, label: "Heading 1", prefix: "# ", suffix: "", block: true },
-  { icon: <Heading2 className="h-3.5 w-3.5" />, label: "Heading 2", prefix: "## ", suffix: "", block: true },
-  { icon: <List className="h-3.5 w-3.5" />, label: "Bullet List", prefix: "- ", suffix: "", block: true },
-  { icon: <ListOrdered className="h-3.5 w-3.5" />, label: "Numbered List", prefix: "1. ", suffix: "", block: true },
-  { icon: <Quote className="h-3.5 w-3.5" />, label: "Quote", prefix: "> ", suffix: "", block: true },
-  { icon: <Link className="h-3.5 w-3.5" />, label: "Link", prefix: "[", suffix: "](url)" },
+  { icon: <Bold className="h-3.5 w-3.5" />, label: "Bold", prefix: "**", suffix: "**", shortcut: "b" },
+  { icon: <Italic className="h-3.5 w-3.5" />, label: "Italic", prefix: "_", suffix: "_", shortcut: "i" },
+  { icon: <Code className="h-3.5 w-3.5" />, label: "Code", prefix: "`", suffix: "`", shortcut: "e" },
+  { icon: <Heading1 className="h-3.5 w-3.5" />, label: "Heading 1", prefix: "# ", suffix: "", block: true, shortcut: "1" },
+  { icon: <Heading2 className="h-3.5 w-3.5" />, label: "Heading 2", prefix: "## ", suffix: "", block: true, shortcut: "2" },
+  { icon: <List className="h-3.5 w-3.5" />, label: "Bullet List", prefix: "- ", suffix: "", block: true, shortcut: "u" },
+  { icon: <ListOrdered className="h-3.5 w-3.5" />, label: "Numbered List", prefix: "1. ", suffix: "", block: true, shortcut: "o" },
+  { icon: <Quote className="h-3.5 w-3.5" />, label: "Quote", prefix: "> ", suffix: "", block: true, shortcut: "q" },
+  { icon: <Link className="h-3.5 w-3.5" />, label: "Link", prefix: "[", suffix: "](url)", shortcut: "k" },
 ];
 
 export const NoteEditor = ({
@@ -184,7 +185,7 @@ export const NoteEditor = ({
     }
   }, [note]);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!note) return;
     setIsSaving(true);
     try {
@@ -193,7 +194,7 @@ export const NoteEditor = ({
       console.error("Save error:", err);
     }
     setIsSaving(false);
-  };
+  }, [note, onSave, title, content]);
 
   const handleDelete = async () => {
     if (!note) return;
@@ -274,6 +275,28 @@ export const NoteEditor = ({
       textarea.setSelectionRange(newCursorPos, newCursorPos);
     }, 0);
   };
+
+  // Keyboard shortcut handler
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Check for Ctrl/Cmd key
+    if (e.ctrlKey || e.metaKey) {
+      const key = e.key.toLowerCase();
+      
+      // Ctrl+S to save
+      if (key === "s") {
+        e.preventDefault();
+        handleSave();
+        return;
+      }
+      
+      // Find matching format action
+      const action = FORMAT_ACTIONS.find(a => a.shortcut === key);
+      if (action) {
+        e.preventDefault();
+        applyFormat(action);
+      }
+    }
+  }, [handleSave]);
 
   if (!note) return null;
 
@@ -419,6 +442,11 @@ export const NoteEditor = ({
                           </TooltipTrigger>
                           <TooltipContent side="bottom" className="text-xs">
                             {action.label}
+                            {action.shortcut && (
+                              <span className="ml-2 text-muted-foreground">
+                                ⌘{action.shortcut.toUpperCase()}
+                              </span>
+                            )}
                           </TooltipContent>
                         </Tooltip>
                       ))}
@@ -431,6 +459,7 @@ export const NoteEditor = ({
                     ref={textareaRef}
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
+                    onKeyDown={handleKeyDown}
                     placeholder="Write your note in Markdown..."
                     className="h-full resize-none text-sm leading-relaxed font-mono"
                   />
