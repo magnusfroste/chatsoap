@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from "react";
+import { useEffect, lazy, Suspense, useState } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useIncomingCallListener } from "@/hooks/useIncomingCallListener";
@@ -17,6 +17,7 @@ const Chats = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const params = useParams();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   
   // Global incoming call listener
   const { incomingCall, acceptCall, declineCall } = useIncomingCallListener(user?.id);
@@ -28,6 +29,10 @@ const Chats = () => {
   
   // Get the active conversation ID from the URL
   const activeConversationId = params.id;
+
+  const toggleSidebarCollapse = () => {
+    setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -64,8 +69,12 @@ const Chats = () => {
   return (
     <div className="h-screen flex bg-background overflow-hidden">
       {/* Left Sidebar - Conversations List (Desktop) */}
-      <div className="w-[400px] flex-shrink-0 border-r border-border hidden md:block">
-        <ChatSidebar activeConversationId={activeConversationId} />
+      <div className={`${isSidebarCollapsed ? 'w-[72px]' : 'w-[400px]'} flex-shrink-0 border-r border-border hidden md:block transition-all duration-300`}>
+        <ChatSidebar 
+          activeConversationId={activeConversationId} 
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={toggleSidebarCollapse}
+        />
       </div>
 
       {/* Mobile: Show only sidebar if not on chat page */}
