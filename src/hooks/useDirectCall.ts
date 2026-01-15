@@ -70,26 +70,27 @@ export function useDirectCall(
   }, []);
 
   // Create peer connection
-  const createPeer = useCallback((initiator: boolean, stream: MediaStream, targetUserId: string) => {
-    console.log(`Creating peer, initiator: ${initiator}`);
+  const createPeer = useCallback(async (initiator: boolean, stream: MediaStream, targetUserId: string, callId: string) => {
+    console.log(`Creating peer, initiator: ${initiator}, callId: ${callId}`);
     
     const peer = new Peer({
       initiator,
-      trickle: false,
+      trickle: true, // Enable trickle for faster connection
       stream,
       config: {
         iceServers: [
           { urls: "stun:stun.l.google.com:19302" },
           { urls: "stun:stun1.l.google.com:19302" },
+          { urls: "stun:stun2.l.google.com:19302" },
+          { urls: "stun:stun3.l.google.com:19302" },
         ],
       },
     });
 
     peer.on("signal", async (signal: SignalData) => {
-      if (!callIdRef.current) return;
-      console.log("Sending call signal");
+      console.log("Sending call signal, type:", (signal as any).type || "candidate");
       await supabase.from("call_signals").insert({
-        call_id: callIdRef.current,
+        call_id: callId,
         from_user_id: userId!,
         to_user_id: targetUserId,
         signal_data: signal as unknown as Json,
@@ -103,14 +104,42 @@ export function useDirectCall(
 
     peer.on("error", (err) => {
       console.error("Peer error:", err);
-      endCall();
+      // Clean up on error - do inline to avoid circular dependency
+      peer.destroy();
+      peerRef.current = null;
     });
 
     peer.on("close", () => {
       console.log("Peer connection closed");
     });
 
+    peer.on("connect", () => {
+      console.log("Peer connected!");
+    });
+
     peerRef.current = peer;
+
+    // For non-initiator: fetch any existing signals that were sent before we created the peer
+    if (!initiator) {
+      console.log("Fetching existing signals for call:", callId);
+      const { data: existingSignals } = await supabase
+        .from("call_signals")
+        .select("*")
+        .eq("call_id", callId)
+        .eq("to_user_id", userId!)
+        .order("created_at", { ascending: true });
+
+      if (existingSignals && existingSignals.length > 0) {
+        console.log(`Found ${existingSignals.length} existing signals`);
+        for (const signal of existingSignals) {
+          console.log("Processing existing signal");
+          peer.signal(signal.signal_data as any);
+          // Delete after processing
+          await supabase.from("call_signals").delete().eq("id", signal.id);
+        }
+      }
+    }
+
     return peer;
   }, [userId]);
 
@@ -150,8 +179,8 @@ export function useDirectCall(
       isIncoming: false,
     });
 
-    // Create peer as initiator
-    createPeer(true, stream, otherUserId);
+    // Create peer as initiator - pass the callId
+    createPeer(true, stream, otherUserId, call.id);
   }, [conversationId, userId, otherUserId, otherUserName, getLocalMedia, stopLocalMedia, createPeer]);
 
   // Accept incoming call
@@ -161,16 +190,16 @@ export function useDirectCall(
     const stream = await getLocalMedia(callState.callType === "video");
     if (!stream) return;
 
-    // Update call status
+    setCallState((prev) => ({ ...prev, status: "connected" }));
+
+    // Create peer as non-initiator FIRST (this will also fetch existing signals)
+    await createPeer(false, stream, callState.remoteUserId, callState.callId);
+
+    // Update call status AFTER peer is ready
     await supabase
       .from("direct_calls")
       .update({ status: "accepted", started_at: new Date().toISOString() })
       .eq("id", callState.callId);
-
-    setCallState((prev) => ({ ...prev, status: "connected" }));
-
-    // Create peer as non-initiator
-    createPeer(false, stream, callState.remoteUserId);
   }, [callState.callId, callState.remoteUserId, callState.callType, getLocalMedia, createPeer]);
 
   // Decline incoming call
@@ -396,8 +425,10 @@ export function useDirectCall(
   useEffect(() => {
     if (!callState.callId || !userId) return;
 
+    console.log("Setting up signal listener for call:", callState.callId);
+
     const channel = supabase
-      .channel(`call-signals-${callState.callId}`)
+      .channel(`call-signals-${callState.callId}-${Date.now()}`)
       .on(
         "postgres_changes",
         {
@@ -410,17 +441,28 @@ export function useDirectCall(
           const signal = payload.new as any;
           if (signal.call_id !== callState.callId) return;
 
-          console.log("Received signal");
+          console.log("Received new signal via realtime, type:", (signal.signal_data as any)?.type || "candidate");
           
           if (peerRef.current) {
-            peerRef.current.signal(signal.signal_data);
+            try {
+              peerRef.current.signal(signal.signal_data);
+              console.log("Signal processed successfully");
+            } catch (err) {
+              console.error("Error processing signal:", err);
+            }
+          } else {
+            console.warn("Peer not ready yet, signal might be lost");
           }
 
-          // Clean up signal
-          await supabase.from("call_signals").delete().eq("id", signal.id);
+          // Clean up signal after small delay to ensure it's processed
+          setTimeout(async () => {
+            await supabase.from("call_signals").delete().eq("id", signal.id);
+          }, 500);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Signal channel status:", status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
