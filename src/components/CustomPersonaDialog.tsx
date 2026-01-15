@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sparkles, Wand2, Brain, Heart, Zap, Star, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,19 +36,44 @@ export function getIconComponent(iconId: string) {
   return found?.icon || Sparkles;
 }
 
+export interface EditablePersona {
+  id: string;
+  name: string;
+  description: string | null;
+  system_prompt: string;
+  icon: string;
+  gradient: string;
+}
+
 interface CustomPersonaDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onPersonaCreated: () => void;
+  onPersonaSaved: () => void;
+  editingPersona?: EditablePersona | null;
 }
 
-export function CustomPersonaDialog({ open, onOpenChange, onPersonaCreated }: CustomPersonaDialogProps) {
+export function CustomPersonaDialog({ open, onOpenChange, onPersonaSaved, editingPersona }: CustomPersonaDialogProps) {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [selectedIcon, setSelectedIcon] = useState("sparkles");
   const [selectedGradient, setSelectedGradient] = useState("from-violet-500 to-fuchsia-500");
+
+  const isEditing = !!editingPersona;
+
+  // Populate form when editing
+  useEffect(() => {
+    if (editingPersona) {
+      setName(editingPersona.name);
+      setDescription(editingPersona.description || "");
+      setSystemPrompt(editingPersona.system_prompt);
+      setSelectedIcon(editingPersona.icon || "sparkles");
+      setSelectedGradient(editingPersona.gradient || "from-violet-500 to-fuchsia-500");
+    } else {
+      resetForm();
+    }
+  }, [editingPersona, open]);
 
   const resetForm = () => {
     setName("");
@@ -69,25 +94,44 @@ export function CustomPersonaDialog({ open, onOpenChange, onPersonaCreated }: Cu
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Ej inloggad");
 
-      const { error } = await supabase
-        .from("custom_personas")
-        .insert({
-          user_id: user.id,
-          name: name.trim(),
-          description: description.trim() || null,
-          system_prompt: systemPrompt.trim(),
-          icon: selectedIcon,
-          gradient: selectedGradient,
-        });
+      if (isEditing) {
+        // Update existing persona
+        const { error } = await supabase
+          .from("custom_personas")
+          .update({
+            name: name.trim(),
+            description: description.trim() || null,
+            system_prompt: systemPrompt.trim(),
+            icon: selectedIcon,
+            gradient: selectedGradient,
+          })
+          .eq("id", editingPersona.id)
+          .eq("user_id", user.id);
 
-      if (error) throw error;
+        if (error) throw error;
+        toast.success("Persona uppdaterad!");
+      } else {
+        // Create new persona
+        const { error } = await supabase
+          .from("custom_personas")
+          .insert({
+            user_id: user.id,
+            name: name.trim(),
+            description: description.trim() || null,
+            system_prompt: systemPrompt.trim(),
+            icon: selectedIcon,
+            gradient: selectedGradient,
+          });
 
-      toast.success("Persona skapad!");
+        if (error) throw error;
+        toast.success("Persona skapad!");
+      }
+
       resetForm();
-      onPersonaCreated();
+      onPersonaSaved();
     } catch (error) {
-      console.error("Error creating persona:", error);
-      toast.error("Kunde inte skapa persona");
+      console.error("Error saving persona:", error);
+      toast.error(isEditing ? "Kunde inte uppdatera persona" : "Kunde inte skapa persona");
     } finally {
       setSaving(false);
     }
@@ -99,7 +143,7 @@ export function CustomPersonaDialog({ open, onOpenChange, onPersonaCreated }: Cu
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Skapa egen AI-persona</DialogTitle>
+          <DialogTitle>{isEditing ? "Redigera AI-persona" : "Skapa egen AI-persona"}</DialogTitle>
         </DialogHeader>
         
         <div className="space-y-4 mt-4">
@@ -211,7 +255,7 @@ export function CustomPersonaDialog({ open, onOpenChange, onPersonaCreated }: Cu
                 Sparar...
               </>
             ) : (
-              "Skapa persona"
+              isEditing ? "Spara ändringar" : "Skapa persona"
             )}
           </Button>
         </div>
