@@ -48,12 +48,12 @@ const Profile = () => {
 
     // Validate file
     if (!file.type.startsWith("image/")) {
-      toast.error("Endast bildfiler är tillåtna");
+      toast.error("Only image files are allowed");
       return;
     }
 
     if (file.size > 2 * 1024 * 1024) {
-      toast.error("Bilden får max vara 2MB");
+      toast.error("Image must be 2MB or less");
       return;
     }
 
@@ -77,10 +77,10 @@ const Profile = () => {
         .getPublicUrl(filePath);
 
       setAvatarUrl(publicUrl);
-      toast.success("Bild uppladdad!");
+      toast.success("Image uploaded!");
     } catch (error) {
       console.error("Error uploading avatar:", error);
-      toast.error("Kunde inte ladda upp bilden");
+      toast.error("Could not upload image");
     } finally {
       setUploading(false);
     }
@@ -104,17 +104,17 @@ const Profile = () => {
       if (error) throw error;
 
       await refreshProfile?.();
-      toast.success("Profilen uppdaterad!");
+      toast.success("Profile updated!");
     } catch (error) {
       console.error("Error updating profile:", error);
-      toast.error("Kunde inte uppdatera profilen");
+      toast.error("Could not update profile");
     } finally {
       setSaving(false);
     }
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("sv-SE", {
+    return new Date(dateStr).toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
       day: "numeric",
@@ -142,7 +142,7 @@ const Profile = () => {
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="text-xl font-semibold text-foreground">Profil</h1>
+          <h1 className="text-xl font-semibold text-foreground">Profile</h1>
         </div>
       </header>
 
@@ -177,7 +177,7 @@ const Profile = () => {
                 disabled={uploading}
               />
             </div>
-            <CardTitle className="mt-4">{displayName || "Användare"}</CardTitle>
+            <CardTitle className="mt-4">{displayName || "User"}</CardTitle>
             <CardDescription>{user?.email}</CardDescription>
           </CardHeader>
         </Card>
@@ -185,20 +185,20 @@ const Profile = () => {
         {/* Profile Form */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Profilinformation</CardTitle>
-            <CardDescription>Uppdatera din profilinformation</CardDescription>
+            <CardTitle className="text-lg">Profile Information</CardTitle>
+            <CardDescription>Update your profile information</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="displayName" className="flex items-center gap-2">
                 <User className="w-4 h-4 text-muted-foreground" />
-                Visningsnamn
+                Display Name
               </Label>
               <Input
                 id="displayName"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Ditt namn"
+                placeholder="Your name"
                 className="bg-background"
               />
             </div>
@@ -206,14 +206,14 @@ const Profile = () => {
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Mail className="w-4 h-4 text-muted-foreground" />
-                E-post
+                Email
               </Label>
               <Input
                 value={user?.email || ""}
                 disabled
                 className="bg-muted"
               />
-              <p className="text-xs text-muted-foreground">E-postadressen kan inte ändras</p>
+              <p className="text-xs text-muted-foreground">Email cannot be changed</p>
             </div>
 
             <Button 
@@ -226,7 +226,7 @@ const Profile = () => {
               ) : (
                 <Save className="w-4 h-4 mr-2" />
               )}
-              Spara ändringar
+              Save Changes
             </Button>
           </CardContent>
         </Card>
@@ -237,12 +237,12 @@ const Profile = () => {
         {/* Account Info */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Kontoinformation</CardTitle>
+            <CardTitle className="text-lg">Account Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center gap-3 text-sm">
               <Calendar className="w-4 h-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Medlem sedan:</span>
+              <span className="text-muted-foreground">Member since:</span>
               <span className="text-foreground">
                 {user?.created_at ? formatDate(user.created_at) : "—"}
               </span>
@@ -259,7 +259,7 @@ const Profile = () => {
             navigate("/");
           }}
         >
-          Logga ut
+          Log Out
         </Button>
       </main>
     </div>

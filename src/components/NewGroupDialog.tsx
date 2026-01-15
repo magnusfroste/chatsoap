@@ -131,27 +131,27 @@ const NewGroupDialog = ({ open, onOpenChange, onGroupCreated }: NewGroupDialogPr
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="w-5 h-5" />
-            Skapa ny grupp
+            Create New Group
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="group-name">Gruppnamn</Label>
+            <Label htmlFor="group-name">Group Name</Label>
             <Input
               id="group-name"
-              placeholder="T.ex. Projektteam"
+              placeholder="e.g. Project Team"
               value={groupName}
               onChange={(e) => setGroupName(e.target.value)}
             />
           </div>
 
           <div className="space-y-2">
-            <Label>Lägg till medlemmar (valfritt)</Label>
+            <Label>Add Members (optional)</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Sök användare..."
+                placeholder="Search users..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -161,7 +161,7 @@ const NewGroupDialog = ({ open, onOpenChange, onGroupCreated }: NewGroupDialogPr
 
           {selectedUsers.length > 0 && (
             <div className="text-sm text-muted-foreground">
-              {selectedUsers.length} användare valda
+              {selectedUsers.length} user(s) selected
             </div>
           )}
 
@@ -172,7 +172,7 @@ const NewGroupDialog = ({ open, onOpenChange, onGroupCreated }: NewGroupDialogPr
               </div>
             ) : filteredUsers.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                Inga användare hittades
+                No users found
               </div>
             ) : (
               <div className="space-y-1">
@@ -191,7 +191,7 @@ const NewGroupDialog = ({ open, onOpenChange, onGroupCreated }: NewGroupDialogPr
                       </AvatarFallback>
                     </Avatar>
                     <span className="font-medium text-foreground text-sm">
-                      {u.display_name || "Användare"}
+                      {u.display_name || "User"}
                     </span>
                   </label>
                 ))}
@@ -202,7 +202,7 @@ const NewGroupDialog = ({ open, onOpenChange, onGroupCreated }: NewGroupDialogPr
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Avbryt
+            Cancel
           </Button>
           <Button
             onClick={handleCreateGroup}
@@ -211,7 +211,7 @@ const NewGroupDialog = ({ open, onOpenChange, onGroupCreated }: NewGroupDialogPr
             {creating ? (
               <Loader2 className="w-4 h-4 animate-spin mr-2" />
             ) : null}
-            Skapa grupp
+            Create Group
           </Button>
         </DialogFooter>
       </DialogContent>
