@@ -64,7 +64,7 @@ export default function Admin() {
     });
 
     if (error || !data) {
-      toast.error("Du har inte behörighet till denna sida");
+      toast.error("You do not have permission to access this page");
       navigate("/chats");
       return;
     }
@@ -122,10 +122,10 @@ export default function Admin() {
       .eq("key", "require_invite_code");
 
     if (error) {
-      toast.error("Kunde inte uppdatera inställningen");
+      toast.error("Could not update setting");
       setRequireInviteCode(!checked);
     } else {
-      toast.success(checked ? "Inbjudningskod krävs nu" : "Inbjudningskod avstängd");
+      toast.success(checked ? "Invite code now required" : "Invite code disabled");
     }
   };
 
@@ -141,9 +141,9 @@ export default function Admin() {
       });
 
     if (error) {
-      toast.error("Kunde inte skapa inbjudningskod");
+      toast.error("Could not create invite code");
     } else {
-      toast.success(`Ny kod skapad: ${code}`);
+      toast.success(`New code created: ${code}`);
       fetchInviteCodes();
     }
   };
@@ -183,18 +183,18 @@ export default function Admin() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Settings className="w-5 h-5" />
-              Inställningar
+              Settings
             </CardTitle>
-            <CardDescription>Hantera appens globala inställningar</CardDescription>
+            <CardDescription>Manage application global settings</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <Label htmlFor="invite-toggle" className="text-base font-medium">
-                  Kräv inbjudningskod
+                  Require Invite Code
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  När aktiverad måste nya användare ange en giltig inbjudningskod för att registrera sig
+                  When enabled, new users must enter a valid invite code to register
                 </p>
               </div>
               <Switch
@@ -213,9 +213,9 @@ export default function Admin() {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Plus className="w-5 h-5" />
-                  Inbjudningskoder
+                  Invite Codes
                 </CardTitle>
-                <CardDescription>Hantera inbjudningskoder för nya användare</CardDescription>
+                <CardDescription>Manage invite codes for new users</CardDescription>
               </div>
               <div className="flex items-center gap-2">
                 <Input
@@ -226,7 +226,7 @@ export default function Admin() {
                 />
                 <Button onClick={generateInviteCode} size="sm">
                   <Plus className="w-4 h-4 mr-1" />
-                  Ny kod
+                  New Code
                 </Button>
               </div>
             </div>
@@ -235,9 +235,9 @@ export default function Admin() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Kod</TableHead>
-                  <TableHead>Skapad</TableHead>
-                  <TableHead>Utgår</TableHead>
+                  <TableHead>Code</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Expires</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -246,20 +246,20 @@ export default function Admin() {
                   <TableRow key={code.id}>
                     <TableCell className="font-mono">{code.code}</TableCell>
                     <TableCell>
-                      {new Date(code.created_at).toLocaleDateString("sv-SE")}
+                      {new Date(code.created_at).toLocaleDateString("en-US")}
                     </TableCell>
                     <TableCell>
                       {code.expires_at 
-                        ? new Date(code.expires_at).toLocaleDateString("sv-SE")
-                        : "Aldrig"}
+                        ? new Date(code.expires_at).toLocaleDateString("en-US")
+                        : "Never"}
                     </TableCell>
                     <TableCell>
                       {code.used_by ? (
-                        <span className="text-muted-foreground">Använd</span>
+                        <span className="text-muted-foreground">Used</span>
                       ) : code.expires_at && new Date(code.expires_at) < new Date() ? (
-                        <span className="text-destructive">Utgången</span>
+                        <span className="text-destructive">Expired</span>
                       ) : (
-                        <span className="text-green-500">Aktiv</span>
+                        <span className="text-green-500">Active</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -267,7 +267,7 @@ export default function Admin() {
                 {inviteCodes.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center text-muted-foreground">
-                      Inga inbjudningskoder skapade
+                      No invite codes created
                     </TableCell>
                   </TableRow>
                 )}
@@ -281,24 +281,24 @@ export default function Admin() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="w-5 h-5" />
-              Användare ({users.length})
+              Users ({users.length})
             </CardTitle>
-            <CardDescription>Alla registrerade användare</CardDescription>
+            <CardDescription>All registered users</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Namn</TableHead>
-                  <TableHead>Registrerad</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Registered</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {users.map((profile) => (
                   <TableRow key={profile.id}>
-                    <TableCell>{profile.display_name || "Okänd"}</TableCell>
+                    <TableCell>{profile.display_name || "Unknown"}</TableCell>
                     <TableCell>
-                      {new Date(profile.created_at).toLocaleDateString("sv-SE")}
+                      {new Date(profile.created_at).toLocaleDateString("en-US")}
                     </TableCell>
                   </TableRow>
                 ))}

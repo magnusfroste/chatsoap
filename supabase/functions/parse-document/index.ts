@@ -63,22 +63,22 @@ serve(async (req) => {
         },
         {
           type: "text",
-          text: "Konvertera detta dokument till välformaterad Markdown. Behåll all text, struktur, rubriker, listor och tabeller. Returnera ENDAST markdown-innehållet utan några förklaringar eller kommentarer.",
+          text: "Convert this document to well-formatted Markdown. Keep all text, structure, headings, lists, and tables. Return ONLY the markdown content without any explanations or comments.",
         },
       ],
     };
 
-    const systemPrompt = `Du är en dokumentkonverterare. Din enda uppgift är att konvertera dokument till välformaterad Markdown.
+    const systemPrompt = `You are a document converter. Your only task is to convert documents to well-formatted Markdown.
 
-Regler:
-- Behåll dokumentets struktur så nära originalet som möjligt
-- Använd korrekta Markdown-rubriker (# ## ### etc.)
-- Konvertera tabeller till Markdown-tabeller
-- Behåll listor och numrerade listor
-- Bevara all text exakt som den är
-- Returnera ENDAST markdown-innehållet, inga förklaringar
-- Om dokumentet innehåller bilder, beskriv dem kortfattat i [brackets]
-- Formatera kodblock med rätt syntax highlighting om relevant`;
+Rules:
+- Keep the document structure as close to the original as possible
+- Use correct Markdown headings (# ## ### etc.)
+- Convert tables to Markdown tables
+- Keep lists and numbered lists
+- Preserve all text exactly as it is
+- Return ONLY the markdown content, no explanations
+- If the document contains images, describe them briefly in [brackets]
+- Format code blocks with appropriate syntax highlighting if relevant`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
