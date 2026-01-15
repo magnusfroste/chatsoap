@@ -16,36 +16,36 @@ import { CustomPersonaDialog, getIconComponent, EditablePersona } from "./Custom
 export const AI_PERSONAS = [
   {
     id: "general",
-    name: "Generell Assistent",
-    description: "Hjälpsam AI för alla typer av frågor",
+    name: "General Assistant",
+    description: "Helpful AI for all types of questions",
     icon: Bot,
     gradient: "from-primary to-accent",
   },
   {
     id: "code",
-    name: "Kodhjälp",
-    description: "Expert på programmering och felsökning",
+    name: "Code Helper",
+    description: "Expert in programming and debugging",
     icon: Code,
     gradient: "from-emerald-500 to-teal-500",
   },
   {
     id: "writer",
-    name: "Skrivassistent",
-    description: "Hjälper med texter och kommunikation",
+    name: "Writing Assistant",
+    description: "Helps with texts and communication",
     icon: Pen,
     gradient: "from-blue-500 to-indigo-500",
   },
   {
     id: "creative",
-    name: "Kreativ Brainstorming",
-    description: "Genererar idéer och tänker utanför boxen",
+    name: "Creative Brainstorming",
+    description: "Generates ideas and thinks outside the box",
     icon: Lightbulb,
     gradient: "from-amber-500 to-orange-500",
   },
   {
     id: "learning",
-    name: "Lärare & Mentor",
-    description: "Pedagogiska förklaringar anpassade för dig",
+    name: "Teacher & Mentor",
+    description: "Pedagogical explanations tailored for you",
     icon: GraduationCap,
     gradient: "from-purple-500 to-pink-500",
   },
@@ -131,10 +131,10 @@ export function PersonaSwitcher({ conversationId, currentPersona, onPersonaChang
       if (error) throw error;
       
       onPersonaChange(personaId, customSystemPrompt);
-      toast.success(`Bytte till ${displayName}`);
+      toast.success(`Switched to ${displayName}`);
     } catch (error) {
       console.error("Error updating persona:", error);
-      toast.error("Kunde inte byta persona");
+      toast.error("Could not switch persona");
     } finally {
       setUpdating(false);
     }
@@ -152,7 +152,7 @@ export function PersonaSwitcher({ conversationId, currentPersona, onPersonaChang
       if (error) throw error;
       
       setCustomPersonas(prev => prev.filter(p => p.id !== personaId));
-      toast.success("Persona borttagen");
+      toast.success("Persona deleted");
       
       // If currently using this persona, switch to general
       if (currentPersona === `custom:${personaId}`) {
@@ -160,7 +160,7 @@ export function PersonaSwitcher({ conversationId, currentPersona, onPersonaChang
       }
     } catch (error) {
       console.error("Error deleting persona:", error);
-      toast.error("Kunde inte ta bort persona");
+      toast.error("Could not delete persona");
     }
   };
 
@@ -240,7 +240,7 @@ export function PersonaSwitcher({ conversationId, currentPersona, onPersonaChang
             <>
               <DropdownMenuSeparator />
               <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                Egna personas
+                Custom personas
               </div>
               {customPersonas.map((persona) => {
                 const Icon = getIconComponent(persona.icon);
@@ -257,7 +257,7 @@ export function PersonaSwitcher({ conversationId, currentPersona, onPersonaChang
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-sm">{persona.name}</div>
                       <p className="text-xs text-muted-foreground truncate">
-                        {persona.description || "Egen AI-persona"}
+                        {persona.description || "Custom AI persona"}
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
@@ -291,7 +291,7 @@ export function PersonaSwitcher({ conversationId, currentPersona, onPersonaChang
               onClick={handleOpenCreateDialog}
             >
               <Plus className="w-4 h-4" />
-              Skapa egen persona
+              Create custom persona
             </Button>
           </div>
         </DropdownMenuContent>

@@ -139,7 +139,7 @@ export const ChatActionsMenu = ({
           {!isGroup && onContactInfo && (
             <DropdownMenuItem onClick={onContactInfo}>
               <User className="h-4 w-4 mr-2" />
-              Kontaktinfo
+              Contact info
             </DropdownMenuItem>
           )}
           
@@ -147,12 +147,12 @@ export const ChatActionsMenu = ({
             {settings?.is_pinned ? (
               <>
                 <PinOff className="h-4 w-4 mr-2" />
-                Avfäst chatt
+                Unpin chat
               </>
             ) : (
               <>
                 <Pin className="h-4 w-4 mr-2" />
-                Fäst chatt
+                Pin chat
               </>
             )}
           </DropdownMenuItem>
@@ -161,12 +161,12 @@ export const ChatActionsMenu = ({
             {settings?.is_favorite ? (
               <>
                 <StarOff className="h-4 w-4 mr-2" />
-                Ta bort från favoriter
+                Remove from favorites
               </>
             ) : (
               <>
                 <Star className="h-4 w-4 mr-2" />
-                Lägg till i favoriter
+                Add to favorites
               </>
             )}
           </DropdownMenuItem>
@@ -175,12 +175,12 @@ export const ChatActionsMenu = ({
             {settings?.is_muted ? (
               <>
                 <Bell className="h-4 w-4 mr-2" />
-                Slå på aviseringar
+                Enable notifications
               </>
             ) : (
               <>
                 <BellOff className="h-4 w-4 mr-2" />
-                Stäng av aviseringar
+                Mute notifications
               </>
             )}
           </DropdownMenuItem>
@@ -191,19 +191,19 @@ export const ChatActionsMenu = ({
             {settings?.is_archived ? (
               <>
                 <ArchiveRestore className="h-4 w-4 mr-2" />
-                Avarkivera chatt
+                Unarchive chat
               </>
             ) : (
               <>
                 <Archive className="h-4 w-4 mr-2" />
-                Arkivera chatt
+                Archive chat
               </>
             )}
           </DropdownMenuItem>
 
           <DropdownMenuItem onClick={handleExport} disabled={loading}>
             <FileDown className="h-4 w-4 mr-2" />
-            Exportera chatt
+            Export chat
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
@@ -214,7 +214,7 @@ export const ChatActionsMenu = ({
             className="text-destructive focus:text-destructive"
           >
             <Trash2 className="h-4 w-4 mr-2" />
-            Ta bort chatt
+            Delete chat
           </DropdownMenuItem>
 
           <DropdownMenuItem 
@@ -223,7 +223,7 @@ export const ChatActionsMenu = ({
             className="text-destructive focus:text-destructive"
           >
             <Trash2 className="h-4 w-4 mr-2" />
-            Ta bort permanent
+            Delete permanently
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -232,22 +232,22 @@ export const ChatActionsMenu = ({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {deleteType === "soft" ? "Ta bort chatt?" : "Ta bort chatt permanent?"}
+              {deleteType === "soft" ? "Delete chat?" : "Delete chat permanently?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {deleteType === "soft" 
-                ? "Chatten kommer att döljas men kan återställas senare."
-                : "Denna åtgärd kan inte ångras. Chatten kommer att tas bort permanent."
+                ? "The chat will be hidden but can be restored later."
+                : "This action cannot be undone. The chat will be permanently deleted."
               }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleDeleteConfirm}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleteType === "soft" ? "Ta bort" : "Ta bort permanent"}
+              {deleteType === "soft" ? "Delete" : "Delete permanently"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

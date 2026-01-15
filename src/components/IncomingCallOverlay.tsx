@@ -53,10 +53,10 @@ export function IncomingCallOverlay({ call, onAccept, onDecline }: IncomingCallO
         {/* Caller info */}
         <div className="text-center">
           <h2 className="text-xl font-semibold text-foreground">
-            {call.callerName || "Okänd användare"}
+            {call.callerName || "Unknown user"}
           </h2>
           <p className="text-muted-foreground mt-1">
-            Inkommande {call.callType === "video" ? "videosamtal" : "röstsamtal"}...
+            Incoming {call.callType === "video" ? "video call" : "voice call"}...
           </p>
         </div>
 

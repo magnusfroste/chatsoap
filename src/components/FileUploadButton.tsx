@@ -54,13 +54,13 @@ export const FileUploadButton = ({ onFileSelect, className }: FileUploadButtonPr
 
     // Validate file type
     if (!ALL_ACCEPTED.includes(file.type)) {
-      toast.error("Filtypen stöds inte. Välj bild, PDF, TXT eller DOCX.");
+      toast.error("File type not supported. Choose image, PDF, TXT or DOCX.");
       return;
     }
 
     // Validate file size
     if (file.size > MAX_FILE_SIZE) {
-      toast.error("Filen får vara max 10MB");
+      toast.error("File must be max 10MB");
       return;
     }
 
@@ -97,11 +97,11 @@ export const FileUploadButton = ({ onFileSelect, className }: FileUploadButtonPr
           type: fileType,
           mimeType: file.type,
         });
-        toast.success(fileType === "image" ? "Bild uppladdad!" : "Dokument uppladdat!");
+        toast.success(fileType === "image" ? "Image uploaded!" : "Document uploaded!");
       }
     } catch (error) {
       console.error("Upload error:", error);
-      toast.error("Kunde inte ladda upp filen");
+      toast.error("Could not upload file");
     } finally {
       setIsUploading(false);
       // Reset inputs
@@ -162,7 +162,7 @@ export const FileUploadButton = ({ onFileSelect, className }: FileUploadButtonPr
               <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
                 <Image className="w-5 h-5 text-purple-600 dark:text-purple-400" />
               </div>
-              <span className="text-sm font-medium">Bild</span>
+              <span className="text-sm font-medium">Image</span>
             </button>
             <button
               onClick={triggerFileInput}
@@ -172,7 +172,7 @@ export const FileUploadButton = ({ onFileSelect, className }: FileUploadButtonPr
                 <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <span className="text-sm font-medium block">Dokument</span>
+                <span className="text-sm font-medium block">Document</span>
                 <span className="text-xs text-muted-foreground">PDF, TXT, DOCX</span>
               </div>
             </button>
@@ -213,7 +213,7 @@ export const FilePreview = ({ file, onRemove, showAnalyzeHint }: FilePreviewProp
               {file.type === "pdf" ? "PDF" : "Dokument"}
             </p>
             {showAnalyzeHint && (
-              <p className="text-xs text-primary mt-1">Skriv @ai för att analysera</p>
+              <p className="text-xs text-primary mt-1">Type @ai to analyze</p>
             )}
           </div>
         </div>

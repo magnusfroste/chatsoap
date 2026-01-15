@@ -29,15 +29,15 @@ const ChatEmptyState = () => {
 
         {/* Description */}
         <p className="text-muted-foreground text-sm leading-relaxed mb-8">
-          Skicka och ta emot meddelanden utan att behöva ha telefonen ansluten.
+          Send and receive messages without needing your phone connected.
           <br />
-          Välj en chatt från listan till vänster för att börja.
+          Select a chat from the list on the left to get started.
         </p>
 
         {/* Encryption notice */}
         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
           <Lock className="w-3 h-3" />
-          <span>Dina personliga meddelanden är säkra</span>
+          <span>Your personal messages are secure</span>
         </div>
       </div>
     </div>

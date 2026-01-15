@@ -47,16 +47,16 @@ export const NotificationPermissionBanner = () => {
             <Bell className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="font-medium text-foreground text-sm">Aktivera notifikationer</h4>
+            <h4 className="font-medium text-foreground text-sm">Enable notifications</h4>
             <p className="text-xs text-muted-foreground mt-1">
-              Få notiser när du får nya meddelanden, även när appen inte är i fokus.
+              Get notified when you receive new messages, even when the app is not in focus.
             </p>
             <div className="flex items-center gap-2 mt-3">
               <Button size="sm" onClick={handleEnable} className="text-xs">
-                Aktivera
+                Enable
               </Button>
               <Button size="sm" variant="ghost" onClick={handleDismiss} className="text-xs">
-                Inte nu
+                Not now
               </Button>
             </div>
           </div>

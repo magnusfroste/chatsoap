@@ -199,7 +199,7 @@ const NewChatDialog = ({ open, onOpenChange, onChatCreated }: NewChatDialogProps
               >
                 <ArrowLeft className="w-4 h-4" />
               </Button>
-              <DialogTitle>Välj AI Persona</DialogTitle>
+              <DialogTitle>Choose AI Persona</DialogTitle>
             </div>
           </DialogHeader>
 
@@ -236,7 +236,7 @@ const NewChatDialog = ({ open, onOpenChange, onChatCreated }: NewChatDialogProps
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Ny chatt</DialogTitle>
+          <DialogTitle>New chat</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -251,25 +251,25 @@ const NewChatDialog = ({ open, onOpenChange, onChatCreated }: NewChatDialogProps
             </div>
             <div className="text-left flex-1">
               <div className="font-semibold flex items-center gap-2">
-                Chatta med AI
+                Chat with AI
                 <Sparkles className="w-4 h-4" />
               </div>
               <p className="text-sm opacity-80 font-normal">
-                Välj persona och börja chatta
+                Choose a persona and start chatting
               </p>
             </div>
           </Button>
 
           <div className="relative flex items-center gap-2 py-2">
             <div className="flex-1 border-t border-border" />
-            <span className="text-xs text-muted-foreground px-2">eller chatta med</span>
+            <span className="text-xs text-muted-foreground px-2">or chat with</span>
             <div className="flex-1 border-t border-border" />
           </div>
 
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Sök användare..."
+              placeholder="Search users..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -283,7 +283,7 @@ const NewChatDialog = ({ open, onOpenChange, onChatCreated }: NewChatDialogProps
               </div>
             ) : filteredUsers.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                Inga användare hittades
+                No users found
               </div>
             ) : (
               <div className="space-y-1">
@@ -300,7 +300,7 @@ const NewChatDialog = ({ open, onOpenChange, onChatCreated }: NewChatDialogProps
                       </AvatarFallback>
                     </Avatar>
                     <span className="font-medium text-foreground">
-                      {u.display_name || "Användare"}
+                      {u.display_name || "User"}
                     </span>
                   </button>
                 ))}

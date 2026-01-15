@@ -28,10 +28,10 @@ export const NotificationSettingsCard = () => {
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <Bell className="w-5 h-5 text-muted-foreground" />
-          Notifikationsinställningar
+          Notification Settings
         </CardTitle>
         <CardDescription>
-          Konfigurera ljud och vibration för nya meddelanden
+          Configure sound and vibration for new messages
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -41,10 +41,10 @@ export const NotificationSettingsCard = () => {
             <Volume2 className="w-5 h-5 text-muted-foreground" />
             <div>
               <Label htmlFor="sound-toggle" className="font-medium">
-                Notifikationsljud
+                Notification sound
               </Label>
               <p className="text-sm text-muted-foreground">
-                Spela upp ljud vid nya meddelanden
+                Play sound for new messages
               </p>
             </div>
           </div>
@@ -59,7 +59,7 @@ export const NotificationSettingsCard = () => {
         {settings.soundEnabled && (
           <div className="space-y-3 pl-8">
             <div className="flex items-center justify-between">
-              <Label className="text-sm text-muted-foreground">Ljudvolym</Label>
+              <Label className="text-sm text-muted-foreground">Sound volume</Label>
               <span className="text-sm text-muted-foreground">
                 {Math.round(settings.soundVolume * 100)}%
               </span>
@@ -83,7 +83,7 @@ export const NotificationSettingsCard = () => {
                 Vibration
               </Label>
               <p className="text-sm text-muted-foreground">
-                Vibrera vid nya meddelanden (mobil)
+                Vibrate for new messages (mobile)
               </p>
             </div>
           </div>
@@ -101,7 +101,7 @@ export const NotificationSettingsCard = () => {
             onClick={handleTestNotification}
             className="w-full"
           >
-            Testa notifikationseffekt
+            Test notification effect
           </Button>
         </div>
       </CardContent>
