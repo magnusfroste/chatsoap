@@ -1,12 +1,11 @@
 import { useState } from "react";
-import { Plus, Sparkles, Wand2, Brain, Heart, Zap, Star, Trash2, Loader2 } from "lucide-react";
+import { Sparkles, Wand2, Brain, Heart, Zap, Star, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,11 +37,12 @@ export function getIconComponent(iconId: string) {
 }
 
 interface CustomPersonaDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onPersonaCreated: () => void;
 }
 
-export function CustomPersonaDialog({ onPersonaCreated }: CustomPersonaDialogProps) {
-  const [open, setOpen] = useState(false);
+export function CustomPersonaDialog({ open, onOpenChange, onPersonaCreated }: CustomPersonaDialogProps) {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -84,7 +84,6 @@ export function CustomPersonaDialog({ onPersonaCreated }: CustomPersonaDialogPro
 
       toast.success("Persona skapad!");
       resetForm();
-      setOpen(false);
       onPersonaCreated();
     } catch (error) {
       console.error("Error creating persona:", error);
@@ -97,13 +96,7 @@ export function CustomPersonaDialog({ onPersonaCreated }: CustomPersonaDialogPro
   const SelectedIconComponent = getIconComponent(selectedIcon);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="w-full gap-2">
-          <Plus className="w-4 h-4" />
-          Skapa egen persona
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Skapa egen AI-persona</DialogTitle>
