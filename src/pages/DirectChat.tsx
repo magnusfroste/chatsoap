@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Send, Bot, Loader2, Mic, Check, CheckCheck, Search, Phone, Video, FileText, PanelRightOpen, PanelRightClose } from "lucide-react";
+import { ArrowLeft, Send, Bot, Loader2, Mic, Check, CheckCheck, Search, Phone, Video, FileText, PanelRightOpen, PanelRightClose, Images } from "lucide-react";
 import { ChatActionsMenu } from "@/components/ChatActionsMenu";
 import { MessageBubble, ReplyPreview } from "@/components/MessageBubble";
 import { CallUI } from "@/components/CallUI";
@@ -25,6 +25,7 @@ import { NoteEditor } from "@/components/NoteEditor";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChatMessageSearch } from "@/components/ChatMessageSearch";
 import { PersonaSwitcher, AI_PERSONAS } from "@/components/PersonaSwitcher";
+import { ChatMediaLibrary } from "@/components/ChatMediaLibrary";
 interface ReplyToMessage {
   id: string;
   content: string;
@@ -79,6 +80,7 @@ const DirectChat = () => {
   // Notes
   const { notes, isLoading: notesLoading, createNote, updateNote, deleteNote } = useNotes(user?.id);
   const [notesSidebarOpen, setNotesSidebarOpen] = useState(false);
+  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [noteEditorOpen, setNoteEditorOpen] = useState(false);
 
@@ -815,6 +817,14 @@ const DirectChat = () => {
                   variant="ghost" 
                   size="icon" 
                   className="text-muted-foreground hover:text-foreground"
+                  onClick={() => setMediaLibraryOpen(true)}
+                >
+                  <Images className="w-5 h-5" />
+                </Button>
+                <Button
+                  variant="ghost" 
+                  size="icon" 
+                  className="text-muted-foreground hover:text-foreground"
                   onClick={() => setNotesSidebarOpen(!notesSidebarOpen)}
                 >
                   {notesSidebarOpen ? (
@@ -1001,6 +1011,18 @@ const DirectChat = () => {
           onClose={() => setNotesSidebarOpen(false)}
           onNoteSelect={handleNoteSelect}
           onCreateNote={handleCreateNote}
+        />
+
+        {/* Media Library */}
+        <ChatMediaLibrary
+          open={mediaLibraryOpen}
+          onOpenChange={setMediaLibraryOpen}
+          conversationId={id || ""}
+          onAnalyze={(url, name, mimeType) => {
+            setAnalyzingDocument({ url, name, mimeType });
+            setNewMessage("@ai ");
+          }}
+          onSaveToNotes={handleSaveDocumentToNotes}
         />
       </div>
 
