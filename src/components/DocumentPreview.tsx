@@ -1,5 +1,12 @@
-import { FileText, File, Download, Bot, BookOpen, Loader2 } from "lucide-react";
+import { FileText, File, Download, Bot, BookOpen, Loader2, ExternalLink, Copy, MoreHorizontal, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -26,13 +33,12 @@ export const DocumentPreview = ({
   showSaveToNotesButton = true,
 }: DocumentPreviewProps) => {
   const [isParsing, setIsParsing] = useState(false);
-  const [parseProgress, setParseProgress] = useState("");
+  const [imageFullscreen, setImageFullscreen] = useState(false);
 
   const handleParseToNotes = async () => {
     if (!onSaveToNotes) return;
     
     setIsParsing(true);
-    setParseProgress("Hämtar dokument...");
     
     try {
       const response = await fetch(
@@ -63,13 +69,10 @@ export const DocumentPreview = ({
         return;
       }
 
-      // Stream the response
       if (!response.body) {
         throw new Error("No response body");
       }
 
-      setParseProgress("Konverterar till markdown...");
-      
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let textBuffer = "";
@@ -101,10 +104,6 @@ export const DocumentPreview = ({
             const content = parsed.choices?.[0]?.delta?.content as string | undefined;
             if (content) {
               fullText += content;
-              // Update progress every ~500 chars
-              if (fullText.length % 500 < 50) {
-                setParseProgress(`Konverterar... ${Math.floor(fullText.length / 100) * 100}+ tecken`);
-              }
             }
           } catch {
             textBuffer = line + "\n" + textBuffer;
@@ -138,36 +137,135 @@ export const DocumentPreview = ({
       toast.error("Något gick fel vid parsning");
     } finally {
       setIsParsing(false);
-      setParseProgress("");
     }
   };
 
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(url);
+    toast.success("Länk kopierad!");
+  };
+
+  const handleDownload = () => {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = name;
+    link.target = "_blank";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Image preview with elegant overlay
   if (type === "image") {
     return (
-      <img
-        src={url}
-        alt={name}
-        className="max-w-[280px] max-h-[300px] rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity"
-        onClick={() => window.open(url, "_blank")}
-      />
+      <TooltipProvider>
+        <div className="group relative max-w-[280px] rounded-lg overflow-hidden">
+          <img
+            src={url}
+            alt={name}
+            className="max-w-full max-h-[300px] rounded-lg object-cover cursor-pointer transition-transform"
+            onClick={() => setImageFullscreen(true)}
+          />
+          {/* Hover overlay with actions */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+          <div className="absolute bottom-0 left-0 right-0 p-2 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-white bg-black/30 hover:bg-black/50 backdrop-blur-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setImageFullscreen(true);
+                  }}
+                >
+                  <Maximize2 className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Fullskärm</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-white bg-black/30 hover:bg-black/50 backdrop-blur-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDownload();
+                  }}
+                >
+                  <Download className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Ladda ner</TooltipContent>
+            </Tooltip>
+            {showSaveToNotesButton && onSaveToNotes && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-white bg-black/30 hover:bg-black/50 backdrop-blur-sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSaveToNotes(name.replace(/\.[^/.]+$/, ""), `![${name}](${url})`);
+                      toast.success("Bild sparad till anteckningar!");
+                    }}
+                  >
+                    <BookOpen className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Till anteckningar</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+          
+          {/* Fullscreen modal */}
+          {imageFullscreen && (
+            <div
+              className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
+              onClick={() => setImageFullscreen(false)}
+            >
+              <img
+                src={url}
+                alt={name}
+                className="max-w-full max-h-full object-contain rounded-lg"
+                onClick={(e) => e.stopPropagation()}
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-4 right-4 text-white hover:bg-white/20"
+                onClick={() => setImageFullscreen(false)}
+              >
+                ✕
+              </Button>
+            </div>
+          )}
+        </div>
+      </TooltipProvider>
     );
   }
 
   const FileIcon = type === "pdf" ? FileText : File;
 
+  // Document preview with compact icon-based actions
   return (
-    <div
-      className={cn(
-        "flex flex-col gap-2 p-3 rounded-lg max-w-[280px]",
-        isOwnMessage
-          ? "bg-primary-foreground/10"
-          : "bg-muted/50"
-      )}
-    >
-      <div className="flex items-center gap-3">
+    <TooltipProvider>
+      <div
+        className={cn(
+          "flex items-center gap-3 p-3 rounded-lg max-w-[320px]",
+          isOwnMessage
+            ? "bg-primary-foreground/10"
+            : "bg-muted/50"
+        )}
+      >
+        {/* File icon */}
         <div
           className={cn(
-            "w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0",
+            "w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0",
             type === "pdf"
               ? "bg-red-100 dark:bg-red-900/30"
               : "bg-blue-100 dark:bg-blue-900/30"
@@ -175,65 +273,99 @@ export const DocumentPreview = ({
         >
           <FileIcon
             className={cn(
-              "w-6 h-6",
+              "w-5 h-5",
               type === "pdf"
                 ? "text-red-600 dark:text-red-400"
                 : "text-blue-600 dark:text-blue-400"
             )}
           />
         </div>
+
+        {/* File info */}
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium truncate">{name}</p>
           <p className="text-xs text-muted-foreground">
-            {type === "pdf" ? "PDF-dokument" : "Dokument"}
+            {type === "pdf" ? "PDF" : "Dokument"}
           </p>
         </div>
-      </div>
 
-      <div className="flex gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="flex-1 h-8 text-xs"
-          onClick={() => window.open(url, "_blank")}
-        >
-          <Download className="w-3.5 h-3.5 mr-1.5" />
-          Öppna
-        </Button>
-        {showAnalyzeButton && onAnalyze && (
-          <Button
-            variant="secondary"
-            size="sm"
-            className="flex-1 h-8 text-xs"
-            onClick={onAnalyze}
-          >
-            <Bot className="w-3.5 h-3.5 mr-1.5" />
-            Analysera
-          </Button>
-        )}
-      </div>
-      
-      {showSaveToNotesButton && onSaveToNotes && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full h-8 text-xs"
-          onClick={handleParseToNotes}
-          disabled={isParsing}
-        >
-          {isParsing ? (
-            <>
-              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-              {parseProgress || "Parsar..."}
-            </>
-          ) : (
-            <>
-              <BookOpen className="w-3.5 h-3.5 mr-1.5" />
-              Till anteckningar
-            </>
+        {/* Compact action buttons */}
+        <div className="flex items-center gap-0.5">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                onClick={handleDownload}
+              >
+                <Download className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Ladda ner</TooltipContent>
+          </Tooltip>
+
+          {showAnalyzeButton && onAnalyze && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  onClick={onAnalyze}
+                >
+                  <Bot className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Analysera med AI</TooltipContent>
+            </Tooltip>
           )}
-        </Button>
-      )}
-    </div>
+
+          {showSaveToNotesButton && onSaveToNotes && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  onClick={handleParseToNotes}
+                  disabled={isParsing}
+                >
+                  {isParsing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <BookOpen className="w-4 h-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{isParsing ? "Parsar..." : "Till anteckningar"}</TooltipContent>
+            </Tooltip>
+          )}
+
+          {/* More options dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleCopyLink}>
+                <Copy className="w-4 h-4 mr-2" />
+                Kopiera länk
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => window.open(url, "_blank")}>
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Öppna i ny flik
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    </TooltipProvider>
   );
 };
