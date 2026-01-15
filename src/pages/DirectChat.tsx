@@ -960,7 +960,7 @@ const DirectChat = () => {
                     handleInputChange();
                   }}
                   onBlur={stopTyping}
-                  placeholder={conversation?.type === "ai_chat" ? "Skriv ett meddelande till AI..." : "Skriv ett meddelande"}
+                  placeholder={conversation?.type === "ai_chat" ? "Write a message to AI..." : "Write a message"}
                   className="bg-muted/50 border-0 rounded-lg h-10 focus-visible:ring-1 focus-visible:ring-ring"
                   disabled={sending}
                 />
@@ -989,15 +989,15 @@ const DirectChat = () => {
             {/* AI hint - only show for non-AI chats */}
             {conversation?.type !== "ai_chat" && (
               <p className="text-center text-xs text-muted-foreground mt-2 max-w-4xl mx-auto">
-                Skriv <span className="font-medium text-primary">@ai</span> för att chatta med AI
+                Type <span className="font-medium text-primary">@ai</span> to chat with AI
                 {pendingFile && pendingFile.type !== "image" && (
-                  <span> • Bifoga dokument + @ai för att analysera</span>
+                  <span> • Attach document + @ai to analyze</span>
                 )}
               </p>
             )}
             {conversation?.type === "ai_chat" && pendingFile && pendingFile.type !== "image" && (
               <p className="text-center text-xs text-muted-foreground mt-2 max-w-4xl mx-auto">
-                Skriv en fråga för att analysera dokumentet
+                Type a question to analyze the document
               </p>
             )}
           </div>

@@ -71,11 +71,11 @@ export function CallUI({
   const getStatusText = () => {
     switch (status) {
       case "calling":
-        return "Ringer...";
+        return "Calling...";
       case "ringing":
-        return isIncoming ? "Inkommande samtal" : "Ringer...";
+        return isIncoming ? "Incoming call" : "Calling...";
       case "connected":
-        return "Ansluten";
+        return "Connected";
       default:
         return "";
     }
@@ -93,9 +93,9 @@ export function CallUI({
           </Avatar>
           
           <div>
-            <h2 className="text-xl font-semibold text-white">{remoteUserName || "Okänd"}</h2>
+            <h2 className="text-xl font-semibold text-white">{remoteUserName || "Unknown"}</h2>
             <p className="text-muted-foreground mt-1">
-              {callType === "video" ? "Videosamtal" : "Röstsamtal"}
+              {callType === "video" ? "Video call" : "Voice call"}
             </p>
           </div>
 
@@ -148,7 +148,7 @@ export function CallUI({
                   {getInitials(remoteUserName)}
                 </AvatarFallback>
               </Avatar>
-              <h2 className="text-2xl font-semibold text-white mt-6">{remoteUserName || "Okänd"}</h2>
+              <h2 className="text-2xl font-semibold text-white mt-6">{remoteUserName || "Unknown"}</h2>
               <p className="text-muted-foreground mt-2">{getStatusText()}</p>
             </div>
           )}

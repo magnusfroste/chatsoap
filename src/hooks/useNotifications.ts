@@ -92,7 +92,7 @@ export const useNotifications = () => {
       triggerNotificationEffect();
 
       return showNotification({
-        title: isGroup ? `Nytt meddelande i ${senderName}` : senderName,
+        title: isGroup ? `New message in ${senderName}` : senderName,
         body: truncatedMessage,
         tag: `message-${conversationId}`, // Group notifications by conversation
         data: { conversationId, isGroup },

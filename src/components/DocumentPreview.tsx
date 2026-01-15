@@ -60,11 +60,11 @@ export const DocumentPreview = ({
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         if (response.status === 429) {
-          toast.error("Rate limit. Vänta lite och försök igen.");
+          toast.error("Rate limit. Please wait and try again.");
         } else if (response.status === 402) {
-          toast.error("AI credits slut. Kontakta admin.");
+          toast.error("AI credits exhausted. Contact admin.");
         } else {
-          toast.error(errorData.error || "Kunde inte parsa dokumentet");
+          toast.error(errorData.error || "Could not parse the document");
         }
         return;
       }
@@ -129,12 +129,12 @@ export const DocumentPreview = ({
         }
       }
 
-      const title = name.replace(/\.[^/.]+$/, "") || "Importerat dokument";
+      const title = name.replace(/\.[^/.]+$/, "") || "Imported document";
       onSaveToNotes(title, fullText);
-      toast.success("Dokument sparat som anteckning!");
+      toast.success("Document saved as note!");
     } catch (error) {
       console.error("Parse to notes error:", error);
-      toast.error("Något gick fel vid parsning");
+      toast.error("Something went wrong while parsing");
     } finally {
       setIsParsing(false);
     }
@@ -142,7 +142,7 @@ export const DocumentPreview = ({
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(url);
-    toast.success("Länk kopierad!");
+    toast.success("Link copied!");
   };
 
   const handleDownload = () => {
@@ -183,7 +183,7 @@ export const DocumentPreview = ({
                   <Maximize2 className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Fullskärm</TooltipContent>
+              <TooltipContent>Fullscreen</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -199,7 +199,7 @@ export const DocumentPreview = ({
                   <Download className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Ladda ner</TooltipContent>
+              <TooltipContent>Download</TooltipContent>
             </Tooltip>
             {showSaveToNotesButton && onSaveToNotes && (
               <Tooltip>
@@ -211,13 +211,13 @@ export const DocumentPreview = ({
                     onClick={(e) => {
                       e.stopPropagation();
                       onSaveToNotes(name.replace(/\.[^/.]+$/, ""), `![${name}](${url})`);
-                      toast.success("Bild sparad till anteckningar!");
+                      toast.success("Image saved to notes!");
                     }}
                   >
                     <BookOpen className="w-4 h-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Till anteckningar</TooltipContent>
+                <TooltipContent>Save to notes</TooltipContent>
               </Tooltip>
             )}
           </div>
@@ -302,7 +302,7 @@ export const DocumentPreview = ({
                 <Download className="w-4 h-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Ladda ner</TooltipContent>
+            <TooltipContent>Download</TooltipContent>
           </Tooltip>
 
           {showAnalyzeButton && onAnalyze && (
@@ -317,7 +317,7 @@ export const DocumentPreview = ({
                   <Bot className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Analysera med AI</TooltipContent>
+              <TooltipContent>Analyze with AI</TooltipContent>
             </Tooltip>
           )}
 
@@ -338,7 +338,7 @@ export const DocumentPreview = ({
                   )}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>{isParsing ? "Parsar..." : "Till anteckningar"}</TooltipContent>
+              <TooltipContent>{isParsing ? "Parsing..." : "Save to notes"}</TooltipContent>
             </Tooltip>
           )}
 
@@ -356,11 +356,11 @@ export const DocumentPreview = ({
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={handleCopyLink}>
                 <Copy className="w-4 h-4 mr-2" />
-                Kopiera länk
+                Copy link
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => window.open(url, "_blank")}>
                 <ExternalLink className="w-4 h-4 mr-2" />
-                Öppna i ny flik
+                Open in new tab
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

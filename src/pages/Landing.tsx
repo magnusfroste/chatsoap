@@ -29,7 +29,7 @@ export default function Landing() {
               onClick={() => navigate("/auth")}
               className="border-primary/50 hover:border-primary hover:bg-primary/10"
             >
-              Logga in
+              Log in
             </Button>
           </nav>
 
@@ -41,12 +41,12 @@ export default function Landing() {
             </div>
             
             <h1 className="font-display text-5xl md:text-7xl font-bold mb-6 tracking-tight">
-              Där <span className="gradient-valhalla-text">innovatörer</span> möts
+              Where <span className="gradient-valhalla-text">innovators</span> meet
             </h1>
             
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10 text-balance">
-              En exklusiv plattform för tech-ledare att samarbeta i realtid 
-              med delad AI-arbetsyta. Tänk video + gemensam AI – inte skärmdelning.
+              An exclusive platform for tech leaders to collaborate in real-time 
+              with a shared AI workspace. Think video + shared AI – not screen sharing.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -55,7 +55,7 @@ export default function Landing() {
                 onClick={() => navigate("/auth")}
                 className="gradient-valhalla hover:opacity-90 glow-valhalla text-lg px-8"
               >
-                Gå med nu
+                Join now
               </Button>
               <Button 
                 size="lg" 
@@ -63,7 +63,7 @@ export default function Landing() {
                 onClick={() => navigate("/chats")}
                 className="border-border hover:bg-card text-lg px-8"
               >
-                Gå till chattar
+                Go to chats
               </Button>
             </div>
           </div>
@@ -73,17 +73,17 @@ export default function Landing() {
             <FeatureCard
               icon={<Users className="w-6 h-6" />}
               title="Video Collaboration"
-              description="2-4 deltagare i HD-video, med presence och reaktioner i realtid."
+              description="2-4 participants in HD video, with real-time presence and reactions."
             />
             <FeatureCard
               icon={<MessageSquare className="w-6 h-6" />}
-              title="Delad AI-Arbetsyta"
-              description="Alla ser och bidrar till samma AI-konversation. Tillsammans."
+              title="Shared AI Workspace"
+              description="Everyone sees and contributes to the same AI conversation. Together."
             />
             <FeatureCard
               icon={<Video className="w-6 h-6" />}
-              title="AI Röstassistent"
-              description="Prata direkt med AI:n. Alla i rummet hör svaren."
+              title="AI Voice Assistant"
+              description="Talk directly with the AI. Everyone in the room hears the answers."
             />
           </div>
         </div>

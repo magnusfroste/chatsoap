@@ -154,7 +154,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
               if (profile) {
                 otherUser = {
                   id: profile.user_id,
-                  display_name: profile.display_name || "Användare",
+                  display_name: profile.display_name || "User",
                 };
               }
             }
@@ -209,12 +209,12 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
 
   const getDisplayName = (conv: Conversation) => {
     if (conv.type === "ai_chat") {
-      return conv.name || "AI Assistent";
+      return conv.name || "AI Assistant";
     }
     if (conv.type === "direct") {
-      return conv.other_user?.display_name || "Användare";
+      return conv.other_user?.display_name || "User";
     }
-    return conv.name || "Grupp";
+    return conv.name || "Group";
   };
 
   const getInitials = (name: string) => {
@@ -313,13 +313,13 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
     const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
     
     if (diffDays === 0) {
-      return date.toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
+      return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
     } else if (diffDays === 1) {
-      return "Igår";
+      return "Yesterday";
     } else if (diffDays < 7) {
-      return date.toLocaleDateString("sv-SE", { weekday: "short" });
+      return date.toLocaleDateString("en-US", { weekday: "short" });
     } else {
-      return date.toLocaleDateString("sv-SE", { year: "numeric", month: "2-digit", day: "2-digit" });
+      return date.toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" });
     }
   };
 
@@ -343,7 +343,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
                 size="icon" 
                 className="text-muted-foreground hover:text-foreground hover:bg-muted transition-transform duration-200 hover:scale-105"
                 onClick={onToggleCollapse}
-                title={isCollapsed ? "Expandera sidebar" : "Minimera sidebar"}
+                title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               >
                 <div className="transition-transform duration-300" style={{ transform: isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)' }}>
                   <PanelLeftClose className="w-5 h-5" />
@@ -369,19 +369,19 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem onClick={() => navigate("/profile")}>
                     <User className="w-4 h-4 mr-2" />
-                    Profil
+                    Profile
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setNewGroupOpen(true)}>
                     <Users className="w-4 h-4 mr-2" />
-                    Ny grupp
+                    New group
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/admin")}>
                     <Settings className="w-4 h-4 mr-2" />
-                    Inställningar
+                    Settings
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="w-4 h-4 mr-2" />
-                    Logga ut
+                    Log out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -418,13 +418,13 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
               <MessageSquare className="w-8 h-8 text-muted-foreground" />
             </div>
-            <p className="text-sm text-muted-foreground">Inga chattar ännu</p>
+            <p className="text-sm text-muted-foreground">No chats yet</p>
             <Button 
               variant="link" 
               className="text-primary mt-2"
               onClick={() => setNewChatOpen(true)}
             >
-              Starta en ny chatt
+              Start a new chat
             </Button>
           </div>
         ) : (

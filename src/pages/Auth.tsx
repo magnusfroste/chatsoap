@@ -12,16 +12,16 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 const loginSchema = z.object({
-  email: z.string().email("Ogiltig e-postadress"),
-  password: z.string().min(6, "Lösenordet måste vara minst 6 tecken"),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
 const createSignupSchema = (requireInviteCode: boolean) => z.object({
-  email: z.string().email("Ogiltig e-postadress"),
-  password: z.string().min(6, "Lösenordet måste vara minst 6 tecken"),
-  displayName: z.string().min(2, "Namnet måste vara minst 2 tecken").optional(),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  displayName: z.string().min(2, "Name must be at least 2 characters").optional(),
   inviteCode: requireInviteCode 
-    ? z.string().min(1, "Inbjudningskod krävs") 
+    ? z.string().min(1, "Invite code is required") 
     : z.string().optional(),
 });
 
@@ -60,7 +60,7 @@ export default function Auth() {
 
     if (error) {
       if (error.message.includes("Invalid login")) {
-        toast.error("Fel e-post eller lösenord");
+        toast.error("Wrong email or password");
       } else {
         toast.error(error.message);
       }
@@ -89,12 +89,12 @@ export default function Auth() {
 
     if (error) {
       if (error.message.includes("already registered")) {
-        toast.error("E-postadressen är redan registrerad");
+        toast.error("Email address is already registered");
       } else {
         toast.error(error.message);
       }
     } else {
-      toast.success("Välkommen till Valhalla!");
+      toast.success("Welcome to Valhalla!");
     }
   };
 
@@ -123,31 +123,31 @@ export default function Auth() {
 
         <Card className="glass-card border-border/50">
           <CardHeader className="text-center">
-            <CardTitle className="font-display text-2xl">Välkommen</CardTitle>
-            <CardDescription>Logga in eller skapa konto för att fortsätta</CardDescription>
+            <CardTitle className="font-display text-2xl">Welcome</CardTitle>
+            <CardDescription>Log in or create an account to continue</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="login" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="login">Logga in</TabsTrigger>
-                <TabsTrigger value="signup">Skapa konto</TabsTrigger>
+                <TabsTrigger value="login">Log in</TabsTrigger>
+                <TabsTrigger value="signup">Sign up</TabsTrigger>
               </TabsList>
               
               <TabsContent value="login">
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="login-email">E-post</Label>
+                    <Label htmlFor="login-email">Email</Label>
                     <Input
                       id="login-email"
                       type="email"
-                      placeholder="din@email.se"
+                      placeholder="your@email.com"
                       value={loginEmail}
                       onChange={(e) => setLoginEmail(e.target.value)}
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="login-password">Lösenord</Label>
+                    <Label htmlFor="login-password">Password</Label>
                     <Input
                       id="login-password"
                       type="password"
@@ -165,7 +165,7 @@ export default function Auth() {
                     {isSubmitting ? (
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
                     ) : null}
-                    Logga in
+                    Log in
                   </Button>
                 </form>
               </TabsContent>
@@ -174,7 +174,7 @@ export default function Auth() {
                 <form onSubmit={handleSignup} className="space-y-4">
                   {requireInviteCode && (
                     <div className="space-y-2">
-                      <Label htmlFor="invite-code">Inbjudningskod *</Label>
+                      <Label htmlFor="invite-code">Invite code *</Label>
                       <Input
                         id="invite-code"
                         type="text"
@@ -187,28 +187,28 @@ export default function Auth() {
                     </div>
                   )}
                   <div className="space-y-2">
-                    <Label htmlFor="signup-name">Visningsnamn</Label>
+                    <Label htmlFor="signup-name">Display name</Label>
                     <Input
                       id="signup-name"
                       type="text"
-                      placeholder="Ditt namn"
+                      placeholder="Your name"
                       value={signupName}
                       onChange={(e) => setSignupName(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signup-email">E-post *</Label>
+                    <Label htmlFor="signup-email">Email *</Label>
                     <Input
                       id="signup-email"
                       type="email"
-                      placeholder="din@email.se"
+                      placeholder="your@email.com"
                       value={signupEmail}
                       onChange={(e) => setSignupEmail(e.target.value)}
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signup-password">Lösenord *</Label>
+                    <Label htmlFor="signup-password">Password *</Label>
                     <Input
                       id="signup-password"
                       type="password"
@@ -226,7 +226,7 @@ export default function Auth() {
                     {isSubmitting ? (
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
                     ) : null}
-                    Skapa konto
+                    Sign up
                   </Button>
                 </form>
               </TabsContent>
@@ -236,7 +236,7 @@ export default function Auth() {
 
         {requireInviteCode && (
           <p className="text-center text-sm text-muted-foreground mt-6">
-            Ingen inbjudningskod? Kontakta en befintlig medlem.
+            No invite code? Contact an existing member.
           </p>
         )}
       </div>
