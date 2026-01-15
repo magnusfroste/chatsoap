@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bot, Code, Pen, Lightbulb, GraduationCap, ChevronDown, Check, Loader2, Plus, Trash2 } from "lucide-react";
+import { Bot, Code, Pen, Lightbulb, GraduationCap, ChevronDown, Check, Loader2, Plus, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { CustomPersonaDialog, getIconComponent } from "./CustomPersonaDialog";
+import { CustomPersonaDialog, getIconComponent, EditablePersona } from "./CustomPersonaDialog";
 
 // AI Personas - shared definition
 export const AI_PERSONAS = [
@@ -71,7 +71,8 @@ export function PersonaSwitcher({ conversationId, currentPersona, onPersonaChang
   const [customPersonas, setCustomPersonas] = useState<CustomPersona[]>([]);
   const [loadingCustom, setLoadingCustom] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingPersona, setEditingPersona] = useState<EditablePersona | null>(null);
   
   // Check if current persona is a custom one
   const isCustomPersona = currentPersona?.startsWith("custom:");
@@ -163,15 +164,29 @@ export function PersonaSwitcher({ conversationId, currentPersona, onPersonaChang
     }
   };
 
+  const handleEditCustomPersona = (persona: CustomPersona, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDropdownOpen(false);
+    // Small delay to let dropdown close first
+    setTimeout(() => {
+      setEditingPersona(persona);
+      setDialogOpen(true);
+    }, 100);
+  };
+
   const handleOpenCreateDialog = () => {
     setDropdownOpen(false);
     // Small delay to let dropdown close first
-    setTimeout(() => setCreateDialogOpen(true), 100);
+    setTimeout(() => {
+      setEditingPersona(null);
+      setDialogOpen(true);
+    }, 100);
   };
 
-  const handlePersonaCreated = () => {
+  const handlePersonaSaved = () => {
     fetchCustomPersonas();
-    setCreateDialogOpen(false);
+    setDialogOpen(false);
+    setEditingPersona(null);
   };
 
   return (
@@ -245,13 +260,21 @@ export function PersonaSwitcher({ conversationId, currentPersona, onPersonaChang
                         {persona.description || "Egen AI-persona"}
                       </p>
                     </div>
-                    <button
-                      onClick={(e) => handleDeleteCustomPersona(persona.id, e)}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded transition-opacity"
-                    >
-                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                    </button>
-                    {isActive && <Check className="w-4 h-4 text-primary" />}
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => handleEditCustomPersona(persona, e)}
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity"
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteCustomPersona(persona.id, e)}
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded transition-opacity"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                      </button>
+                    </div>
+                    {isActive && <Check className="w-4 h-4 text-primary ml-1" />}
                   </DropdownMenuItem>
                 );
               })}
@@ -276,9 +299,10 @@ export function PersonaSwitcher({ conversationId, currentPersona, onPersonaChang
 
       {/* Dialog rendered outside dropdown to avoid portal conflicts */}
       <CustomPersonaDialog 
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        onPersonaCreated={handlePersonaCreated} 
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onPersonaSaved={handlePersonaSaved}
+        editingPersona={editingPersona}
       />
     </>
   );
