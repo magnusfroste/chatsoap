@@ -74,7 +74,7 @@ export const SendToChatButton = ({
         if (conv.type === "group") {
           result.push({
             id: conv.id,
-            name: conv.name || "Grupp",
+            name: conv.name || "Group",
             type: "group",
           });
         } else {
@@ -95,7 +95,7 @@ export const SendToChatButton = ({
 
             result.push({
               id: conv.id,
-              name: profile?.display_name || "Okänd",
+              name: profile?.display_name || "Unknown",
               type: "direct",
             });
           }
@@ -105,7 +105,7 @@ export const SendToChatButton = ({
       setConversations(result);
     } catch (error) {
       console.error("Error fetching conversations:", error);
-      toast.error("Kunde inte hämta konversationer");
+      toast.error("Could not fetch conversations");
     } finally {
       setIsLoading(false);
     }
@@ -123,9 +123,9 @@ export const SendToChatButton = ({
       const maxLength = 2000;
       let messageContent = content;
       if (content.length > maxLength) {
-        messageContent = content.slice(0, maxLength) + "...\n\n_(Från anteckning)_";
+        messageContent = content.slice(0, maxLength) + "...\n\n_(From note)_";
       } else {
-        messageContent = content + "\n\n_(Från anteckning)_";
+        messageContent = content + "\n\n_(From note)_";
       }
 
       const { error } = await supabase.from("messages").insert({
@@ -136,7 +136,7 @@ export const SendToChatButton = ({
 
       if (error) throw error;
 
-      toast.success(`Skickat till ${conversation.name}`);
+      toast.success(`Sent to ${conversation.name}`);
       setIsOpen(false);
 
       // Navigate to the conversation
@@ -147,7 +147,7 @@ export const SendToChatButton = ({
       }
     } catch (error) {
       console.error("Error sending to chat:", error);
-      toast.error("Kunde inte skicka till chatten");
+      toast.error("Could not send to chat");
     } finally {
       setIsSending(false);
     }
@@ -162,15 +162,15 @@ export const SendToChatButton = ({
         className={className}
       >
         <MessageSquare className="w-4 h-4 mr-2" />
-        Skicka till Chat
+        Send to Chat
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Skicka till Chat</DialogTitle>
+            <DialogTitle>Send to Chat</DialogTitle>
             <DialogDescription>
-              Välj en konversation att skicka anteckningens innehåll till.
+              Choose a conversation to send the note content to.
             </DialogDescription>
           </DialogHeader>
 
@@ -180,7 +180,7 @@ export const SendToChatButton = ({
             </div>
           ) : conversations.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">
-              Inga konversationer hittades
+              No conversations found
             </p>
           ) : (
             <ScrollArea className="max-h-[300px]">
@@ -198,7 +198,7 @@ export const SendToChatButton = ({
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{conv.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {conv.type === "direct" ? "Direktmeddelande" : "Gruppchatt"}
+                        {conv.type === "direct" ? "Direct message" : "Group chat"}
                       </p>
                     </div>
                     {isSending && (

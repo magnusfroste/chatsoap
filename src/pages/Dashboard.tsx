@@ -73,7 +73,7 @@ export default function Dashboard() {
       .single();
 
     if (roomError) {
-      toast.error("Kunde inte skapa rum");
+      toast.error("Could not create room");
       setCreating(false);
       return;
     }
@@ -84,7 +84,7 @@ export default function Dashboard() {
       user_id: user.id,
     });
 
-    toast.success("Rum skapat!");
+    toast.success("Room created!");
     setNewRoomName("");
     setNewRoomDesc("");
     setDialogOpen(false);
@@ -104,7 +104,7 @@ export default function Dashboard() {
     });
 
     if (error) {
-      toast.error("Kunde inte skapa inbjudningskod");
+      toast.error("Could not create invite code");
     } else {
       setInviteCode(code);
     }
@@ -114,7 +114,7 @@ export default function Dashboard() {
     if (inviteCode) {
       navigator.clipboard.writeText(inviteCode);
       setCopied(true);
-      toast.success("Kopierat!");
+      toast.success("Copied!");
       setTimeout(() => setCopied(false), 2000);
     }
   };
@@ -151,14 +151,14 @@ export default function Dashboard() {
             <Dialog>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm" onClick={generateInviteCode}>
-                  Bjud in
+                  Invite
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Invite to Messem</DialogTitle>
                   <DialogDescription>
-                    Dela denna kod med någon du vill bjuda in
+                    Share this code with someone you want to invite
                   </DialogDescription>
                 </DialogHeader>
                 <div className="mt-4">
@@ -175,11 +175,11 @@ export default function Dashboard() {
                     </div>
                   ) : (
                     <Button onClick={generateInviteCode} className="w-full">
-                      Generera kod
+                      Generate code
                     </Button>
                   )}
                   <p className="text-sm text-muted-foreground mt-3">
-                    Koden är giltig i 7 dagar.
+                    Code is valid for 7 days.
                   </p>
                 </div>
               </DialogContent>
@@ -195,41 +195,41 @@ export default function Dashboard() {
       <main className="container mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="font-display text-3xl font-bold">Dina rum</h1>
+            <h1 className="font-display text-3xl font-bold">Your rooms</h1>
             <p className="text-muted-foreground mt-1">
-              Skapa eller gå med i ett rum för att börja samarbeta
+              Create or join a room to start collaborating
             </p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gradient-valhalla hover:opacity-90">
                 <Plus className="w-4 h-4 mr-2" />
-                Nytt rum
+                New room
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Skapa nytt rum</DialogTitle>
+                <DialogTitle>Create new room</DialogTitle>
                 <DialogDescription>
-                  Ge rummet ett namn och beskrivning
+                  Give the room a name and description
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={createRoom} className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="room-name">Namn *</Label>
+                  <Label htmlFor="room-name">Name *</Label>
                   <Input
                     id="room-name"
-                    placeholder="T.ex. AI Strategy Q1"
+                    placeholder="E.g. AI Strategy Q1"
                     value={newRoomName}
                     onChange={(e) => setNewRoomName(e.target.value)}
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="room-desc">Beskrivning</Label>
+                  <Label htmlFor="room-desc">Description</Label>
                   <Input
                     id="room-desc"
-                    placeholder="Valfri beskrivning..."
+                    placeholder="Optional description..."
                     value={newRoomDesc}
                     onChange={(e) => setNewRoomDesc(e.target.value)}
                   />
@@ -240,7 +240,7 @@ export default function Dashboard() {
                   disabled={creating}
                 >
                   {creating && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                  Skapa rum
+                  Create room
                 </Button>
               </form>
             </DialogContent>
@@ -254,9 +254,9 @@ export default function Dashboard() {
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                 <Users className="w-8 h-8 text-primary" />
               </div>
-              <h3 className="font-display text-xl font-semibold mb-2">Inga rum ännu</h3>
+              <h3 className="font-display text-xl font-semibold mb-2">No rooms yet</h3>
               <p className="text-muted-foreground text-center max-w-sm">
-                Skapa ditt första rum för att börja samarbeta med AI och ditt team.
+                Create your first room to start collaborating with AI and your team.
               </p>
             </CardContent>
           </Card>
@@ -278,7 +278,7 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    Skapad {new Date(room.created_at).toLocaleDateString("sv-SE")}
+                    Created {new Date(room.created_at).toLocaleDateString("en-US")}
                   </p>
                 </CardContent>
               </Card>
