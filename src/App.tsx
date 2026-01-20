@@ -20,9 +20,17 @@ const GroupChat = lazy(() => import("./pages/GroupChat"));
 const queryClient = new QueryClient();
 
 const App = () => {
-  // Apply dark mode to html element for proper Tailwind dark mode support
+  // Apply theme from localStorage on mount
   useEffect(() => {
-    document.documentElement.classList.add("dark");
+    const savedTheme = localStorage.getItem("theme") || "dark";
+    const root = document.documentElement;
+    
+    if (savedTheme === "system") {
+      const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      root.classList.add(isDark ? "dark" : "light");
+    } else {
+      root.classList.add(savedTheme);
+    }
   }, []);
 
   return (
