@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ArrowLeft, Camera, Loader2, Save, User, Mail, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { NotificationSettingsCard } from "@/components/NotificationSettingsCard";
+import { ThemeSettingsCard } from "@/components/ThemeSettingsCard";
 
 const Profile = () => {
   const { user, profile, loading: authLoading, refreshProfile } = useAuth();
@@ -230,6 +231,9 @@ const Profile = () => {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Appearance Settings */}
+        <ThemeSettingsCard />
 
         {/* Notification Settings */}
         <NotificationSettingsCard />
