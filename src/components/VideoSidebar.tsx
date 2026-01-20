@@ -42,7 +42,7 @@ export function VideoSidebar({
     <div className="w-72 border-l border-border/50 bg-card/50 p-4 hidden lg:flex flex-col">
       <div className="flex items-center gap-2 mb-4">
         <Users className="w-4 h-4 text-muted-foreground" />
-        <span className="text-sm font-medium">Deltagare</span>
+        <span className="text-sm font-medium">Participants</span>
         <span className="text-xs text-muted-foreground ml-auto">
           {isInCall ? participants.length + 1 : 0} online
         </span>
@@ -75,7 +75,7 @@ export function VideoSidebar({
             
             {participants.length === 0 && (
               <p className="text-xs text-muted-foreground text-center py-4">
-                Väntar på andra deltagare...
+                Waiting for other participants...
               </p>
             )}
           </>
@@ -85,7 +85,7 @@ export function VideoSidebar({
               <Video className="w-8 h-8 text-primary" />
             </div>
             <p className="text-sm text-muted-foreground text-center mb-4">
-              Gå med i samtalet för att se och höra andra deltagare
+              Join the call to see and hear other participants
             </p>
           </div>
         )}
@@ -120,7 +120,7 @@ export function VideoSidebar({
                 ) : (
                   <MicOff className="w-4 h-4 mr-2" />
                 )}
-                Ljud
+                Audio
               </Button>
             </div>
             <Button
@@ -130,7 +130,7 @@ export function VideoSidebar({
               onClick={onLeaveCall}
             >
               <PhoneOff className="w-4 h-4 mr-2" />
-              Lämna samtal
+              Leave call
             </Button>
           </>
         ) : (
@@ -144,7 +144,7 @@ export function VideoSidebar({
             ) : (
               <Phone className="w-4 h-4 mr-2" />
             )}
-            {isConnecting ? "Ansluter..." : "Gå med i samtal"}
+            {isConnecting ? "Connecting..." : "Join call"}
           </Button>
         )}
       </div>

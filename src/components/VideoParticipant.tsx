@@ -28,7 +28,7 @@ export function VideoParticipant({
   }, [stream]);
 
   const getInitials = (name: string | null | undefined) => {
-    if (!name) return isLocal ? "Du" : "?";
+    if (!name) return isLocal ? "You" : "?";
     return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
   };
 
@@ -56,7 +56,7 @@ export function VideoParticipant({
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
         <div className="flex items-center justify-between">
           <span className="text-xs text-white font-medium truncate">
-            {isLocal ? "Du" : displayName || "Anonym"}
+            {isLocal ? "You" : displayName || "Anonymous"}
           </span>
           <div className="flex items-center gap-1">
             {audioEnabled ? (
@@ -77,7 +77,7 @@ export function VideoParticipant({
       {isLocal && (
         <div className="absolute top-2 left-2">
           <span className="text-[10px] bg-primary/80 text-primary-foreground px-1.5 py-0.5 rounded">
-            DU
+            YOU
           </span>
         </div>
       )}
