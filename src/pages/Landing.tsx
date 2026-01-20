@@ -22,7 +22,7 @@ export default function Landing() {
               <div className="w-10 h-10 rounded-lg gradient-valhalla flex items-center justify-center">
                 <Zap className="w-6 h-6 text-primary-foreground" />
               </div>
-              <span className="font-display text-xl font-bold">Silicon Valhalla</span>
+              <span className="font-display text-xl font-bold">Messem</span>
             </div>
             <Button 
               variant="outline" 
@@ -92,7 +92,7 @@ export default function Landing() {
       {/* Footer */}
       <footer className="border-t border-border py-8">
         <div className="container mx-auto px-6 text-center text-sm text-muted-foreground">
-          <p>© 2026 Silicon Valhalla Meet. Invite-only.</p>
+          <p>© 2026 Messem. Invite-only.</p>
         </div>
       </footer>
     </div>

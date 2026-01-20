@@ -95,7 +95,7 @@ export default function Dashboard() {
   const generateInviteCode = async () => {
     if (!user) return;
     
-    const code = `VALHALLA-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const code = `MESSEM-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
     
     const { error } = await supabase.from("invite_codes").insert({
       code,
@@ -145,7 +145,7 @@ export default function Dashboard() {
             <div className="w-9 h-9 rounded-lg gradient-valhalla flex items-center justify-center">
               <Zap className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="font-display text-lg font-bold">Silicon Valhalla</span>
+            <span className="font-display text-lg font-bold">Messem</span>
           </div>
           <div className="flex items-center gap-4">
             <Dialog>
@@ -156,7 +156,7 @@ export default function Dashboard() {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Bjud in till Valhalla</DialogTitle>
+                  <DialogTitle>Invite to Messem</DialogTitle>
                   <DialogDescription>
                     Dela denna kod med någon du vill bjuda in
                   </DialogDescription>

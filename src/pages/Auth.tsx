@@ -94,7 +94,7 @@ export default function Auth() {
         toast.error(error.message);
       }
     } else {
-      toast.success("Welcome to Valhalla!");
+      toast.success("Welcome to Messem!");
     }
   };
 
@@ -118,7 +118,7 @@ export default function Auth() {
           <div className="w-12 h-12 rounded-lg gradient-valhalla flex items-center justify-center glow-valhalla">
             <Zap className="w-7 h-7 text-primary-foreground" />
           </div>
-          <span className="font-display text-2xl font-bold">Silicon Valhalla</span>
+          <span className="font-display text-2xl font-bold">Messem</span>
         </div>
 
         <Card className="glass-card border-border/50">
@@ -178,7 +178,7 @@ export default function Auth() {
                       <Input
                         id="invite-code"
                         type="text"
-                        placeholder="VALHALLA-XXXX"
+                        placeholder="MESSEM-XXXX"
                         value={inviteCode}
                         onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                         className="font-mono"

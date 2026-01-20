@@ -29,7 +29,7 @@ serve(async (req) => {
 
     // Define persona-specific system prompts
     const personaPrompts: Record<string, string> = {
-      general: `You are a helpful AI assistant in Silicon Valhalla Meet - an exclusive collaboration platform for the tech elite.
+      general: `You are a helpful AI assistant in Messem - an exclusive collaboration platform for the tech elite.
 
 You participate in a room where multiple users can ask questions and discuss together with you.
 Messages from users are shown with their name in brackets, e.g. "[Anna]: Hello!"

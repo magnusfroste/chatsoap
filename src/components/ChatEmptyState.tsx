@@ -24,7 +24,7 @@ const ChatEmptyState = () => {
 
         {/* Title */}
         <h2 className="text-3xl font-light text-foreground mb-4">
-          Silicon Valhalla Meet
+          Messem
         </h2>
 
         {/* Description */}
