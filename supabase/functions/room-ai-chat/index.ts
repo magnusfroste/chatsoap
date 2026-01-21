@@ -39,6 +39,7 @@ interface ToolSettings {
   web_search: boolean;
   generate_image: boolean;
   code_execution: boolean;
+  navigate_browser: boolean;
 }
 
 const defaultToolSettings: ToolSettings = {
@@ -46,6 +47,7 @@ const defaultToolSettings: ToolSettings = {
   web_search: true,
   generate_image: false,
   code_execution: false,
+  navigate_browser: true,
 };
 
 // All available tool definitions
@@ -125,6 +127,23 @@ const allTools = {
           },
         },
         required: ["code", "language"],
+      },
+    },
+  },
+  navigate_browser: {
+    type: "function",
+    function: {
+      name: "navigate_browser",
+      description: "Navigate the workspace browser to a specific URL. Use this when the user asks you to 'go to', 'open', 'visit', or 'navigate to' a website. Examples: 'go to sj.se', 'open google.com', 'visit wikipedia'. This opens the website in the mini browser panel.",
+      parameters: {
+        type: "object",
+        properties: {
+          url: {
+            type: "string",
+            description: "The URL or domain to navigate to. Can be a full URL (https://sj.se) or just a domain (sj.se)",
+          },
+        },
+        required: ["url"],
       },
     },
   },
@@ -651,6 +670,10 @@ async function processToolCalls(
           break;
         case "code_execution":
           result = await executeCode(args.code, args.language);
+          break;
+        case "navigate_browser":
+          // This is a client-side action - we just return the instruction
+          result = `__BROWSER_NAVIGATE__:${args.url}`;
           break;
         default:
           result = `Unknown tool: ${toolCall.function.name}`;

@@ -15,3 +15,8 @@ export type {
   CanvasAppBadgeFunction,
   CanvasAppRegistry,
 } from "./types";
+export { 
+  canvasEventBus, 
+  emitBrowserNavigate, 
+  emitOpenApp 
+} from "./events";
