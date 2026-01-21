@@ -14,7 +14,8 @@ import {
   X,
   Plus,
   Lock,
-  Unlock
+  Unlock,
+  AlertTriangle
 } from "lucide-react";
 import { CanvasAppProps } from "@/lib/canvas-apps/types";
 import { canvasEventBus } from "@/lib/canvas-apps/events";
@@ -33,9 +34,17 @@ interface Tab {
   url: string;
   title: string;
   isLoading: boolean;
+  loadError: boolean;
 }
 
 const DEFAULT_HOME = "https://www.google.com/webhp?igu=1";
+
+// Sites known to block iframe embedding
+const BLOCKED_SITES = [
+  'sj.se', 'facebook.com', 'twitter.com', 'x.com', 'instagram.com',
+  'linkedin.com', 'github.com', 'netflix.com', 'spotify.com',
+  'youtube.com', 'gmail.com', 'outlook.com', 'amazon.com'
+];
 
 const DEFAULT_BOOKMARKS: Bookmark[] = [
   { id: "1", title: "Google", url: "https://www.google.com/webhp?igu=1" },
@@ -45,7 +54,7 @@ const DEFAULT_BOOKMARKS: Bookmark[] = [
 
 const MiniBrowserApp = ({ conversationId, sendToChat }: CanvasAppProps) => {
   const [tabs, setTabs] = useState<Tab[]>([
-    { id: "1", url: DEFAULT_HOME, title: "New Tab", isLoading: true }
+    { id: "1", url: DEFAULT_HOME, title: "New Tab", isLoading: true, loadError: false }
   ]);
   const [activeTabId, setActiveTabId] = useState("1");
   const [urlInput, setUrlInput] = useState(DEFAULT_HOME);
@@ -107,12 +116,22 @@ const MiniBrowserApp = ({ conversationId, sendToChat }: CanvasAppProps) => {
     return `https://www.google.com/search?q=${encodeURIComponent(trimmed)}&igu=1`;
   };
 
+  const isBlockedSite = useCallback((url: string): boolean => {
+    try {
+      const hostname = new URL(url).hostname.toLowerCase();
+      return BLOCKED_SITES.some(site => hostname.includes(site));
+    } catch {
+      return false;
+    }
+  }, []);
+
   const navigate = useCallback((url: string) => {
     const formattedUrl = formatUrl(url);
+    const willBeBlocked = isBlockedSite(formattedUrl);
     
     setTabs(prev => prev.map(tab => 
       tab.id === activeTabId 
-        ? { ...tab, url: formattedUrl, isLoading: true }
+        ? { ...tab, url: formattedUrl, isLoading: !willBeBlocked, loadError: willBeBlocked }
         : tab
     ));
     setUrlInput(formattedUrl);
@@ -124,7 +143,7 @@ const MiniBrowserApp = ({ conversationId, sendToChat }: CanvasAppProps) => {
       return newHistory;
     });
     setHistoryIndex(prev => prev + 1);
-  }, [activeTabId, historyIndex]);
+  }, [activeTabId, historyIndex, isBlockedSite]);
 
   // Keep navigateRef updated with latest navigate function
   useEffect(() => {
@@ -136,39 +155,45 @@ const MiniBrowserApp = ({ conversationId, sendToChat }: CanvasAppProps) => {
       const newIndex = historyIndex - 1;
       setHistoryIndex(newIndex);
       const url = history[newIndex];
+      const willBeBlocked = isBlockedSite(url);
       setTabs(prev => prev.map(tab => 
         tab.id === activeTabId 
-          ? { ...tab, url, isLoading: true }
+          ? { ...tab, url, isLoading: !willBeBlocked, loadError: willBeBlocked }
           : tab
       ));
       setUrlInput(url);
     }
-  }, [activeTabId, history, historyIndex]);
+  }, [activeTabId, history, historyIndex, isBlockedSite]);
 
   const goForward = useCallback(() => {
     if (historyIndex < history.length - 1) {
       const newIndex = historyIndex + 1;
       setHistoryIndex(newIndex);
       const url = history[newIndex];
+      const willBeBlocked = isBlockedSite(url);
       setTabs(prev => prev.map(tab => 
         tab.id === activeTabId 
-          ? { ...tab, url, isLoading: true }
+          ? { ...tab, url, isLoading: !willBeBlocked, loadError: willBeBlocked }
           : tab
       ));
       setUrlInput(url);
     }
-  }, [activeTabId, history, historyIndex]);
+  }, [activeTabId, history, historyIndex, isBlockedSite]);
 
   const refresh = useCallback(() => {
+    if (activeTab.loadError) {
+      // For blocked sites, just re-trigger the error state
+      return;
+    }
     if (iframeRef.current) {
       setTabs(prev => prev.map(tab => 
         tab.id === activeTabId 
-          ? { ...tab, isLoading: true }
+          ? { ...tab, isLoading: true, loadError: false }
           : tab
       ));
       iframeRef.current.src = activeTab.url;
     }
-  }, [activeTabId, activeTab.url]);
+  }, [activeTabId, activeTab.url, activeTab.loadError]);
 
   const goHome = useCallback(() => {
     navigate(DEFAULT_HOME);
@@ -182,7 +207,7 @@ const MiniBrowserApp = ({ conversationId, sendToChat }: CanvasAppProps) => {
   const handleIframeLoad = () => {
     setTabs(prev => prev.map(tab => 
       tab.id === activeTabId 
-        ? { ...tab, isLoading: false, title: "Page" }
+        ? { ...tab, isLoading: false, loadError: false, title: "Page" }
         : tab
     ));
   };
@@ -212,6 +237,7 @@ const MiniBrowserApp = ({ conversationId, sendToChat }: CanvasAppProps) => {
       url: DEFAULT_HOME,
       title: "New Tab",
       isLoading: true,
+      loadError: false,
     };
     setTabs(prev => [...prev, newTab]);
     setActiveTabId(newTab.id);
@@ -384,20 +410,35 @@ const MiniBrowserApp = ({ conversationId, sendToChat }: CanvasAppProps) => {
       )}
 
       {/* Browser Content */}
-      <div className="flex-1 relative bg-white">
-        {activeTab.isLoading && (
+      <div className="flex-1 relative bg-white dark:bg-muted/20">
+        {activeTab.isLoading && !activeTab.loadError && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
         )}
-        <iframe
-          ref={iframeRef}
-          src={activeTab.url}
-          className="w-full h-full border-0"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
-          onLoad={handleIframeLoad}
-          title="Mini Browser"
-        />
+        
+        {activeTab.loadError ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-background p-8 text-center">
+            <AlertTriangle className="w-16 h-16 text-yellow-500 mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Sidan kan inte visas här</h3>
+            <p className="text-muted-foreground mb-4 max-w-md">
+              {new URL(activeTab.url).hostname} blockerar visning i inbäddade fönster av säkerhetsskäl.
+            </p>
+            <Button onClick={openInNewTab} className="gap-2">
+              <ExternalLink className="w-4 h-4" />
+              Öppna i ny flik
+            </Button>
+          </div>
+        ) : (
+          <iframe
+            ref={iframeRef}
+            src={activeTab.url}
+            className="w-full h-full border-0"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+            onLoad={handleIframeLoad}
+            title="Mini Browser"
+          />
+        )}
       </div>
     </div>
   );
