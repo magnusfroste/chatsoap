@@ -7,15 +7,27 @@ type BrowserNavigatePayload = {
   url: string;
 };
 
+type BrowserPreviewPayload = {
+  html: string;
+  title?: string;
+};
+
 type CodeSandboxPayload = {
   code: string;
   language: "javascript" | "typescript";
   autoRun?: boolean;
 };
 
+type NotesCreatePayload = {
+  title?: string;
+  content: string;
+};
+
 type CanvasEventPayload = {
   "browser:navigate": BrowserNavigatePayload;
+  "browser:preview": BrowserPreviewPayload;
   "code:send": CodeSandboxPayload;
+  "notes:create": NotesCreatePayload;
   "app:open": { appId: string; params?: Record<string, unknown> };
 };
 
@@ -66,10 +78,18 @@ export function emitBrowserNavigate(url: string) {
   canvasEventBus.emit("browser:navigate", { url });
 }
 
+export function emitBrowserPreview(html: string, title?: string) {
+  canvasEventBus.emit("browser:preview", { html, title });
+}
+
 export function emitOpenApp(appId: string, params?: Record<string, unknown>) {
   canvasEventBus.emit("app:open", { appId, params });
 }
 
 export function emitCodeToSandbox(code: string, language: "javascript" | "typescript" = "javascript", autoRun = false) {
   canvasEventBus.emit("code:send", { code, language, autoRun });
+}
+
+export function emitCreateNote(content: string, title?: string) {
+  canvasEventBus.emit("notes:create", { content, title });
 }

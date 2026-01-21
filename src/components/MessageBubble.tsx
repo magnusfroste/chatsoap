@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Bot, Check, CheckCheck, Reply, X, Image as ImageIcon, FileText, Clock } from "lucide-react";
 import { MessageReactions, ReactionPicker } from "./MessageReactions";
 import { SendToNotesButton } from "./SendToNotesButton";
 import { DocumentPreview } from "./DocumentPreview";
+import { ArtifactActions } from "./ArtifactActions";
+import { detectArtifacts } from "@/lib/content-detector";
 import { cn } from "@/lib/utils";
-
 // Helper to check if content is an image URL
 const isImageUrl = (content: string): boolean => {
   const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
@@ -96,6 +97,12 @@ export const MessageBubble = ({
 }: MessageBubbleProps) => {
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const isAI = message.is_ai;
+  
+  // Detect artifacts in AI messages
+  const artifacts = useMemo(() => {
+    if (!isAI) return [];
+    return detectArtifacts(message.content);
+  }, [isAI, message.content]);
 
   const handleLongPress = () => {
     setShowReactionPicker(true);
@@ -262,6 +269,11 @@ export const MessageBubble = ({
           )}
         </span>
       </div>
+      
+      {/* Artifact Actions for AI messages */}
+      {isAI && artifacts.length > 0 && (
+        <ArtifactActions artifacts={artifacts} />
+      )}
 
       {/* Message tail */}
       <div

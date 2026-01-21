@@ -64,6 +64,7 @@ const MiniBrowserApp = ({ conversationId, sendToChat }: CanvasAppProps) => {
   });
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [htmlPreviewBlob, setHtmlPreviewBlob] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
@@ -78,17 +79,50 @@ const MiniBrowserApp = ({ conversationId, sendToChat }: CanvasAppProps) => {
 
   // Listen for browser navigate events from AI chat
   useEffect(() => {
-    const unsubscribe = canvasEventBus.on("browser:navigate", ({ url }) => {
+    const unsubscribeNavigate = canvasEventBus.on("browser:navigate", ({ url }) => {
       console.log("Browser received navigate event:", url);
       toast.success(`Navigating to ${url}`);
+      // Clear any HTML preview when navigating
+      setHtmlPreviewBlob(null);
       // Use ref to access latest navigate function
       if (navigateRef.current) {
         navigateRef.current(url);
       }
     });
 
-    return unsubscribe;
-  }, []);
+    // Listen for HTML preview events (artifact preview)
+    const unsubscribePreview = canvasEventBus.on("browser:preview", ({ html, title }) => {
+      console.log("Browser received preview event:", title || "HTML Preview");
+      toast.success(`Previewing ${title || "HTML"}`);
+      
+      // Create blob URL for HTML content
+      const blob = new Blob([html], { type: 'text/html' });
+      const blobUrl = URL.createObjectURL(blob);
+      setHtmlPreviewBlob(blobUrl);
+      
+      // Update tab to show preview
+      setTabs(prev => prev.map(tab => 
+        tab.id === activeTabId 
+          ? { ...tab, url: blobUrl, title: title || "HTML Preview", isLoading: false, loadError: false }
+          : tab
+      ));
+      setUrlInput(title || "HTML Preview");
+    });
+
+    return () => {
+      unsubscribeNavigate();
+      unsubscribePreview();
+    };
+  }, [activeTabId]);
+
+  // Cleanup blob URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (htmlPreviewBlob) {
+        URL.revokeObjectURL(htmlPreviewBlob);
+      }
+    };
+  }, [htmlPreviewBlob]);
 
   const isValidUrl = (string: string) => {
     try {
@@ -129,6 +163,12 @@ const MiniBrowserApp = ({ conversationId, sendToChat }: CanvasAppProps) => {
     const formattedUrl = formatUrl(url);
     const willBeBlocked = isBlockedSite(formattedUrl);
     
+    // Clear any HTML preview blob when navigating to a real URL
+    if (htmlPreviewBlob) {
+      URL.revokeObjectURL(htmlPreviewBlob);
+      setHtmlPreviewBlob(null);
+    }
+    
     setTabs(prev => prev.map(tab => 
       tab.id === activeTabId 
         ? { ...tab, url: formattedUrl, isLoading: !willBeBlocked, loadError: willBeBlocked }
@@ -143,7 +183,7 @@ const MiniBrowserApp = ({ conversationId, sendToChat }: CanvasAppProps) => {
       return newHistory;
     });
     setHistoryIndex(prev => prev + 1);
-  }, [activeTabId, historyIndex, isBlockedSite]);
+  }, [activeTabId, historyIndex, isBlockedSite, htmlPreviewBlob]);
 
   // Keep navigateRef updated with latest navigate function
   useEffect(() => {

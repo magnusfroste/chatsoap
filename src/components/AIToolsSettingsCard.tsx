@@ -3,23 +3,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Wrench, Image, Code, Search, ScanEye, Globe, Loader2 } from "lucide-react";
+import { Wrench, Search, ScanEye, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface ToolSettings {
   analyze_images: boolean;
   web_search: boolean;
-  generate_image: boolean;
-  code_execution: boolean;
-  navigate_browser: boolean;
 }
 
 const defaultSettings: ToolSettings = {
   analyze_images: true,
   web_search: true,
-  generate_image: false,
-  code_execution: false,
-  navigate_browser: true,
 };
 
 const toolInfo = {
@@ -32,21 +26,6 @@ const toolInfo = {
     name: "Web Search",
     description: "Search the web via Firecrawl when AI knowledge is insufficient",
     icon: Search,
-  },
-  navigate_browser: {
-    name: "Browser Navigation",
-    description: "Let AI open websites in the workspace browser panel",
-    icon: Globe,
-  },
-  generate_image: {
-    name: "Image Generation",
-    description: "Generate images from text descriptions using AI",
-    icon: Image,
-  },
-  code_execution: {
-    name: "Code Execution",
-    description: "Execute code snippets in a sandboxed environment",
-    icon: Code,
   },
 };
 
@@ -174,7 +153,7 @@ export function AIToolsSettingsCard() {
 
         <div className="pt-2 border-t border-border/50">
           <p className="text-xs text-muted-foreground">
-            <strong>Note:</strong> Web Search requires Firecrawl connector. Image Generation requires compatible AI model.
+            <strong>Note:</strong> Web Search requires Firecrawl connector. Code and browser actions are handled automatically via chat artifacts.
           </p>
         </div>
       </CardContent>
