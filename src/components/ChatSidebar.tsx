@@ -383,7 +383,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
   };
 
   return (
-    <div className={`h-full flex flex-col bg-card border-r border-border transition-all duration-300 ease-in-out ${isCollapsed ? 'w-[72px]' : 'w-full'}`}>
+    <div className={`h-full flex flex-col bg-card border-r border-border transition-all duration-300 ease-in-out overflow-hidden ${isCollapsed ? 'w-[72px]' : 'w-full max-w-full'}`}>
       {/* Header */}
       <header className={`flex-shrink-0 border-b border-border bg-card transition-all duration-300 ${isCollapsed ? 'px-2 py-3' : 'px-4 py-3'}`}>
         <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
@@ -598,19 +598,19 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
 
                   {/* Content - fades out when collapsed */}
                   <div 
-                    className={`flex-1 min-w-0 transition-all duration-300 overflow-hidden ${
-                      isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
+                    className={`min-w-0 flex-1 overflow-hidden transition-all duration-300 ${
+                      isCollapsed ? 'w-0 opacity-0' : 'opacity-100'
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="flex items-center justify-between gap-2 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
                         {conv.is_pinned && <Pin className="w-3 h-3 text-primary flex-shrink-0" />}
-                        <span className="font-medium text-foreground truncate">
+                        <span className="font-medium text-foreground truncate block">
                           {getDisplayName(conv)}
                         </span>
                         {conv.is_favorite && <Star className="w-3 h-3 text-yellow-500 flex-shrink-0 fill-yellow-500" />}
                       </div>
-                      <span className="text-xs text-muted-foreground flex-shrink-0">
+                      <span className="text-xs text-muted-foreground flex-shrink-0 whitespace-nowrap">
                         {formatTime(conv.last_message_at)}
                       </span>
                     </div>
