@@ -149,12 +149,18 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
 
   // Separate realtime subscription effect for better stability
   useEffect(() => {
-    if (!user || !id) return;
+    if (!user?.id || !id) return;
     
-    console.log('[Realtime] Setting up channel for conversation:', id);
+    const channelName = `direct-messages-${id}`;
+    console.log('[Realtime] Setting up channel:', channelName, 'for user:', user.id);
     
     const channel = supabase
-      .channel(`direct-chat-${id}-${Date.now()}`)
+      .channel(channelName, {
+        config: {
+          broadcast: { self: true },
+          presence: { key: user.id },
+        },
+      })
       .on(
         "postgres_changes",
         {
@@ -165,7 +171,7 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
         },
         async (payload) => {
           const newMsg = payload.new as any;
-          console.log('[Realtime] INSERT received:', newMsg.id, 'from user:', newMsg.user_id);
+          console.log('[Realtime] INSERT received:', newMsg.id, 'content:', newMsg.content?.substring(0, 30));
           
           // Fetch profile for the new message if it has a user_id
           let profile = undefined;
@@ -235,11 +241,16 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
         }
       )
       .subscribe((status, err) => {
-        console.log('[Realtime] Subscription status:', status, err ? `Error: ${err.message}` : '');
+        console.log('[Realtime] Channel status:', status, 'channel:', channelName, err ? `Error: ${err.message}` : '');
+        if (status === 'SUBSCRIBED') {
+          console.log('[Realtime] Successfully subscribed to:', channelName);
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime] Channel error, will retry...');
+        }
       });
 
     return () => {
-      console.log('[Realtime] Removing channel for conversation:', id);
+      console.log('[Realtime] Cleaning up channel:', channelName);
       supabase.removeChannel(channel);
       cancelStream();
     };
