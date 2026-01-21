@@ -12,6 +12,13 @@ interface LLMConfig {
   model: string;
 }
 
+interface CAGFile {
+  id: string;
+  url: string;
+  name: string;
+  mimeType: string;
+}
+
 async function getLLMConfig(): Promise<LLMConfig> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -66,19 +73,90 @@ async function getLLMConfig(): Promise<LLMConfig> {
   }
 }
 
+// Fetch text content from a file URL
+async function fetchFileContent(file: CAGFile): Promise<string | null> {
+  try {
+    console.log(`Fetching CAG file: ${file.name} (${file.mimeType})`);
+    
+    // For images, we can't extract text - just note they're attached
+    if (file.mimeType.startsWith("image/")) {
+      return `[Image attached: ${file.name}]`;
+    }
+    
+    // For PDFs and documents, fetch and extract text
+    if (file.mimeType === "application/pdf") {
+      // For PDFs, we'd need a PDF parsing library - for now, note it's attached
+      // The parse-document edge function could be used here for full extraction
+      return `[PDF document attached: ${file.name}] - Note: Full PDF content extraction requires additional processing.`;
+    }
+    
+    // For text-based files, fetch directly
+    if (file.mimeType.startsWith("text/") || 
+        file.mimeType === "application/json" ||
+        file.mimeType === "application/xml") {
+      const response = await fetch(file.url);
+      if (response.ok) {
+        const text = await response.text();
+        // Limit text size to prevent context overflow
+        const maxLength = 50000;
+        if (text.length > maxLength) {
+          return `[File: ${file.name}]\n${text.substring(0, maxLength)}...\n[Content truncated]`;
+        }
+        return `[File: ${file.name}]\n${text}`;
+      }
+    }
+    
+    // For other document types
+    return `[Document attached: ${file.name} (${file.mimeType})]`;
+  } catch (error) {
+    console.error(`Error fetching file ${file.name}:`, error);
+    return `[Error loading file: ${file.name}]`;
+  }
+}
+
+// Build context from CAG files
+async function buildCAGContext(cagFiles: CAGFile[]): Promise<string> {
+  if (!cagFiles || cagFiles.length === 0) {
+    return "";
+  }
+
+  console.log(`Processing ${cagFiles.length} CAG files`);
+  
+  const fileContents = await Promise.all(
+    cagFiles.map(file => fetchFileContent(file))
+  );
+  
+  const validContents = fileContents.filter(Boolean);
+  
+  if (validContents.length === 0) {
+    return "";
+  }
+
+  return `
+---
+CONTEXT FILES (${validContents.length} file(s) provided by user):
+${validContents.join("\n\n")}
+---
+The user has shared these files for context. Reference them when relevant to their questions.
+`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { roomId, messageHistory, persona, customSystemPrompt } = await req.json();
+    const { roomId, messageHistory, persona, customSystemPrompt, cagFiles } = await req.json();
     
     const llmConfig = await getLLMConfig();
     
     if (!llmConfig.apiKey) {
       throw new Error(`API key not configured for the selected provider`);
     }
+
+    // Build CAG context from files
+    const cagContext = await buildCAGContext(cagFiles || []);
 
     // Build conversation context from message history
     const conversationMessages = messageHistory.map((msg: any) => ({
@@ -88,6 +166,7 @@ serve(async (req) => {
 
     console.log("Using LLM:", llmConfig.model, "at", llmConfig.endpoint);
     console.log("Sending", conversationMessages.length, "messages, persona:", persona);
+    console.log("CAG files:", cagFiles?.length || 0);
 
     // Define persona-specific system prompts
     const personaPrompts: Record<string, string> = {
@@ -165,7 +244,12 @@ Adapt complexity based on the user's prior knowledge.`,
     };
 
     // Use custom system prompt if provided, otherwise use built-in persona
-    const systemPrompt = customSystemPrompt || personaPrompts[persona] || personaPrompts.general;
+    let systemPrompt = customSystemPrompt || personaPrompts[persona] || personaPrompts.general;
+    
+    // Append CAG context to system prompt if present
+    if (cagContext) {
+      systemPrompt = `${systemPrompt}\n\n${cagContext}`;
+    }
 
     const response = await fetch(llmConfig.endpoint, {
       method: "POST",

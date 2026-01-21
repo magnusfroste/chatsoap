@@ -600,7 +600,8 @@ const DirectChat = ({ cagFiles = [], onRemoveCAGFile, onClearCAG }: DirectChatPr
               .eq("id", id);
           },
           conversation?.persona || undefined,
-          conversation?.customSystemPrompt || undefined
+          conversation?.customSystemPrompt || undefined,
+          cagFiles
         );
       }
 

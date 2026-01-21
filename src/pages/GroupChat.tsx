@@ -485,7 +485,10 @@ const GroupChat = ({ cagFiles = [], onRemoveCAGFile, onClearCAG }: GroupChatProp
               .from("conversations")
               .update({ last_message_at: new Date().toISOString() })
               .eq("id", id);
-          }
+          },
+          undefined,
+          undefined,
+          cagFiles
         );
       }
     } catch (error) {
