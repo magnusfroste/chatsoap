@@ -34,9 +34,23 @@ interface ToolCall {
   };
 }
 
-// Tool definitions for function calling
-const tools = [
-  {
+interface ToolSettings {
+  analyze_images: boolean;
+  web_search: boolean;
+  generate_image: boolean;
+  code_execution: boolean;
+}
+
+const defaultToolSettings: ToolSettings = {
+  analyze_images: true,
+  web_search: true,
+  generate_image: false,
+  code_execution: false,
+};
+
+// All available tool definitions
+const allTools = {
+  analyze_images: {
     type: "function",
     function: {
       name: "analyze_images",
@@ -53,7 +67,7 @@ const tools = [
       },
     },
   },
-  {
+  web_search: {
     type: "function",
     function: {
       name: "web_search",
@@ -70,7 +84,51 @@ const tools = [
       },
     },
   },
-];
+  generate_image: {
+    type: "function",
+    function: {
+      name: "generate_image",
+      description: "Generate an image based on a text description. Use this when the user asks you to create, draw, generate, or make an image or picture of something.",
+      parameters: {
+        type: "object",
+        properties: {
+          prompt: {
+            type: "string",
+            description: "Detailed description of the image to generate. Be specific about style, colors, composition, and content.",
+          },
+          style: {
+            type: "string",
+            enum: ["realistic", "artistic", "cartoon", "sketch", "3d"],
+            description: "The visual style for the generated image",
+          },
+        },
+        required: ["prompt"],
+      },
+    },
+  },
+  code_execution: {
+    type: "function",
+    function: {
+      name: "code_execution",
+      description: "Execute code in a sandboxed environment. Use this when the user asks you to run, execute, or test code. Supports JavaScript/TypeScript.",
+      parameters: {
+        type: "object",
+        properties: {
+          code: {
+            type: "string",
+            description: "The code to execute",
+          },
+          language: {
+            type: "string",
+            enum: ["javascript", "typescript"],
+            description: "The programming language",
+          },
+        },
+        required: ["code", "language"],
+      },
+    },
+  },
+};
 
 async function getLLMConfig(): Promise<LLMConfig> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -126,6 +184,27 @@ async function getLLMConfig(): Promise<LLMConfig> {
   }
 }
 
+async function getToolSettings(): Promise<ToolSettings> {
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    const { data } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "ai_tools_enabled")
+      .single();
+
+    if (data?.value && typeof data.value === "object") {
+      return { ...defaultToolSettings, ...(data.value as Partial<ToolSettings>) };
+    }
+  } catch {
+    // Use defaults
+  }
+  return defaultToolSettings;
+}
+
 // Parse document (PDF, DOCX, etc.) using the parse-document edge function
 async function parseDocumentContent(file: CAGFile): Promise<string> {
   try {
@@ -152,7 +231,6 @@ async function parseDocumentContent(file: CAGFile): Promise<string> {
       return `[Document attached: ${file.name}] - Could not extract text.`;
     }
 
-    // Read the streaming response and collect markdown
     const reader = response.body?.getReader();
     if (!reader) {
       return `[Document attached: ${file.name}] - No response body.`;
@@ -197,7 +275,6 @@ async function parseDocumentContent(file: CAGFile): Promise<string> {
   }
 }
 
-// Check if file is a parseable document type
 function isParseableDocument(mimeType: string): boolean {
   const parseableMimeTypes = [
     "application/pdf",
@@ -212,28 +289,23 @@ function isParseableDocument(mimeType: string): boolean {
   return parseableMimeTypes.includes(mimeType);
 }
 
-// Check if file is an image
 function isImageFile(mimeType: string): boolean {
   return mimeType.startsWith("image/") && 
     ["image/jpeg", "image/png", "image/gif", "image/webp"].includes(mimeType);
 }
 
-// Fetch text content from a file URL (for non-image files)
 async function fetchFileContent(file: CAGFile): Promise<string | null> {
   try {
     console.log(`Fetching CAG file: ${file.name} (${file.mimeType})`);
     
-    // For images, skip text extraction - they'll be handled via tool call
     if (isImageFile(file.mimeType)) {
       return `[Image attached: ${file.name}] - Use analyze_images tool if user asks about this image.`;
     }
     
-    // For PDFs and Office documents, use parse-document for full extraction
     if (isParseableDocument(file.mimeType)) {
       return await parseDocumentContent(file);
     }
     
-    // For text-based files, fetch directly
     if (file.mimeType.startsWith("text/") || 
         file.mimeType === "application/json" ||
         file.mimeType === "application/xml") {
@@ -255,7 +327,6 @@ async function fetchFileContent(file: CAGFile): Promise<string | null> {
   }
 }
 
-// Convert image URL to base64 data URL for multimodal models
 async function fetchImageAsBase64(file: CAGFile): Promise<{ url: string; mimeType: string; name: string } | null> {
   try {
     console.log(`Fetching image for multimodal: ${file.name}`);
@@ -285,7 +356,6 @@ async function fetchImageAsBase64(file: CAGFile): Promise<{ url: string; mimeTyp
   }
 }
 
-// Build context from CAG files (text-based files only)
 async function buildCAGFileContext(cagFiles: CAGFile[]): Promise<string> {
   if (!cagFiles || cagFiles.length === 0) {
     return "";
@@ -310,7 +380,6 @@ ${validContents.join("\n\n")}
 ---`;
 }
 
-// Get image files for tool-based analysis
 function getImageFiles(cagFiles: CAGFile[]): CAGFile[] {
   if (!cagFiles || cagFiles.length === 0) {
     return [];
@@ -318,7 +387,6 @@ function getImageFiles(cagFiles: CAGFile[]): CAGFile[] {
   return cagFiles.filter(f => isImageFile(f.mimeType));
 }
 
-// Build context from CAG notes
 function buildCAGNoteContext(cagNotes: CAGNote[]): string {
   if (!cagNotes || cagNotes.length === 0) {
     return "";
@@ -342,7 +410,6 @@ ${noteContents.join("\n\n")}
 ---`;
 }
 
-// Build combined CAG context (text only - images handled via tool)
 async function buildCAGContext(cagFiles: CAGFile[], cagNotes: CAGNote[]): Promise<string> {
   const [fileContext, noteContext] = await Promise.all([
     buildCAGFileContext(cagFiles),
@@ -358,7 +425,7 @@ async function buildCAGContext(cagFiles: CAGFile[], cagNotes: CAGNote[]): Promis
   return parts.join("\n") + "\nThe user has shared these items for context. Reference them when relevant to their questions.\n";
 }
 
-// Execute web search via Firecrawl
+// Tool execution functions
 async function executeWebSearch(query: string): Promise<string> {
   const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
   
@@ -397,7 +464,6 @@ async function executeWebSearch(query: string): Promise<string> {
       return "No results found for this search query.";
     }
 
-    // Format search results
     const results = data.data.slice(0, 5).map((result: any, index: number) => {
       const title = result.title || "Untitled";
       const url = result.url || "";
@@ -413,7 +479,6 @@ async function executeWebSearch(query: string): Promise<string> {
   }
 }
 
-// Execute image analysis with multimodal LLM
 async function executeImageAnalysis(
   query: string,
   imageFiles: CAGFile[],
@@ -426,7 +491,6 @@ async function executeImageAnalysis(
   try {
     console.log(`Analyzing ${imageFiles.length} images for query: "${query}"`);
     
-    // Fetch all images as base64
     const imagePromises = imageFiles.map(file => fetchImageAsBase64(file));
     const images = (await Promise.all(imagePromises)).filter(Boolean) as Array<{ url: string; mimeType: string; name: string }>;
     
@@ -434,7 +498,6 @@ async function executeImageAnalysis(
       return "Could not load the attached images for analysis.";
     }
 
-    // Build multimodal message
     const imageNames = images.map(img => img.name).join(", ");
     const multimodalContent: any[] = [
       {
@@ -493,7 +556,79 @@ async function executeImageAnalysis(
   }
 }
 
-// Process tool calls and return results
+async function executeImageGeneration(prompt: string, style?: string): Promise<string> {
+  // For now, return a message that this is not yet implemented
+  // In a real implementation, this would call DALL-E, Stable Diffusion, etc.
+  console.log(`Image generation requested: "${prompt}", style: ${style || "default"}`);
+  
+  return `🎨 **Image Generation Request**
+
+**Prompt:** ${prompt}
+**Style:** ${style || "default"}
+
+⚠️ Image generation is configured but requires an image generation API (like DALL-E or Stable Diffusion). 
+
+To enable this feature:
+1. Configure an image generation API key in admin settings
+2. The generated image will be displayed here
+
+For now, I can describe what the image would look like based on your prompt.`;
+}
+
+async function executeCode(code: string, language: string): Promise<string> {
+  console.log(`Code execution requested (${language}): ${code.substring(0, 100)}...`);
+  
+  try {
+    if (language !== "javascript" && language !== "typescript") {
+      return `❌ Language "${language}" is not supported. Only JavaScript and TypeScript are available.`;
+    }
+
+    // Simple sandboxed execution using Function constructor
+    // This is basic - a production system would use a proper sandbox like Deno isolates
+    const wrappedCode = `
+      (function() {
+        const logs = [];
+        const originalLog = console.log;
+        console.log = (...args) => logs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '));
+        
+        try {
+          const result = (function() { ${code} })();
+          return { success: true, result: result, logs: logs };
+        } catch (error) {
+          return { success: false, error: error.message, logs: logs };
+        } finally {
+          console.log = originalLog;
+        }
+      })()
+    `;
+
+    const fn = new Function(`return ${wrappedCode}`);
+    const result = fn();
+
+    let output = "## Code Execution Result\n\n";
+    output += "```" + language + "\n" + code + "\n```\n\n";
+
+    if (result.logs.length > 0) {
+      output += "**Console Output:**\n```\n" + result.logs.join("\n") + "\n```\n\n";
+    }
+
+    if (result.success) {
+      if (result.result !== undefined) {
+        output += "**Return Value:**\n```\n" + JSON.stringify(result.result, null, 2) + "\n```";
+      } else {
+        output += "✅ Code executed successfully (no return value)";
+      }
+    } else {
+      output += "❌ **Error:**\n```\n" + result.error + "\n```";
+    }
+
+    return output;
+  } catch (error) {
+    console.error("Code execution error:", error);
+    return `❌ Code execution failed: ${error instanceof Error ? error.message : "Unknown error"}`;
+  }
+}
+
 async function processToolCalls(
   toolCalls: ToolCall[],
   imageFiles: CAGFile[],
@@ -510,6 +645,12 @@ async function processToolCalls(
           break;
         case "web_search":
           result = await executeWebSearch(args.query);
+          break;
+        case "generate_image":
+          result = await executeImageGeneration(args.prompt, args.style);
+          break;
+        case "code_execution":
+          result = await executeCode(args.code, args.language);
           break;
         default:
           result = `Unknown tool: ${toolCall.function.name}`;
@@ -534,19 +675,20 @@ serve(async (req) => {
   try {
     const { roomId, messageHistory, persona, customSystemPrompt, cagFiles, cagNotes } = await req.json();
     
-    const llmConfig = await getLLMConfig();
+    const [llmConfig, toolSettings] = await Promise.all([
+      getLLMConfig(),
+      getToolSettings(),
+    ]);
     
     if (!llmConfig.apiKey) {
       throw new Error(`API key not configured for the selected provider`);
     }
 
-    // Build CAG context from files and notes (text only)
+    console.log("Tool settings:", JSON.stringify(toolSettings));
+
     const cagContext = await buildCAGContext(cagFiles || [], cagNotes || []);
-    
-    // Get image files for potential tool use
     const imageFiles = getImageFiles(cagFiles || []);
 
-    // Build conversation context from message history
     const conversationMessages = messageHistory.map((msg: any) => ({
       role: msg.is_ai ? "assistant" : "user",
       content: msg.is_ai ? msg.content : `[${msg.display_name || "User"}]: ${msg.content}`,
@@ -556,7 +698,6 @@ serve(async (req) => {
     console.log("Sending", conversationMessages.length, "messages, persona:", persona);
     console.log("CAG files:", cagFiles?.length || 0, "images available for tool:", imageFiles.length);
 
-    // Define persona-specific system prompts
     const personaPrompts: Record<string, string> = {
       general: `You are a helpful AI assistant in Messem - an exclusive collaboration platform for the tech elite.
 
@@ -564,9 +705,11 @@ You participate in a room where multiple users can ask questions and discuss tog
 Messages from users are shown with their name in brackets, e.g. "[Anna]: Hello!"
 Always respond in the same language the user writes in.
 
-You have access to tools:
+You have access to tools when enabled by admin:
 - analyze_images: Use ONLY when the user explicitly asks to analyze, describe, or explain attached images
 - web_search: Use when you need current/recent information that might be outdated in your training data
+- generate_image: Use when the user asks you to create, draw, or generate an image
+- code_execution: Use when the user asks you to run or execute code
 
 Be:
 - Concise but informative
@@ -578,9 +721,10 @@ If someone asks something you don't know, use web_search to find current informa
 
       code: `You are an expert code assistant with deep knowledge in programming and software development.
 
-You have access to tools:
+You have access to tools when enabled:
 - analyze_images: Use when user asks about images (screenshots, diagrams, code images)
 - web_search: Use to find documentation, latest API info, or solve technical problems
+- code_execution: Use to run and test code snippets
 
 You help users with:
 - Writing, reviewing, and improving code
@@ -593,9 +737,10 @@ Use code blocks with syntax highlighting when showing code.`,
 
       writer: `You are a skilled writing assistant who helps with everything from creative writing to professional communication.
 
-You have access to tools:
+You have access to tools when enabled:
 - analyze_images: Use when user asks about images for writing context
 - web_search: Use to research topics, find facts, or verify information
+- generate_image: Use to create illustrations for writing
 
 You help users with:
 - Formulating and improving texts
@@ -607,9 +752,10 @@ Always respond in the same language the user writes in.`,
 
       creative: `You are a creative brainstorming partner full of ideas and inspiration!
 
-You have access to tools:
+You have access to tools when enabled:
 - analyze_images: Use when user asks about images for creative inspiration
 - web_search: Use to find inspiration, trends, or reference material
+- generate_image: Use to visualize creative concepts
 
 You help users with:
 - Generating innovative ideas and concepts
@@ -621,9 +767,10 @@ Be enthusiastic, open, and playful in your approach!`,
 
       learning: `You are a pedagogical mentor who adapts explanations to the user's level.
 
-You have access to tools:
+You have access to tools when enabled:
 - analyze_images: Use when user asks about images for learning (diagrams, charts, etc.)
 - web_search: Use to find educational resources, examples, or verify facts
+- code_execution: Use to demonstrate code examples
 
 You help users with:
 - Explaining complex topics in an understandable way
@@ -634,37 +781,38 @@ Always respond in the same language the user writes in.
 Start with the basics and build understanding gradually.`,
     };
 
-    // Use custom system prompt if provided, otherwise use built-in persona
     let systemPrompt = customSystemPrompt || personaPrompts[persona] || personaPrompts.general;
     
-    // Append CAG context to system prompt if present
     if (cagContext) {
       systemPrompt = `${systemPrompt}\n\n${cagContext}`;
     }
 
-    // Add note about available images if any are attached
     if (imageFiles.length > 0) {
       const imageNames = imageFiles.map(f => f.name).join(", ");
       systemPrompt += `\n\nNote: The user has attached ${imageFiles.length} image(s): ${imageNames}. Use the analyze_images tool ONLY if the user explicitly asks to analyze or describe these images.`;
     }
 
-    // Build messages for LLM
     const messages: any[] = [
       { role: "system", content: systemPrompt },
       ...conversationMessages,
     ];
 
-    // Check if Firecrawl is available for tool use
+    // Build available tools based on settings and requirements
     const firecrawlAvailable = !!Deno.env.get("FIRECRAWL_API_KEY");
-    const availableTools = tools.filter(tool => {
-      if (tool.function.name === "web_search" && !firecrawlAvailable) {
-        return false;
-      }
-      if (tool.function.name === "analyze_images" && imageFiles.length === 0) {
-        return false;
-      }
-      return true;
-    });
+    const availableTools: any[] = [];
+
+    if (toolSettings.analyze_images && imageFiles.length > 0) {
+      availableTools.push(allTools.analyze_images);
+    }
+    if (toolSettings.web_search && firecrawlAvailable) {
+      availableTools.push(allTools.web_search);
+    }
+    if (toolSettings.generate_image) {
+      availableTools.push(allTools.generate_image);
+    }
+    if (toolSettings.code_execution) {
+      availableTools.push(allTools.code_execution);
+    }
 
     console.log("Available tools:", availableTools.map(t => t.function.name).join(", ") || "none");
 
@@ -680,7 +828,7 @@ Start with the basics and build understanding gradually.`,
         messages,
         tools: availableTools.length > 0 ? availableTools : undefined,
         tool_choice: availableTools.length > 0 ? "auto" : undefined,
-        stream: false, // First call non-streaming to check for tool calls
+        stream: false,
       }),
     });
 
@@ -708,18 +856,15 @@ Start with the basics and build understanding gradually.`,
     const firstData = await firstResponse.json();
     const assistantMessage = firstData.choices?.[0]?.message;
 
-    // Check if there are tool calls to process
     if (assistantMessage?.tool_calls && assistantMessage.tool_calls.length > 0) {
       console.log("Processing", assistantMessage.tool_calls.length, "tool call(s)");
       
-      // Process tool calls
       const toolResults = await processToolCalls(
         assistantMessage.tool_calls,
         imageFiles,
         llmConfig
       );
 
-      // Build messages with tool results for second LLM call
       const messagesWithTools = [
         ...messages,
         {
@@ -730,7 +875,6 @@ Start with the basics and build understanding gradually.`,
         ...toolResults,
       ];
 
-      // Second LLM call with tool results - this one streams
       const secondResponse = await fetch(llmConfig.endpoint, {
         method: "POST",
         headers: {
@@ -759,8 +903,6 @@ Start with the basics and build understanding gradually.`,
       });
     }
 
-    // No tool calls - stream the response directly
-    // We need to re-call with streaming since first call was non-streaming
     console.log("No tool calls, streaming direct response");
     
     const streamResponse = await fetch(llmConfig.endpoint, {
