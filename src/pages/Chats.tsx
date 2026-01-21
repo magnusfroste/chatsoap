@@ -128,7 +128,7 @@ const Chats = () => {
   return (
     <div className="h-screen flex bg-background overflow-hidden">
       {/* Left Sidebar - Conversations List (Desktop) */}
-      <div className={`${isSidebarCollapsed ? 'w-[72px]' : 'w-[320px]'} flex-shrink-0 border-r border-border hidden md:block transition-all duration-300`}>
+      <div className={`${isSidebarCollapsed ? 'w-[72px]' : 'w-[320px]'} flex-shrink-0 border-r border-border hidden md:block transition-all duration-300 overflow-hidden`}>
         <ChatSidebar 
           activeConversationId={activeConversationId} 
           isCollapsed={isSidebarCollapsed}
