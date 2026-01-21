@@ -495,11 +495,20 @@ function getFileType(url: string, attachmentType?: string | null): "image" | "pd
 
 function getMimeType(url: string, attachmentType?: string | null): string {
   if (attachmentType) return attachmentType;
-  if (url.toLowerCase().endsWith(".pdf")) return "application/pdf";
+  const lowerUrl = url.toLowerCase();
+  if (lowerUrl.endsWith(".pdf")) return "application/pdf";
   if (url.match(/\.jpe?g$/i)) return "image/jpeg";
-  if (url.toLowerCase().endsWith(".png")) return "image/png";
-  if (url.toLowerCase().endsWith(".gif")) return "image/gif";
-  if (url.toLowerCase().endsWith(".webp")) return "image/webp";
+  if (lowerUrl.endsWith(".png")) return "image/png";
+  if (lowerUrl.endsWith(".gif")) return "image/gif";
+  if (lowerUrl.endsWith(".webp")) return "image/webp";
+  // Office documents
+  if (lowerUrl.endsWith(".doc")) return "application/msword";
+  if (lowerUrl.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (lowerUrl.endsWith(".xls")) return "application/vnd.ms-excel";
+  if (lowerUrl.endsWith(".xlsx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  if (lowerUrl.endsWith(".ppt")) return "application/vnd.ms-powerpoint";
+  if (lowerUrl.endsWith(".pptx")) return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+  if (lowerUrl.endsWith(".rtf")) return "application/rtf";
   return "application/octet-stream";
 }
 
