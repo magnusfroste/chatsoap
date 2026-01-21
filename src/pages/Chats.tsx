@@ -7,6 +7,8 @@ import ChatEmptyState from "@/components/ChatEmptyState";
 import DirectChat from "./DirectChat";
 import { NotificationPermissionBanner } from "@/components/NotificationPermissionBanner";
 import { IncomingCallOverlay } from "@/components/IncomingCallOverlay";
+import { WorkspaceCanvas } from "@/components/WorkspaceCanvas";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { Loader2 } from "lucide-react";
 
 // Lazy load GroupChat
@@ -21,6 +23,10 @@ const Chats = () => {
     const saved = localStorage.getItem('sidebar-collapsed');
     return saved === 'true';
   });
+  const [isCanvasVisible, setIsCanvasVisible] = useState(() => {
+    const saved = localStorage.getItem('canvas-visible');
+    return saved !== 'false'; // Default to visible
+  });
   
   // Global incoming call listener
   const { incomingCall, acceptCall, declineCall } = useIncomingCallListener(user?.id);
@@ -32,6 +38,9 @@ const Chats = () => {
   
   // Get the active conversation ID from the URL
   const activeConversationId = params.id;
+
+  // Determine conversation type
+  const conversationType = isGroupChat ? "group" : isDirectChat ? "direct" : undefined;
 
   const toggleSidebarCollapse = () => {
     setIsSidebarCollapsed(prev => {
@@ -76,7 +85,7 @@ const Chats = () => {
   return (
     <div className="h-screen flex bg-background overflow-hidden">
       {/* Left Sidebar - Conversations List (Desktop) */}
-      <div className={`${isSidebarCollapsed ? 'w-[72px]' : 'w-[400px]'} flex-shrink-0 border-r border-border hidden md:block transition-all duration-300`}>
+      <div className={`${isSidebarCollapsed ? 'w-[72px]' : 'w-[320px]'} flex-shrink-0 border-r border-border hidden md:block transition-all duration-300`}>
         <ChatSidebar 
           activeConversationId={activeConversationId} 
           isCollapsed={isSidebarCollapsed}
@@ -93,9 +102,26 @@ const Chats = () => {
         )}
       </div>
 
-      {/* Right Side - Chat Area (Desktop only) */}
-      <div className="flex-1 hidden md:flex flex-col">
-        {renderChatContent()}
+      {/* Desktop: Middle Chat + Right Canvas with Resizable Panels */}
+      <div className="flex-1 hidden md:flex">
+        <ResizablePanelGroup direction="horizontal">
+          {/* Middle - Chat Area */}
+          <ResizablePanel defaultSize={45} minSize={30}>
+            <div className="h-full flex flex-col">
+              {renderChatContent()}
+            </div>
+          </ResizablePanel>
+
+          <ResizableHandle withHandle />
+
+          {/* Right - Canvas/Workspace */}
+          <ResizablePanel defaultSize={55} minSize={35}>
+            <WorkspaceCanvas 
+              conversationId={activeConversationId}
+              conversationType={conversationType as "direct" | "group" | "ai_chat" | undefined}
+            />
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </div>
 
       {/* Notification Permission Banner */}

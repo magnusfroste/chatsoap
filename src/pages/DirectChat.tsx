@@ -6,22 +6,18 @@ import { useDocumentAI } from "@/hooks/useDocumentAI";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useReadReceipts } from "@/hooks/useReadReceipts";
 import { useDirectCall } from "@/hooks/useDirectCall";
-import { useNotes, Note } from "@/hooks/useNotes";
 import { useNotifications } from "@/hooks/useNotifications";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Send, Bot, Loader2, Mic, Check, CheckCheck, Search, Phone, Video, FileText, PanelRightOpen, PanelRightClose, Images } from "lucide-react";
+import { ArrowLeft, Send, Bot, Loader2, Mic, Check, CheckCheck, Phone, Video, Images } from "lucide-react";
 import { ChatActionsMenu } from "@/components/ChatActionsMenu";
 import { MessageBubble, ReplyPreview } from "@/components/MessageBubble";
 import { CallUI } from "@/components/CallUI";
 import { EmojiPicker } from "@/components/EmojiPicker";
 import { FileUploadButton, FilePreview, UploadedFile } from "@/components/FileUploadButton";
-import { DocumentPreview } from "@/components/DocumentPreview";
-import { NotesSidebar } from "@/components/NotesSidebar";
-import { NoteEditor } from "@/components/NoteEditor";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChatMessageSearch } from "@/components/ChatMessageSearch";
 import { PersonaSwitcher, AI_PERSONAS } from "@/components/PersonaSwitcher";
@@ -78,12 +74,7 @@ const DirectChat = () => {
   const { isMessageRead, markMessagesAsRead } = useReadReceipts(id, user?.id);
   const { showMessageNotification } = useNotifications();
   
-  // Notes
-  const { notes, isLoading: notesLoading, createNote, updateNote, deleteNote } = useNotes(user?.id);
-  const [notesSidebarOpen, setNotesSidebarOpen] = useState(false);
   const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
-  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
-  const [noteEditorOpen, setNoteEditorOpen] = useState(false);
 
   const [conversation, setConversation] = useState<ConversationInfo | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -665,38 +656,13 @@ const DirectChat = () => {
   };
 
   const handleSaveToNotes = async (content: string, messageId: string) => {
-    const title = content.slice(0, 50) + (content.length > 50 ? "..." : "");
-    await createNote({
-      title,
-      content,
-      conversationId: id,
-      sourceMessageId: messageId,
-    });
+    // Handled by WorkspaceCanvas now
+    console.log("Save to notes:", content.slice(0, 50), messageId);
   };
 
   const handleSaveDocumentToNotes = async (title: string, content: string) => {
-    await createNote({
-      title,
-      content,
-      conversationId: id,
-    });
-  };
-
-  const handleNoteSelect = (note: Note) => {
-    setSelectedNote(note);
-    setNoteEditorOpen(true);
-  };
-
-  const handleCreateNote = async () => {
-    const newNote = await createNote({
-      title: "New Note",
-      content: "",
-      conversationId: id,
-    });
-    if (newNote) {
-      setSelectedNote(newNote);
-      setNoteEditorOpen(true);
-    }
+    // Handled by WorkspaceCanvas now
+    console.log("Save document to notes:", title);
   };
 
   if (authLoading || loading) {
@@ -824,18 +790,6 @@ const DirectChat = () => {
                   onClick={() => setMediaLibraryOpen(true)}
                 >
                   <Images className="w-5 h-5" />
-                </Button>
-                <Button
-                  variant="ghost" 
-                  size="icon" 
-                  className="text-muted-foreground hover:text-foreground"
-                  onClick={() => setNotesSidebarOpen(!notesSidebarOpen)}
-                >
-                  {notesSidebarOpen ? (
-                    <PanelRightClose className="w-5 h-5" />
-                  ) : (
-                    <PanelRightOpen className="w-5 h-5" />
-                  )}
                 </Button>
                 <ChatActionsMenu
                   conversationId={id || ""}
@@ -1007,16 +961,6 @@ const DirectChat = () => {
           </div>
         </div>
 
-        {/* Notes Sidebar */}
-        <NotesSidebar
-          notes={notes}
-          isLoading={notesLoading}
-          isOpen={notesSidebarOpen}
-          onClose={() => setNotesSidebarOpen(false)}
-          onNoteSelect={handleNoteSelect}
-          onCreateNote={handleCreateNote}
-        />
-
         {/* Media Library */}
         <ChatMediaLibrary
           open={mediaLibraryOpen}
@@ -1029,23 +973,6 @@ const DirectChat = () => {
           onSaveToNotes={handleSaveDocumentToNotes}
         />
       </div>
-
-      {/* Note Editor Dialog */}
-      <NoteEditor
-        note={selectedNote}
-        isOpen={noteEditorOpen}
-        onClose={() => {
-          setNoteEditorOpen(false);
-          setSelectedNote(null);
-        }}
-        onSave={async (noteId, updates) => {
-          const updated = await updateNote(noteId, updates);
-          if (updated) setSelectedNote(updated);
-          return updated;
-        }}
-        onDelete={deleteNote}
-        userId={user?.id}
-      />
     </TooltipProvider>
   );
 };
