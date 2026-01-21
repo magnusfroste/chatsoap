@@ -151,16 +151,10 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
   useEffect(() => {
     if (!user?.id || !id) return;
     
-    const channelName = `direct-messages-${id}`;
-    console.log('[Realtime] Setting up channel:', channelName, 'for user:', user.id);
+    console.log('[Realtime] Setting up channel for conversation:', id);
     
     const channel = supabase
-      .channel(channelName, {
-        config: {
-          broadcast: { self: true },
-          presence: { key: user.id },
-        },
-      })
+      .channel(`chat-messages-${id}`)
       .on(
         "postgres_changes",
         {
@@ -171,7 +165,7 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
         },
         async (payload) => {
           const newMsg = payload.new as any;
-          console.log('[Realtime] INSERT received:', newMsg.id, 'content:', newMsg.content?.substring(0, 30));
+          console.log('[Realtime] New message received:', newMsg.id);
           
           // Fetch profile for the new message if it has a user_id
           let profile = undefined;
@@ -221,7 +215,7 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
           setMessages((prev) => {
             // Skip if already exists with this ID
             if (prev.some((m) => m.id === newMsg.id)) {
-              console.log('[Realtime] Message already exists, skipping:', newMsg.id);
+              console.log('[Realtime] Message already exists, skipping');
               return prev;
             }
             // Filter out matching temp messages and add the real one
@@ -229,7 +223,6 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
               !(m.id.startsWith('temp-') && m.content === newMsg.content && m.user_id === newMsg.user_id) &&
               !(m.id.startsWith('ai-temp-') && m.content === newMsg.content && m.is_ai)
             );
-            console.log('[Realtime] Adding new message to state:', newMsg.id);
             return [...filtered, enrichedMessage];
           });
 
@@ -240,17 +233,11 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
           }
         }
       )
-      .subscribe((status, err) => {
-        console.log('[Realtime] Channel status:', status, 'channel:', channelName, err ? `Error: ${err.message}` : '');
-        if (status === 'SUBSCRIBED') {
-          console.log('[Realtime] Successfully subscribed to:', channelName);
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('[Realtime] Channel error, will retry...');
-        }
+      .subscribe((status) => {
+        console.log('[Realtime] Subscription status:', status);
       });
 
     return () => {
-      console.log('[Realtime] Cleaning up channel:', channelName);
       supabase.removeChannel(channel);
       cancelStream();
     };
