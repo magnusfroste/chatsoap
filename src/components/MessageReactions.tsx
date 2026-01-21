@@ -26,7 +26,13 @@ export const MessageReactions = ({ messageId, userId, isOwn }: MessageReactionsP
   const [reactions, setReactions] = useState<Reaction[]>([]);
   const [showPicker, setShowPicker] = useState(false);
 
+  // Check if this is a temporary message ID (not yet saved to DB)
+  const isTemporaryId = messageId.startsWith("temp-") || messageId.startsWith("ai-temp-");
+
   const fetchReactions = useCallback(async () => {
+    // Skip fetching for temporary messages
+    if (isTemporaryId) return;
+
     const { data, error } = await supabase
       .from("message_reactions")
       .select("emoji, user_id")
@@ -51,12 +57,13 @@ export const MessageReactions = ({ messageId, userId, isOwn }: MessageReactionsP
     }, {} as Record<string, Reaction>);
 
     setReactions(Object.values(grouped));
-  }, [messageId, userId]);
+  }, [messageId, userId, isTemporaryId]);
 
   useEffect(() => {
-    fetchReactions();
+    // Skip subscription for temporary messages
+    if (isTemporaryId) return;
 
-    // Subscribe to reaction changes
+    fetchReactions();
     const channel = supabase
       .channel(`reactions-${messageId}`)
       .on(
@@ -76,10 +83,11 @@ export const MessageReactions = ({ messageId, userId, isOwn }: MessageReactionsP
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [messageId, fetchReactions]);
+  }, [messageId, fetchReactions, isTemporaryId]);
 
   const toggleReaction = async (emoji: string) => {
-    if (!userId) return;
+    // Disable reactions for temporary messages
+    if (!userId || isTemporaryId) return;
 
     const existingReaction = reactions.find(r => r.emoji === emoji && r.hasReacted);
 
