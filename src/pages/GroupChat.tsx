@@ -23,7 +23,7 @@ import { NoteEditor } from "@/components/NoteEditor";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChatMessageSearch } from "@/components/ChatMessageSearch";
 import { CAGContextBadge } from "@/components/CAGContextBadge";
-import { CAGFile } from "@/hooks/useCAGContext";
+import { CAGFile, CAGNote } from "@/hooks/useCAGContext";
 import {
   ArrowLeft,
   Send,
@@ -93,12 +93,14 @@ interface Member {
 
 interface GroupChatProps {
   cagFiles?: CAGFile[];
+  cagNotes?: CAGNote[];
   onRemoveCAGFile?: (fileId: string) => void;
+  onRemoveCAGNote?: (noteId: string) => void;
   onClearCAG?: () => void;
   onOpenFiles?: () => void;
 }
 
-const GroupChat = ({ cagFiles = [], onRemoveCAGFile, onClearCAG, onOpenFiles }: GroupChatProps) => {
+const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGNote, onClearCAG, onOpenFiles }: GroupChatProps) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, profile, loading: authLoading } = useAuth();
@@ -489,7 +491,8 @@ const GroupChat = ({ cagFiles = [], onRemoveCAGFile, onClearCAG, onOpenFiles }: 
           },
           undefined,
           undefined,
-          cagFiles
+          cagFiles,
+          cagNotes
         );
       }
     } catch (error) {
@@ -859,11 +862,13 @@ const GroupChat = ({ cagFiles = [], onRemoveCAGFile, onClearCAG, onOpenFiles }: 
               )}
 
               {/* CAG Context Badge */}
-              {cagFiles.length > 0 && onRemoveCAGFile && onClearCAG && (
+              {(cagFiles.length > 0 || cagNotes.length > 0) && onRemoveCAGFile && onClearCAG && (
                 <div className="max-w-3xl mx-auto mb-2">
                   <CAGContextBadge 
                     files={cagFiles} 
+                    notes={cagNotes}
                     onRemoveFile={onRemoveCAGFile} 
+                    onRemoveNote={onRemoveCAGNote}
                     onClearAll={onClearCAG} 
                   />
                 </div>

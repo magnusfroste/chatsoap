@@ -22,7 +22,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChatMessageSearch } from "@/components/ChatMessageSearch";
 import { PersonaSwitcher, AI_PERSONAS } from "@/components/PersonaSwitcher";
 import { CAGContextBadge } from "@/components/CAGContextBadge";
-import { CAGFile } from "@/hooks/useCAGContext";
+import { CAGFile, CAGNote } from "@/hooks/useCAGContext";
 
 interface ReplyToMessage {
   id: string;
@@ -64,12 +64,14 @@ interface ConversationInfo {
 
 interface DirectChatProps {
   cagFiles?: CAGFile[];
+  cagNotes?: CAGNote[];
   onRemoveCAGFile?: (fileId: string) => void;
+  onRemoveCAGNote?: (noteId: string) => void;
   onClearCAG?: () => void;
   onOpenFiles?: () => void;
 }
 
-const DirectChat = ({ cagFiles = [], onRemoveCAGFile, onClearCAG, onOpenFiles }: DirectChatProps) => {
+const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGNote, onClearCAG, onOpenFiles }: DirectChatProps) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, profile, loading: authLoading } = useAuth();
@@ -599,7 +601,8 @@ const DirectChat = ({ cagFiles = [], onRemoveCAGFile, onClearCAG, onOpenFiles }:
           },
           conversation?.persona || undefined,
           conversation?.customSystemPrompt || undefined,
-          cagFiles
+          cagFiles,
+          cagNotes
         );
       }
 
@@ -911,11 +914,13 @@ const DirectChat = ({ cagFiles = [], onRemoveCAGFile, onClearCAG, onOpenFiles }:
             )}
 
             {/* CAG Context Badge */}
-            {cagFiles.length > 0 && onRemoveCAGFile && onClearCAG && (
+            {(cagFiles.length > 0 || cagNotes.length > 0) && onRemoveCAGFile && onClearCAG && (
               <div className="max-w-4xl mx-auto mb-2">
                 <CAGContextBadge 
                   files={cagFiles} 
+                  notes={cagNotes}
                   onRemoveFile={onRemoveCAGFile} 
+                  onRemoveNote={onRemoveCAGNote}
                   onClearAll={onClearCAG} 
                 />
               </div>

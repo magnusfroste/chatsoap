@@ -19,6 +19,12 @@ interface CAGFile {
   mimeType: string;
 }
 
+interface CAGNote {
+  id: string;
+  title: string;
+  content: string;
+}
+
 async function getLLMConfig(): Promise<LLMConfig> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -201,7 +207,7 @@ async function fetchFileContent(file: CAGFile): Promise<string | null> {
 }
 
 // Build context from CAG files
-async function buildCAGContext(cagFiles: CAGFile[]): Promise<string> {
+async function buildCAGFileContext(cagFiles: CAGFile[]): Promise<string> {
   if (!cagFiles || cagFiles.length === 0) {
     return "";
   }
@@ -222,9 +228,48 @@ async function buildCAGContext(cagFiles: CAGFile[]): Promise<string> {
 ---
 CONTEXT FILES (${validContents.length} file(s) provided by user):
 ${validContents.join("\n\n")}
+---`;
+}
+
+// Build context from CAG notes
+function buildCAGNoteContext(cagNotes: CAGNote[]): string {
+  if (!cagNotes || cagNotes.length === 0) {
+    return "";
+  }
+
+  console.log(`Processing ${cagNotes.length} CAG notes`);
+  
+  const noteContents = cagNotes.map(note => {
+    // Truncate very long notes
+    const maxLength = 30000;
+    let content = note.content;
+    if (content.length > maxLength) {
+      content = content.substring(0, maxLength) + "...\n[Note content truncated]";
+    }
+    return `[Note: ${note.title}]\n${content}`;
+  });
+
+  return `
 ---
-The user has shared these files for context. Reference them when relevant to their questions.
-`;
+CONTEXT NOTES (${cagNotes.length} note(s) provided by user):
+${noteContents.join("\n\n")}
+---`;
+}
+
+// Build combined CAG context
+async function buildCAGContext(cagFiles: CAGFile[], cagNotes: CAGNote[]): Promise<string> {
+  const [fileContext, noteContext] = await Promise.all([
+    buildCAGFileContext(cagFiles),
+    Promise.resolve(buildCAGNoteContext(cagNotes)),
+  ]);
+
+  const parts = [fileContext, noteContext].filter(Boolean);
+  
+  if (parts.length === 0) {
+    return "";
+  }
+
+  return parts.join("\n") + "\nThe user has shared these items for context. Reference them when relevant to their questions.\n";
 }
 
 serve(async (req) => {
@@ -233,7 +278,7 @@ serve(async (req) => {
   }
 
   try {
-    const { roomId, messageHistory, persona, customSystemPrompt, cagFiles } = await req.json();
+    const { roomId, messageHistory, persona, customSystemPrompt, cagFiles, cagNotes } = await req.json();
     
     const llmConfig = await getLLMConfig();
     
@@ -241,8 +286,8 @@ serve(async (req) => {
       throw new Error(`API key not configured for the selected provider`);
     }
 
-    // Build CAG context from files
-    const cagContext = await buildCAGContext(cagFiles || []);
+    // Build CAG context from files and notes
+    const cagContext = await buildCAGContext(cagFiles || [], cagNotes || []);
 
     // Build conversation context from message history
     const conversationMessages = messageHistory.map((msg: any) => ({

@@ -86,7 +86,9 @@ const Chats = () => {
       return (
         <DirectChat 
           cagFiles={cagContext.selectedFiles} 
+          cagNotes={cagContext.selectedNotes}
           onRemoveCAGFile={cagContext.removeFile} 
+          onRemoveCAGNote={cagContext.removeNote}
           onClearCAG={cagContext.clearAll}
           onOpenFiles={handleOpenFilesTab}
         />
@@ -101,7 +103,9 @@ const Chats = () => {
         }>
           <GroupChat 
             cagFiles={cagContext.selectedFiles} 
+            cagNotes={cagContext.selectedNotes}
             onRemoveCAGFile={cagContext.removeFile} 
+            onRemoveCAGNote={cagContext.removeNote}
             onClearCAG={cagContext.clearAll}
             onOpenFiles={handleOpenFilesTab}
           />
@@ -152,6 +156,9 @@ const Chats = () => {
                 selectedFiles: cagContext.selectedFiles,
                 toggleFile: cagContext.toggleFile,
                 isFileSelected: cagContext.isFileSelected,
+                selectedNotes: cagContext.selectedNotes,
+                toggleNote: cagContext.toggleNote,
+                isNoteSelected: cagContext.isNoteSelected,
               }}
               activeTab={canvasActiveTab}
               onTabChange={handleCanvasTabChange}
