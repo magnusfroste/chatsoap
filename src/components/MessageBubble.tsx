@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bot, Check, CheckCheck, Reply, X, Image as ImageIcon, FileText } from "lucide-react";
+import { Bot, Check, CheckCheck, Reply, X, Image as ImageIcon, FileText, Clock } from "lucide-react";
 import { MessageReactions, ReactionPicker } from "./MessageReactions";
 import { SendToNotesButton } from "./SendToNotesButton";
 import { DocumentPreview } from "./DocumentPreview";
@@ -64,6 +64,7 @@ interface MessageBubbleProps {
     reply_to?: ReplyToMessage | null;
     attachment_type?: string | null;
     attachment_name?: string | null;
+    sending?: boolean;
     profile?: {
       display_name: string | null;
     };
@@ -251,10 +252,12 @@ export const MessageBubble = ({
         )}>
           {formatTime(message.created_at)}
           {isOwn && !message.is_ai && (
-            isRead ? (
+            message.sending ? (
+              <Clock className="w-3.5 h-3.5 text-muted-foreground animate-pulse" />
+            ) : isRead ? (
               <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
             ) : (
-              <CheckCheck className="w-3.5 h-3.5 text-muted-foreground" />
+              <Check className="w-3.5 h-3.5 text-muted-foreground" />
             )
           )}
         </span>
