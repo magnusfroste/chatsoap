@@ -73,6 +73,79 @@ async function getLLMConfig(): Promise<LLMConfig> {
   }
 }
 
+// Parse PDF using the parse-document edge function
+async function parsePdfContent(file: CAGFile): Promise<string> {
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    
+    console.log(`Parsing PDF via parse-document: ${file.name}`);
+    
+    const response = await fetch(`${supabaseUrl}/functions/v1/parse-document`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${serviceRoleKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        documentUrl: file.url,
+        documentName: file.name,
+        mimeType: file.mimeType,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`parse-document error: ${response.status}`);
+      return `[PDF attached: ${file.name}] - Could not extract text.`;
+    }
+
+    // Read the streaming response and collect markdown
+    const reader = response.body?.getReader();
+    if (!reader) {
+      return `[PDF attached: ${file.name}] - No response body.`;
+    }
+
+    let markdown = "";
+    const decoder = new TextDecoder();
+    
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      
+      const chunk = decoder.decode(value, { stream: true });
+      // Parse SSE format: data: {"choices":[{"delta":{"content":"..."}}]}
+      const lines = chunk.split("\n");
+      for (const line of lines) {
+        if (line.startsWith("data: ") && !line.includes("[DONE]")) {
+          try {
+            const json = JSON.parse(line.slice(6));
+            const content = json.choices?.[0]?.delta?.content;
+            if (content) {
+              markdown += content;
+            }
+          } catch {
+            // Skip invalid JSON lines
+          }
+        }
+      }
+    }
+
+    if (markdown.trim()) {
+      // Limit size to prevent context overflow
+      const maxLength = 80000;
+      if (markdown.length > maxLength) {
+        return `[PDF: ${file.name}]\n${markdown.substring(0, maxLength)}...\n[Content truncated]`;
+      }
+      return `[PDF: ${file.name}]\n${markdown}`;
+    }
+    
+    return `[PDF attached: ${file.name}] - No text extracted.`;
+  } catch (error) {
+    console.error(`Error parsing PDF ${file.name}:`, error);
+    return `[PDF attached: ${file.name}] - Error during extraction.`;
+  }
+}
+
 // Fetch text content from a file URL
 async function fetchFileContent(file: CAGFile): Promise<string | null> {
   try {
@@ -83,11 +156,9 @@ async function fetchFileContent(file: CAGFile): Promise<string | null> {
       return `[Image attached: ${file.name}]`;
     }
     
-    // For PDFs and documents, fetch and extract text
+    // For PDFs, use the parse-document edge function for full extraction
     if (file.mimeType === "application/pdf") {
-      // For PDFs, we'd need a PDF parsing library - for now, note it's attached
-      // The parse-document edge function could be used here for full extraction
-      return `[PDF document attached: ${file.name}] - Note: Full PDF content extraction requires additional processing.`;
+      return await parsePdfContent(file);
     }
     
     // For text-based files, fetch directly
