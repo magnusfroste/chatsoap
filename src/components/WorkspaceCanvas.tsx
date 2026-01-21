@@ -6,6 +6,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 import { NoteEditor } from "@/components/NoteEditor";
 import { canvasAppRegistry, CanvasAppProps } from "@/lib/canvas-apps";
+import { canvasEventBus } from "@/lib/canvas-apps/events";
 
 interface WorkspaceCanvasProps {
   conversationId: string | undefined;
@@ -78,6 +79,24 @@ export const WorkspaceCanvas = ({
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, activeApp);
   }, [activeApp]);
+
+  // Listen for notes:create events from artifact actions
+  useEffect(() => {
+    const unsubscribe = canvasEventBus.on("notes:create", async ({ content, title }) => {
+      console.log("Notes received create event:", title);
+      const newNote = await createNote({
+        title: title || "AI Generated Note",
+        content,
+        conversationId,
+      });
+      if (newNote) {
+        setSelectedNote(newNote);
+        setNoteEditorOpen(true);
+      }
+    });
+    
+    return unsubscribe;
+  }, [conversationId, createNote]);
 
   // Filter notes for current conversation
   const conversationNotes = notes.filter(

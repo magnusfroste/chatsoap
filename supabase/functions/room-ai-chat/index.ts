@@ -39,8 +39,6 @@ interface ToolSettings {
   web_search: boolean;
   generate_image: boolean;
   code_execution: boolean;
-  send_code_to_sandbox: boolean;
-  navigate_browser: boolean;
 }
 
 const defaultToolSettings: ToolSettings = {
@@ -48,8 +46,6 @@ const defaultToolSettings: ToolSettings = {
   web_search: true,
   generate_image: false,
   code_execution: false,
-  send_code_to_sandbox: true,
-  navigate_browser: true,
 };
 
 // All available tool definitions
@@ -132,49 +128,8 @@ const allTools = {
       },
     },
   },
-  send_code_to_sandbox: {
-    type: "function",
-    function: {
-      name: "send_code_to_sandbox",
-      description: "Send code to the collaborative Code Sandbox canvas app where users can view, edit, and run it together. Use this when you want to share code that users can experiment with, modify collaboratively, or when teaching programming concepts. The code appears in the shared sandbox panel.",
-      parameters: {
-        type: "object",
-        properties: {
-          code: {
-            type: "string",
-            description: "The JavaScript or TypeScript code to send to the sandbox",
-          },
-          language: {
-            type: "string",
-            enum: ["javascript", "typescript"],
-            description: "The programming language (javascript or typescript)",
-          },
-          auto_run: {
-            type: "boolean",
-            description: "Whether to automatically run the code after sending (default: false)",
-          },
-        },
-        required: ["code", "language"],
-      },
-    },
-  },
-  navigate_browser: {
-    type: "function",
-    function: {
-      name: "navigate_browser",
-      description: "Navigate the workspace browser to a specific URL. Use this when the user asks you to 'go to', 'open', 'visit', or 'navigate to' a website. Examples: 'go to sj.se', 'open google.com', 'visit wikipedia'. This opens the website in the mini browser panel.",
-      parameters: {
-        type: "object",
-        properties: {
-          url: {
-            type: "string",
-            description: "The URL or domain to navigate to. Can be a full URL (https://sj.se) or just a domain (sj.se)",
-          },
-        },
-        required: ["url"],
-      },
-    },
-  },
+  // NOTE: send_code_to_sandbox and navigate_browser are now handled by frontend artifact detection
+  // This removes tool calling overhead and gives users control via artifact buttons in chat
 };
 
 async function getLLMConfig(): Promise<LLMConfig> {
@@ -885,12 +840,7 @@ Start with the basics and build understanding gradually.`,
     if (toolSettings.code_execution) {
       availableTools.push(allTools.code_execution);
     }
-    if (toolSettings.send_code_to_sandbox) {
-      availableTools.push(allTools.send_code_to_sandbox);
-    }
-    if (toolSettings.navigate_browser) {
-      availableTools.push(allTools.navigate_browser);
-    }
+    // NOTE: send_code_to_sandbox and navigate_browser removed - now handled by frontend artifact detection
 
     console.log("Available tools:", availableTools.map(t => t.function.name).join(", ") || "none");
 
