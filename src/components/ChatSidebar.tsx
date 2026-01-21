@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MessageSquare, Users, LogOut, Search, MoreVertical, CheckCheck, Settings, Star, Archive, User, Pin, BellOff, ArchiveRestore, PanelLeftClose, PanelLeft, Bot } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import NewChatDialog from "@/components/NewChatDialog";
 import NewGroupDialog from "@/components/NewGroupDialog";
@@ -410,8 +411,27 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
       {/* Conversations List */}
       <ScrollArea className="flex-1">
         {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent"></div>
+          <div className="flex flex-col">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className={`flex items-center transition-all duration-300 ${
+                  isCollapsed ? 'justify-center px-0 py-2' : 'gap-3 px-3 py-3 border-b border-border/50'
+                }`}
+                style={{ animationDelay: `${i * 50}ms` }}
+              >
+                <Skeleton className={`rounded-full flex-shrink-0 ${isCollapsed ? 'h-10 w-10' : 'h-12 w-12'}`} />
+                {!isCollapsed && (
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-3 w-10" />
+                    </div>
+                    <Skeleton className="h-3 w-full max-w-[180px]" />
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         ) : filteredConversations.length === 0 ? (
           <div className={`text-center py-12 px-4 transition-opacity duration-300 ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}>
