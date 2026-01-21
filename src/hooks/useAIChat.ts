@@ -1,6 +1,6 @@
 import { useCallback, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { CAGFile } from "./useCAGContext";
 
 interface Message {
   id: string;
@@ -24,7 +24,8 @@ export function useAIChat(roomId: string | undefined) {
       onDelta: (text: string) => void,
       onDone: (fullText: string) => void,
       persona?: string,
-      customSystemPrompt?: string
+      customSystemPrompt?: string,
+      cagFiles?: CAGFile[]
     ) => {
       if (!roomId) return;
 
@@ -51,7 +52,8 @@ export function useAIChat(roomId: string | undefined) {
             roomId, 
             messageHistory: historyForAI, 
             persona,
-            customSystemPrompt 
+            customSystemPrompt,
+            cagFiles: cagFiles || [],
           }),
           signal: abortControllerRef.current.signal,
         });
