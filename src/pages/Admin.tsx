@@ -15,8 +15,9 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
-import { ArrowLeft, Loader2, Shield, Users, Settings, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Shield, Users, Settings, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { LLMSettingsCard } from "@/components/LLMSettingsCard";
 
 interface InviteCode {
   id: string;
@@ -178,6 +179,9 @@ export default function Admin() {
       </header>
 
       <main className="container mx-auto px-4 py-6 space-y-6">
+        {/* LLM Settings Card */}
+        <LLMSettingsCard />
+
         {/* Settings Card */}
         <Card className="glass-card border-border/50">
           <CardHeader>
