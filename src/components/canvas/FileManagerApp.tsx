@@ -56,11 +56,19 @@ const FileManagerApp = ({
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [filter, setFilter] = useState<"all" | "images" | "documents">("all");
 
+  // Helper to check if a message contains a file
+  const isFileMessage = (content: string) => {
+    return (
+      content.includes("supabase.co/storage") ||
+      content.match(/\.(jpg|jpeg|png|gif|webp|pdf|doc|docx|xls|xlsx|ppt|pptx)$/i)
+    );
+  };
+
   // Fetch files from conversation messages
   useEffect(() => {
+    if (!conversationId) return;
+
     const fetchFiles = async () => {
-      if (!conversationId) return;
-      
       setIsLoading(true);
       try {
         // Fetch messages with attachments
@@ -73,22 +81,19 @@ const FileManagerApp = ({
         if (error) throw error;
 
         // Filter messages that contain file URLs
-        const fileMessages = messages?.filter((msg) => {
-          const content = msg.content;
-          return (
-            content.includes("supabase.co/storage") ||
-            content.match(/\.(jpg|jpeg|png|gif|webp|pdf|doc|docx|xls|xlsx|ppt|pptx)$/i)
-          );
-        }) || [];
+        const fileMessages = messages?.filter((msg) => isFileMessage(msg.content)) || [];
 
         // Get user profiles for uploaders
         const userIds = [...new Set(fileMessages.map(m => m.user_id).filter(Boolean))];
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("user_id, display_name")
-          .in("user_id", userIds);
-
-        const profileMap = new Map(profiles?.map(p => [p.user_id, p.display_name]) || []);
+        let profileMap = new Map<string, string>();
+        
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("user_id, display_name")
+            .in("user_id", userIds);
+          profileMap = new Map(profiles?.map(p => [p.user_id, p.display_name]) || []);
+        }
 
         // Extract file info from messages
         const extractedFiles: ConversationFile[] = fileMessages.map((msg) => {
@@ -120,6 +125,65 @@ const FileManagerApp = ({
     };
 
     fetchFiles();
+
+    // Subscribe to new messages with attachments
+    const channel = supabase
+      .channel(`files-${conversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        async (payload) => {
+          const newMsg = payload.new as any;
+          
+          // Only process if it's a file message
+          if (!isFileMessage(newMsg.content)) return;
+
+          // Skip if already in list
+          setFiles((prev) => {
+            if (prev.find((f) => f.id === newMsg.id)) return prev;
+            return prev;
+          });
+
+          // Fetch uploader profile
+          let uploaderName: string | null = null;
+          if (newMsg.user_id) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("display_name")
+              .eq("user_id", newMsg.user_id)
+              .single();
+            uploaderName = profile?.display_name || "User";
+          }
+
+          const newFile: ConversationFile = {
+            id: newMsg.id,
+            url: newMsg.content,
+            name: newMsg.attachment_name || getFilenameFromUrl(newMsg.content),
+            type: getFileType(newMsg.content, newMsg.attachment_type),
+            mimeType: getMimeType(newMsg.content, newMsg.attachment_type),
+            messageId: newMsg.id,
+            createdAt: newMsg.created_at,
+            uploaderId: newMsg.user_id,
+            uploaderName,
+          };
+
+          // Add to beginning of list (newest first)
+          setFiles((prev) => {
+            if (prev.find((f) => f.id === newMsg.id)) return prev;
+            return [newFile, ...prev];
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [conversationId]);
 
   // Filter files
