@@ -15,7 +15,7 @@ import { VideoSidebar } from "@/components/VideoSidebar";
 import { VideoGrid } from "@/components/VideoGrid";
 import { MessageBubble, ReplyPreview } from "@/components/MessageBubble";
 import { EmojiPicker } from "@/components/EmojiPicker";
-import { ImageUploadButton, ImagePreview } from "@/components/ImageUploadButton";
+import { FileUploadButton, FilePreview, UploadedFile } from "@/components/FileUploadButton";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChatMessageSearch } from "@/components/ChatMessageSearch";
 import { CAGContextBadge } from "@/components/CAGContextBadge";
@@ -98,7 +98,7 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
   const [aiResponse, setAiResponse] = useState("");
   const [inCall, setInCall] = useState(false);
   const [replyTo, setReplyTo] = useState<ReplyToMessage | null>(null);
-  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<UploadedFile | null>(null);
 
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
@@ -362,13 +362,14 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!newMessage.trim() && !pendingImage) || !user || !id || sending) return;
+    if ((!newMessage.trim() && !pendingFile) || !user || !id || sending) return;
 
-    const content = pendingImage || newMessage.trim();
+    const content = pendingFile?.url || newMessage.trim();
     const currentReplyTo = replyTo;
+    const currentFile = pendingFile;
     setNewMessage("");
     setReplyTo(null);
-    setPendingImage(null);
+    setPendingFile(null);
     setSending(true);
 
     // Create optimistic message to show immediately
@@ -395,6 +396,8 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
         user_id: user.id,
         conversation_id: id,
         reply_to_id: currentReplyTo?.id || null,
+        attachment_type: currentFile?.type || null,
+        attachment_name: currentFile?.name || null,
       }).select().single();
 
       if (error) throw error;
@@ -740,10 +743,10 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
 
           {/* Message Input */}
           <div className="bg-whatsapp-chat-bg border-t border-border/50 p-2">
-            {/* Image preview */}
-            {pendingImage && (
+            {/* File preview */}
+            {pendingFile && (
               <div className="max-w-3xl mx-auto mb-3">
-                <ImagePreview imageUrl={pendingImage} onRemove={() => setPendingImage(null)} />
+                <FilePreview file={pendingFile} onRemove={() => setPendingFile(null)} showAnalyzeHint />
               </div>
             )}
             
@@ -791,13 +794,13 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
                   className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0 text-sm"
                   disabled={sending}
                 />
-                <ImageUploadButton 
-                  onImageSelect={(url) => setPendingImage(url)} 
+                <FileUploadButton 
+                  onFileSelect={(file) => setPendingFile(file)} 
                   className="h-8 w-8"
                 />
               </div>
 
-              {(newMessage.trim() || pendingImage) ? (
+              {(newMessage.trim() || pendingFile) ? (
                 <Button 
                   type="submit" 
                   size="icon" 
