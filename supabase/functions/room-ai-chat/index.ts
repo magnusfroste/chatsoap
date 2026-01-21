@@ -167,14 +167,20 @@ function isParseableDocument(mimeType: string): boolean {
   return parseableMimeTypes.includes(mimeType);
 }
 
-// Fetch text content from a file URL
+// Check if file is an image
+function isImageFile(mimeType: string): boolean {
+  return mimeType.startsWith("image/") && 
+    ["image/jpeg", "image/png", "image/gif", "image/webp"].includes(mimeType);
+}
+
+// Fetch text content from a file URL (for non-image files)
 async function fetchFileContent(file: CAGFile): Promise<string | null> {
   try {
     console.log(`Fetching CAG file: ${file.name} (${file.mimeType})`);
     
-    // For images, we can't extract text - just note they're attached
-    if (file.mimeType.startsWith("image/")) {
-      return `[Image attached: ${file.name}]`;
+    // For images, skip text extraction - they'll be handled as multimodal content
+    if (isImageFile(file.mimeType)) {
+      return null; // Return null to indicate image should be processed separately
     }
     
     // For PDFs and Office documents, use parse-document for full extraction
@@ -206,16 +212,53 @@ async function fetchFileContent(file: CAGFile): Promise<string | null> {
   }
 }
 
-// Build context from CAG files
+// Convert image URL to base64 data URL for multimodal models
+async function fetchImageAsBase64(file: CAGFile): Promise<{ url: string; mimeType: string } | null> {
+  try {
+    console.log(`Fetching image for multimodal: ${file.name}`);
+    const response = await fetch(file.url);
+    if (!response.ok) {
+      console.error(`Failed to fetch image: ${response.status}`);
+      return null;
+    }
+    
+    const arrayBuffer = await response.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    
+    // Convert to base64
+    let binary = "";
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = btoa(binary);
+    
+    return {
+      url: `data:${file.mimeType};base64,${base64}`,
+      mimeType: file.mimeType,
+    };
+  } catch (error) {
+    console.error(`Error fetching image ${file.name}:`, error);
+    return null;
+  }
+}
+
+// Build context from CAG files (excluding images which are handled separately)
 async function buildCAGFileContext(cagFiles: CAGFile[]): Promise<string> {
   if (!cagFiles || cagFiles.length === 0) {
     return "";
   }
 
-  console.log(`Processing ${cagFiles.length} CAG files`);
+  // Filter out images - they'll be processed separately for multimodal
+  const nonImageFiles = cagFiles.filter(f => !isImageFile(f.mimeType));
+  
+  if (nonImageFiles.length === 0) {
+    return "";
+  }
+
+  console.log(`Processing ${nonImageFiles.length} non-image CAG files`);
   
   const fileContents = await Promise.all(
-    cagFiles.map(file => fetchFileContent(file))
+    nonImageFiles.map(file => fetchFileContent(file))
   );
   
   const validContents = fileContents.filter(Boolean);
@@ -229,6 +272,33 @@ async function buildCAGFileContext(cagFiles: CAGFile[]): Promise<string> {
 CONTEXT FILES (${validContents.length} file(s) provided by user):
 ${validContents.join("\n\n")}
 ---`;
+}
+
+// Get image files for multimodal processing
+async function getImageFilesForMultimodal(cagFiles: CAGFile[]): Promise<Array<{ url: string; name: string }>> {
+  if (!cagFiles || cagFiles.length === 0) {
+    return [];
+  }
+
+  const imageFiles = cagFiles.filter(f => isImageFile(f.mimeType));
+  
+  if (imageFiles.length === 0) {
+    return [];
+  }
+
+  console.log(`Processing ${imageFiles.length} images for multimodal`);
+  
+  const results = await Promise.all(
+    imageFiles.map(async (file) => {
+      const base64Data = await fetchImageAsBase64(file);
+      if (base64Data) {
+        return { url: base64Data.url, name: file.name };
+      }
+      return null;
+    })
+  );
+
+  return results.filter(Boolean) as Array<{ url: string; name: string }>;
 }
 
 // Build context from CAG notes
@@ -256,20 +326,27 @@ ${noteContents.join("\n\n")}
 ---`;
 }
 
+interface CAGContextResult {
+  textContext: string;
+  images: Array<{ url: string; name: string }>;
+}
+
 // Build combined CAG context
-async function buildCAGContext(cagFiles: CAGFile[], cagNotes: CAGNote[]): Promise<string> {
-  const [fileContext, noteContext] = await Promise.all([
+async function buildCAGContext(cagFiles: CAGFile[], cagNotes: CAGNote[]): Promise<CAGContextResult> {
+  const [fileContext, noteContext, images] = await Promise.all([
     buildCAGFileContext(cagFiles),
     Promise.resolve(buildCAGNoteContext(cagNotes)),
+    getImageFilesForMultimodal(cagFiles),
   ]);
 
   const parts = [fileContext, noteContext].filter(Boolean);
   
-  if (parts.length === 0) {
-    return "";
+  let textContext = "";
+  if (parts.length > 0) {
+    textContext = parts.join("\n") + "\nThe user has shared these items for context. Reference them when relevant to their questions.\n";
   }
 
-  return parts.join("\n") + "\nThe user has shared these items for context. Reference them when relevant to their questions.\n";
+  return { textContext, images };
 }
 
 serve(async (req) => {
@@ -287,7 +364,7 @@ serve(async (req) => {
     }
 
     // Build CAG context from files and notes
-    const cagContext = await buildCAGContext(cagFiles || [], cagNotes || []);
+    const cagResult = await buildCAGContext(cagFiles || [], cagNotes || []);
 
     // Build conversation context from message history
     const conversationMessages = messageHistory.map((msg: any) => ({
@@ -297,7 +374,7 @@ serve(async (req) => {
 
     console.log("Using LLM:", llmConfig.model, "at", llmConfig.endpoint);
     console.log("Sending", conversationMessages.length, "messages, persona:", persona);
-    console.log("CAG files:", cagFiles?.length || 0);
+    console.log("CAG files:", cagFiles?.length || 0, "images:", cagResult.images.length);
 
     // Define persona-specific system prompts
     const personaPrompts: Record<string, string> = {
@@ -377,9 +454,56 @@ Adapt complexity based on the user's prior knowledge.`,
     // Use custom system prompt if provided, otherwise use built-in persona
     let systemPrompt = customSystemPrompt || personaPrompts[persona] || personaPrompts.general;
     
-    // Append CAG context to system prompt if present
-    if (cagContext) {
-      systemPrompt = `${systemPrompt}\n\n${cagContext}`;
+    // Append CAG text context to system prompt if present
+    if (cagResult.textContext) {
+      systemPrompt = `${systemPrompt}\n\n${cagResult.textContext}`;
+    }
+
+    // Build the messages array, adding images to the last user message for multimodal
+    let finalMessages: any[] = [
+      { role: "system", content: systemPrompt },
+      ...conversationMessages,
+    ];
+
+    // If we have images, convert the last user message to multimodal format
+    if (cagResult.images.length > 0 && conversationMessages.length > 0) {
+      // Find the last user message index in the final messages array
+      let lastUserIndex = -1;
+      for (let i = finalMessages.length - 1; i >= 0; i--) {
+        if (finalMessages[i].role === "user") {
+          lastUserIndex = i;
+          break;
+        }
+      }
+
+      if (lastUserIndex !== -1) {
+        const lastUserMsg = finalMessages[lastUserIndex];
+        const imageNames = cagResult.images.map(img => img.name).join(", ");
+        
+        // Build multimodal content array: text first, then images
+        const multimodalContent: any[] = [
+          { 
+            type: "text", 
+            text: `${lastUserMsg.content}\n\n[The user has shared ${cagResult.images.length} image(s) for context: ${imageNames}. Analyze and reference them as needed.]`
+          },
+        ];
+
+        // Add each image
+        for (const img of cagResult.images) {
+          multimodalContent.push({
+            type: "image_url",
+            image_url: { url: img.url },
+          });
+        }
+
+        // Replace the last user message with multimodal version
+        finalMessages[lastUserIndex] = {
+          role: "user",
+          content: multimodalContent,
+        };
+
+        console.log(`Added ${cagResult.images.length} images to multimodal message`);
+      }
     }
 
     const response = await fetch(llmConfig.endpoint, {
@@ -390,10 +514,7 @@ Adapt complexity based on the user's prior knowledge.`,
       },
       body: JSON.stringify({
         model: llmConfig.model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...conversationMessages,
-        ],
+        messages: finalMessages,
         stream: true,
       }),
     });
