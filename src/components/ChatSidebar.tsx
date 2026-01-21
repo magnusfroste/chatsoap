@@ -602,10 +602,10 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
                       isCollapsed ? 'w-0 opacity-0' : 'opacity-100'
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-2 min-w-0">
+                    <div className="flex items-center justify-between gap-2 min-w-0 overflow-hidden">
                       <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
                         {conv.is_pinned && <Pin className="w-3 h-3 text-primary flex-shrink-0" />}
-                        <span className="font-medium text-foreground truncate block">
+                        <span className="font-medium text-foreground truncate max-w-[140px]">
                           {getDisplayName(conv)}
                         </span>
                         {conv.is_favorite && <Star className="w-3 h-3 text-yellow-500 flex-shrink-0 fill-yellow-500" />}
