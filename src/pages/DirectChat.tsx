@@ -939,7 +939,13 @@ const DirectChat = ({ cagFiles = [], onRemoveCAGFile, onClearCAG }: DirectChatPr
                     handleInputChange();
                   }}
                   onBlur={stopTyping}
-                  placeholder={conversation?.type === "ai_chat" ? "Write a message to AI..." : "Write a message"}
+                  placeholder={
+                    cagFiles.length > 0
+                      ? `Ask about your ${cagFiles.length} file${cagFiles.length > 1 ? 's' : ''}...`
+                      : conversation?.type === "ai_chat"
+                        ? "Write a message to AI..."
+                        : "Write a message"
+                  }
                   className="bg-muted/50 border-0 rounded-lg h-10 focus-visible:ring-1 focus-visible:ring-ring"
                   disabled={sending}
                 />
