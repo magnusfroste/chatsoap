@@ -25,6 +25,53 @@ interface CAGNote {
   content: string;
 }
 
+interface ToolCall {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+// Tool definitions for function calling
+const tools = [
+  {
+    type: "function",
+    function: {
+      name: "analyze_images",
+      description: "Analyze images that the user has attached to the conversation. Use this tool ONLY when the user explicitly asks to analyze, describe, or explain images. Do not call this tool if the user hasn't asked about the images.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "What the user wants to know about the images",
+          },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "web_search",
+      description: "Search the web for current information when your knowledge is insufficient or outdated. Use this for: current events, recent news, live data, prices, statistics, or any factual information that might have changed since your training.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "The search query to find information on the web",
+          },
+        },
+        required: ["query"],
+      },
+    },
+  },
+];
+
 async function getLLMConfig(): Promise<LLMConfig> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -119,7 +166,6 @@ async function parseDocumentContent(file: CAGFile): Promise<string> {
       if (done) break;
       
       const chunk = decoder.decode(value, { stream: true });
-      // Parse SSE format: data: {"choices":[{"delta":{"content":"..."}}]}
       const lines = chunk.split("\n");
       for (const line of lines) {
         if (line.startsWith("data: ") && !line.includes("[DONE]")) {
@@ -137,7 +183,6 @@ async function parseDocumentContent(file: CAGFile): Promise<string> {
     }
 
     if (markdown.trim()) {
-      // Limit size to prevent context overflow
       const maxLength = 80000;
       if (markdown.length > maxLength) {
         return `[Document: ${file.name}]\n${markdown.substring(0, maxLength)}...\n[Content truncated]`;
@@ -178,9 +223,9 @@ async function fetchFileContent(file: CAGFile): Promise<string | null> {
   try {
     console.log(`Fetching CAG file: ${file.name} (${file.mimeType})`);
     
-    // For images, skip text extraction - they'll be handled as multimodal content
+    // For images, skip text extraction - they'll be handled via tool call
     if (isImageFile(file.mimeType)) {
-      return null; // Return null to indicate image should be processed separately
+      return `[Image attached: ${file.name}] - Use analyze_images tool if user asks about this image.`;
     }
     
     // For PDFs and Office documents, use parse-document for full extraction
@@ -195,7 +240,6 @@ async function fetchFileContent(file: CAGFile): Promise<string | null> {
       const response = await fetch(file.url);
       if (response.ok) {
         const text = await response.text();
-        // Limit text size to prevent context overflow
         const maxLength = 50000;
         if (text.length > maxLength) {
           return `[File: ${file.name}]\n${text.substring(0, maxLength)}...\n[Content truncated]`;
@@ -204,7 +248,6 @@ async function fetchFileContent(file: CAGFile): Promise<string | null> {
       }
     }
     
-    // For other document types
     return `[Document attached: ${file.name} (${file.mimeType})]`;
   } catch (error) {
     console.error(`Error fetching file ${file.name}:`, error);
@@ -213,7 +256,7 @@ async function fetchFileContent(file: CAGFile): Promise<string | null> {
 }
 
 // Convert image URL to base64 data URL for multimodal models
-async function fetchImageAsBase64(file: CAGFile): Promise<{ url: string; mimeType: string } | null> {
+async function fetchImageAsBase64(file: CAGFile): Promise<{ url: string; mimeType: string; name: string } | null> {
   try {
     console.log(`Fetching image for multimodal: ${file.name}`);
     const response = await fetch(file.url);
@@ -225,7 +268,6 @@ async function fetchImageAsBase64(file: CAGFile): Promise<{ url: string; mimeTyp
     const arrayBuffer = await response.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
     
-    // Convert to base64
     let binary = "";
     for (let i = 0; i < bytes.byteLength; i++) {
       binary += String.fromCharCode(bytes[i]);
@@ -235,6 +277,7 @@ async function fetchImageAsBase64(file: CAGFile): Promise<{ url: string; mimeTyp
     return {
       url: `data:${file.mimeType};base64,${base64}`,
       mimeType: file.mimeType,
+      name: file.name,
     };
   } catch (error) {
     console.error(`Error fetching image ${file.name}:`, error);
@@ -242,23 +285,16 @@ async function fetchImageAsBase64(file: CAGFile): Promise<{ url: string; mimeTyp
   }
 }
 
-// Build context from CAG files (excluding images which are handled separately)
+// Build context from CAG files (text-based files only)
 async function buildCAGFileContext(cagFiles: CAGFile[]): Promise<string> {
   if (!cagFiles || cagFiles.length === 0) {
     return "";
   }
 
-  // Filter out images - they'll be processed separately for multimodal
-  const nonImageFiles = cagFiles.filter(f => !isImageFile(f.mimeType));
-  
-  if (nonImageFiles.length === 0) {
-    return "";
-  }
-
-  console.log(`Processing ${nonImageFiles.length} non-image CAG files`);
+  console.log(`Processing ${cagFiles.length} CAG files for context`);
   
   const fileContents = await Promise.all(
-    nonImageFiles.map(file => fetchFileContent(file))
+    cagFiles.map(file => fetchFileContent(file))
   );
   
   const validContents = fileContents.filter(Boolean);
@@ -274,31 +310,12 @@ ${validContents.join("\n\n")}
 ---`;
 }
 
-// Get image files for multimodal processing
-async function getImageFilesForMultimodal(cagFiles: CAGFile[]): Promise<Array<{ url: string; name: string }>> {
+// Get image files for tool-based analysis
+function getImageFiles(cagFiles: CAGFile[]): CAGFile[] {
   if (!cagFiles || cagFiles.length === 0) {
     return [];
   }
-
-  const imageFiles = cagFiles.filter(f => isImageFile(f.mimeType));
-  
-  if (imageFiles.length === 0) {
-    return [];
-  }
-
-  console.log(`Processing ${imageFiles.length} images for multimodal`);
-  
-  const results = await Promise.all(
-    imageFiles.map(async (file) => {
-      const base64Data = await fetchImageAsBase64(file);
-      if (base64Data) {
-        return { url: base64Data.url, name: file.name };
-      }
-      return null;
-    })
-  );
-
-  return results.filter(Boolean) as Array<{ url: string; name: string }>;
+  return cagFiles.filter(f => isImageFile(f.mimeType));
 }
 
 // Build context from CAG notes
@@ -310,7 +327,6 @@ function buildCAGNoteContext(cagNotes: CAGNote[]): string {
   console.log(`Processing ${cagNotes.length} CAG notes`);
   
   const noteContents = cagNotes.map(note => {
-    // Truncate very long notes
     const maxLength = 30000;
     let content = note.content;
     if (content.length > maxLength) {
@@ -326,27 +342,188 @@ ${noteContents.join("\n\n")}
 ---`;
 }
 
-interface CAGContextResult {
-  textContext: string;
-  images: Array<{ url: string; name: string }>;
-}
-
-// Build combined CAG context
-async function buildCAGContext(cagFiles: CAGFile[], cagNotes: CAGNote[]): Promise<CAGContextResult> {
-  const [fileContext, noteContext, images] = await Promise.all([
+// Build combined CAG context (text only - images handled via tool)
+async function buildCAGContext(cagFiles: CAGFile[], cagNotes: CAGNote[]): Promise<string> {
+  const [fileContext, noteContext] = await Promise.all([
     buildCAGFileContext(cagFiles),
     Promise.resolve(buildCAGNoteContext(cagNotes)),
-    getImageFilesForMultimodal(cagFiles),
   ]);
 
   const parts = [fileContext, noteContext].filter(Boolean);
   
-  let textContext = "";
-  if (parts.length > 0) {
-    textContext = parts.join("\n") + "\nThe user has shared these items for context. Reference them when relevant to their questions.\n";
+  if (parts.length === 0) {
+    return "";
   }
 
-  return { textContext, images };
+  return parts.join("\n") + "\nThe user has shared these items for context. Reference them when relevant to their questions.\n";
+}
+
+// Execute web search via Firecrawl
+async function executeWebSearch(query: string): Promise<string> {
+  const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
+  
+  if (!apiKey) {
+    console.error("FIRECRAWL_API_KEY not configured");
+    return "Web search is not available - Firecrawl connector not configured.";
+  }
+
+  try {
+    console.log(`Executing web search: "${query}"`);
+    
+    const response = await fetch("https://api.firecrawl.dev/v1/search", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query,
+        limit: 5,
+        scrapeOptions: {
+          formats: ["markdown"],
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Firecrawl error: ${response.status}`, errorText);
+      return `Web search failed: ${response.status}`;
+    }
+
+    const data = await response.json();
+    
+    if (!data.success || !data.data || data.data.length === 0) {
+      return "No results found for this search query.";
+    }
+
+    // Format search results
+    const results = data.data.slice(0, 5).map((result: any, index: number) => {
+      const title = result.title || "Untitled";
+      const url = result.url || "";
+      const content = result.markdown?.substring(0, 2000) || result.description || "No content available";
+      return `### Result ${index + 1}: ${title}\nURL: ${url}\n${content}`;
+    });
+
+    console.log(`Web search returned ${results.length} results`);
+    return `## Web Search Results for: "${query}"\n\n${results.join("\n\n---\n\n")}`;
+  } catch (error) {
+    console.error("Web search error:", error);
+    return `Web search failed: ${error instanceof Error ? error.message : "Unknown error"}`;
+  }
+}
+
+// Execute image analysis with multimodal LLM
+async function executeImageAnalysis(
+  query: string,
+  imageFiles: CAGFile[],
+  llmConfig: LLMConfig
+): Promise<string> {
+  if (imageFiles.length === 0) {
+    return "No images are attached to analyze. Please attach images first.";
+  }
+
+  try {
+    console.log(`Analyzing ${imageFiles.length} images for query: "${query}"`);
+    
+    // Fetch all images as base64
+    const imagePromises = imageFiles.map(file => fetchImageAsBase64(file));
+    const images = (await Promise.all(imagePromises)).filter(Boolean) as Array<{ url: string; mimeType: string; name: string }>;
+    
+    if (images.length === 0) {
+      return "Could not load the attached images for analysis.";
+    }
+
+    // Build multimodal message
+    const imageNames = images.map(img => img.name).join(", ");
+    const multimodalContent: any[] = [
+      {
+        type: "text",
+        text: `Analyze the following ${images.length} image(s): ${imageNames}\n\nUser's question: ${query}\n\nProvide a detailed analysis addressing the user's question.`,
+      },
+    ];
+
+    for (const img of images) {
+      multimodalContent.push({
+        type: "image_url",
+        image_url: { url: img.url },
+      });
+    }
+
+    const response = await fetch(llmConfig.endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${llmConfig.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: llmConfig.model,
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert image analyst. Analyze images thoroughly and provide detailed, accurate descriptions and insights. Answer the user's specific questions about the images.",
+          },
+          {
+            role: "user",
+            content: multimodalContent,
+          },
+        ],
+        stream: false,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Image analysis LLM error: ${response.status}`, errorText);
+      return "Image analysis failed - could not process the images.";
+    }
+
+    const data = await response.json();
+    const analysisResult = data.choices?.[0]?.message?.content;
+    
+    if (!analysisResult) {
+      return "Image analysis completed but no result was returned.";
+    }
+
+    console.log("Image analysis completed successfully");
+    return analysisResult;
+  } catch (error) {
+    console.error("Image analysis error:", error);
+    return `Image analysis failed: ${error instanceof Error ? error.message : "Unknown error"}`;
+  }
+}
+
+// Process tool calls and return results
+async function processToolCalls(
+  toolCalls: ToolCall[],
+  imageFiles: CAGFile[],
+  llmConfig: LLMConfig
+): Promise<Array<{ tool_call_id: string; role: "tool"; content: string }>> {
+  const results = await Promise.all(
+    toolCalls.map(async (toolCall) => {
+      const args = JSON.parse(toolCall.function.arguments);
+      let result: string;
+
+      switch (toolCall.function.name) {
+        case "analyze_images":
+          result = await executeImageAnalysis(args.query, imageFiles, llmConfig);
+          break;
+        case "web_search":
+          result = await executeWebSearch(args.query);
+          break;
+        default:
+          result = `Unknown tool: ${toolCall.function.name}`;
+      }
+
+      return {
+        tool_call_id: toolCall.id,
+        role: "tool" as const,
+        content: result,
+      };
+    })
+  );
+
+  return results;
 }
 
 serve(async (req) => {
@@ -363,8 +540,11 @@ serve(async (req) => {
       throw new Error(`API key not configured for the selected provider`);
     }
 
-    // Build CAG context from files and notes
-    const cagResult = await buildCAGContext(cagFiles || [], cagNotes || []);
+    // Build CAG context from files and notes (text only)
+    const cagContext = await buildCAGContext(cagFiles || [], cagNotes || []);
+    
+    // Get image files for potential tool use
+    const imageFiles = getImageFiles(cagFiles || []);
 
     // Build conversation context from message history
     const conversationMessages = messageHistory.map((msg: any) => ({
@@ -374,7 +554,7 @@ serve(async (req) => {
 
     console.log("Using LLM:", llmConfig.model, "at", llmConfig.endpoint);
     console.log("Sending", conversationMessages.length, "messages, persona:", persona);
-    console.log("CAG files:", cagFiles?.length || 0, "images:", cagResult.images.length);
+    console.log("CAG files:", cagFiles?.length || 0, "images available for tool:", imageFiles.length);
 
     // Define persona-specific system prompts
     const personaPrompts: Record<string, string> = {
@@ -384,129 +564,112 @@ You participate in a room where multiple users can ask questions and discuss tog
 Messages from users are shown with their name in brackets, e.g. "[Anna]: Hello!"
 Always respond in the same language the user writes in.
 
+You have access to tools:
+- analyze_images: Use ONLY when the user explicitly asks to analyze, describe, or explain attached images
+- web_search: Use when you need current/recent information that might be outdated in your training data
+
 Be:
 - Concise but informative
 - Technically knowledgeable
 - Friendly and collaborative
 - Creative when appropriate
 
-If someone asks something you don't know, be honest about it. You can speculate but be clear that it's speculation.`,
+If someone asks something you don't know, use web_search to find current information.`,
 
       code: `You are an expert code assistant with deep knowledge in programming and software development.
+
+You have access to tools:
+- analyze_images: Use when user asks about images (screenshots, diagrams, code images)
+- web_search: Use to find documentation, latest API info, or solve technical problems
 
 You help users with:
 - Writing, reviewing, and improving code
 - Debugging bugs and solving technical problems
 - Explaining concepts and design patterns
 - Suggesting best practices and optimizations
-- Providing code examples in various programming languages
 
 Always respond in the same language the user writes in.
-Use code blocks with syntax highlighting when showing code.
-Be concise but thorough - explain why, not just how.
-If you see potential problems or security risks, point them out proactively.`,
+Use code blocks with syntax highlighting when showing code.`,
 
       writer: `You are a skilled writing assistant who helps with everything from creative writing to professional communication.
+
+You have access to tools:
+- analyze_images: Use when user asks about images for writing context
+- web_search: Use to research topics, find facts, or verify information
 
 You help users with:
 - Formulating and improving texts
 - Proofreading and providing feedback on structure
 - Adapting tone and style for different audiences
 - Writing emails, reports, articles, and other content
-- Brainstorming ideas and creating drafts
 
-Always respond in the same language the user writes in.
-Give constructive feedback and suggestions for improvements.
-Pay attention to grammar, style, and readability.
-Adapt your tone to the user's needs - formal or informal.`,
+Always respond in the same language the user writes in.`,
 
       creative: `You are a creative brainstorming partner full of ideas and inspiration!
+
+You have access to tools:
+- analyze_images: Use when user asks about images for creative inspiration
+- web_search: Use to find inspiration, trends, or reference material
 
 You help users with:
 - Generating innovative ideas and concepts
 - Thinking outside the box and challenging assumptions
 - Developing concepts through "what if" scenarios
-- Combining unexpected elements in new ways
-- Building on the user's ideas
 
 Always respond in the same language the user writes in.
-Be enthusiastic, open, and playful in your approach!
-Suggest multiple alternatives and variations.
-Encourage wild ideas - there are no bad suggestions in brainstorming!
-Feel free to use metaphors, analogies, and unexpected connections.`,
+Be enthusiastic, open, and playful in your approach!`,
 
       learning: `You are a pedagogical mentor who adapts explanations to the user's level.
+
+You have access to tools:
+- analyze_images: Use when user asks about images for learning (diagrams, charts, etc.)
+- web_search: Use to find educational resources, examples, or verify facts
 
 You help users with:
 - Explaining complex topics in an understandable way
 - Breaking down large concepts into smaller parts
 - Giving examples and analogies that make abstract concrete
-- Asking questions that help the user think for themselves
-- Recommending resources for further learning
 
 Always respond in the same language the user writes in.
-Start with the basics and build understanding gradually.
-Check understanding by asking follow-up questions.
-Celebrate progress and encourage curiosity!
-Adapt complexity based on the user's prior knowledge.`,
+Start with the basics and build understanding gradually.`,
     };
 
     // Use custom system prompt if provided, otherwise use built-in persona
     let systemPrompt = customSystemPrompt || personaPrompts[persona] || personaPrompts.general;
     
-    // Append CAG text context to system prompt if present
-    if (cagResult.textContext) {
-      systemPrompt = `${systemPrompt}\n\n${cagResult.textContext}`;
+    // Append CAG context to system prompt if present
+    if (cagContext) {
+      systemPrompt = `${systemPrompt}\n\n${cagContext}`;
     }
 
-    // Build the messages array, adding images to the last user message for multimodal
-    let finalMessages: any[] = [
+    // Add note about available images if any are attached
+    if (imageFiles.length > 0) {
+      const imageNames = imageFiles.map(f => f.name).join(", ");
+      systemPrompt += `\n\nNote: The user has attached ${imageFiles.length} image(s): ${imageNames}. Use the analyze_images tool ONLY if the user explicitly asks to analyze or describe these images.`;
+    }
+
+    // Build messages for LLM
+    const messages: any[] = [
       { role: "system", content: systemPrompt },
       ...conversationMessages,
     ];
 
-    // If we have images, convert the last user message to multimodal format
-    if (cagResult.images.length > 0 && conversationMessages.length > 0) {
-      // Find the last user message index in the final messages array
-      let lastUserIndex = -1;
-      for (let i = finalMessages.length - 1; i >= 0; i--) {
-        if (finalMessages[i].role === "user") {
-          lastUserIndex = i;
-          break;
-        }
+    // Check if Firecrawl is available for tool use
+    const firecrawlAvailable = !!Deno.env.get("FIRECRAWL_API_KEY");
+    const availableTools = tools.filter(tool => {
+      if (tool.function.name === "web_search" && !firecrawlAvailable) {
+        return false;
       }
-
-      if (lastUserIndex !== -1) {
-        const lastUserMsg = finalMessages[lastUserIndex];
-        const imageNames = cagResult.images.map(img => img.name).join(", ");
-        
-        // Build multimodal content array: text first, then images
-        const multimodalContent: any[] = [
-          { 
-            type: "text", 
-            text: `${lastUserMsg.content}\n\n[The user has shared ${cagResult.images.length} image(s) for context: ${imageNames}. Analyze and reference them as needed.]`
-          },
-        ];
-
-        // Add each image
-        for (const img of cagResult.images) {
-          multimodalContent.push({
-            type: "image_url",
-            image_url: { url: img.url },
-          });
-        }
-
-        // Replace the last user message with multimodal version
-        finalMessages[lastUserIndex] = {
-          role: "user",
-          content: multimodalContent,
-        };
-
-        console.log(`Added ${cagResult.images.length} images to multimodal message`);
+      if (tool.function.name === "analyze_images" && imageFiles.length === 0) {
+        return false;
       }
-    }
+      return true;
+    });
 
-    const response = await fetch(llmConfig.endpoint, {
+    console.log("Available tools:", availableTools.map(t => t.function.name).join(", ") || "none");
+
+    // First LLM call - may include tool calls
+    const firstResponse = await fetch(llmConfig.endpoint, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${llmConfig.apiKey}`,
@@ -514,33 +677,115 @@ Adapt complexity based on the user's prior knowledge.`,
       },
       body: JSON.stringify({
         model: llmConfig.model,
-        messages: finalMessages,
-        stream: true,
+        messages,
+        tools: availableTools.length > 0 ? availableTools : undefined,
+        tool_choice: availableTools.length > 0 ? "auto" : undefined,
+        stream: false, // First call non-streaming to check for tool calls
       }),
     });
 
-    if (!response.ok) {
-      if (response.status === 429) {
+    if (!firstResponse.ok) {
+      if (firstResponse.status === 429) {
         return new Response(
           JSON.stringify({ error: "Rate limit exceeded. Please wait and try again." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
+      if (firstResponse.status === 402) {
         return new Response(
           JSON.stringify({ error: "AI credits exhausted. Contact admin." }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
+      const errorText = await firstResponse.text();
+      console.error("AI gateway error:", firstResponse.status, errorText);
       return new Response(
         JSON.stringify({ error: "AI gateway error" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    return new Response(response.body, {
+    const firstData = await firstResponse.json();
+    const assistantMessage = firstData.choices?.[0]?.message;
+
+    // Check if there are tool calls to process
+    if (assistantMessage?.tool_calls && assistantMessage.tool_calls.length > 0) {
+      console.log("Processing", assistantMessage.tool_calls.length, "tool call(s)");
+      
+      // Process tool calls
+      const toolResults = await processToolCalls(
+        assistantMessage.tool_calls,
+        imageFiles,
+        llmConfig
+      );
+
+      // Build messages with tool results for second LLM call
+      const messagesWithTools = [
+        ...messages,
+        {
+          role: "assistant",
+          content: assistantMessage.content || null,
+          tool_calls: assistantMessage.tool_calls,
+        },
+        ...toolResults,
+      ];
+
+      // Second LLM call with tool results - this one streams
+      const secondResponse = await fetch(llmConfig.endpoint, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${llmConfig.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: llmConfig.model,
+          messages: messagesWithTools,
+          stream: true,
+        }),
+      });
+
+      if (!secondResponse.ok) {
+        const errorText = await secondResponse.text();
+        console.error("Second AI call error:", secondResponse.status, errorText);
+        return new Response(
+          JSON.stringify({ error: "AI gateway error" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log("Streaming final response after tool use");
+      return new Response(secondResponse.body, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      });
+    }
+
+    // No tool calls - stream the response directly
+    // We need to re-call with streaming since first call was non-streaming
+    console.log("No tool calls, streaming direct response");
+    
+    const streamResponse = await fetch(llmConfig.endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${llmConfig.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: llmConfig.model,
+        messages,
+        stream: true,
+      }),
+    });
+
+    if (!streamResponse.ok) {
+      const errorText = await streamResponse.text();
+      console.error("Stream response error:", streamResponse.status, errorText);
+      return new Response(
+        JSON.stringify({ error: "AI gateway error" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    return new Response(streamResponse.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (error) {
