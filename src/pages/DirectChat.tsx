@@ -127,6 +127,19 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
     }
   }, [user, authLoading, navigate]);
 
+  // Refetch messages when tab becomes visible (handles browser throttling)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && user && id) {
+        console.log('[Visibility] Tab became visible, refetching messages');
+        fetchMessages();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [user, id]);
+
   useEffect(() => {
     if (user && id) {
       fetchConversation();
@@ -224,7 +237,9 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
             }
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log('[Realtime] Subscription status:', status);
+        });
 
       return () => {
         supabase.removeChannel(channel);
