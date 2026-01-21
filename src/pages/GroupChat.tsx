@@ -1,25 +1,21 @@
-import { useState, useEffect, useRef, lazy, Suspense, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useAIChat } from "@/hooks/useAIChat";
 import { useWebRTC } from "@/hooks/useWebRTC";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
-import { useNotes, Note } from "@/hooks/useNotes";
 import { useNotifications } from "@/hooks/useNotifications";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VideoSidebar } from "@/components/VideoSidebar";
 import { VideoGrid } from "@/components/VideoGrid";
 import { MessageBubble, ReplyPreview } from "@/components/MessageBubble";
 import { EmojiPicker } from "@/components/EmojiPicker";
 import { ImageUploadButton, ImagePreview } from "@/components/ImageUploadButton";
-import { NotesSidebar } from "@/components/NotesSidebar";
-import { NoteEditor } from "@/components/NoteEditor";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChatMessageSearch } from "@/components/ChatMessageSearch";
 import { CAGContextBadge } from "@/components/CAGContextBadge";
@@ -29,31 +25,11 @@ import {
   Send,
   Bot,
   Loader2,
-  MessageSquare,
-  PenTool,
   Users,
   Mic,
-  CheckCheck,
   Video,
-  MoreVertical,
-  PanelRightOpen,
-  PanelRightClose,
+  FolderOpen,
 } from "lucide-react";
-import { ChatActionsMenu } from "@/components/ChatActionsMenu";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-
-const CollaborativeCanvas = lazy(() => 
-  import("@/components/CollaborativeCanvas").then(mod => ({ default: mod.CollaborativeCanvas }))
-);
-
-const GroupWhiteboardWrapper = lazy(() =>
-  import("@/components/GroupWhiteboardWrapper").then(mod => ({ default: mod.GroupWhiteboardWrapper }))
-);
 
 interface ReplyToMessage {
   id: string;
@@ -120,16 +96,9 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
   const [sending, setSending] = useState(false);
   const [aiTyping, setAiTyping] = useState(false);
   const [aiResponse, setAiResponse] = useState("");
-  const [activeTab, setActiveTab] = useState("chat");
   const [inCall, setInCall] = useState(false);
   const [replyTo, setReplyTo] = useState<ReplyToMessage | null>(null);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
-
-  // Notes
-  const { notes, isLoading: notesLoading, createNote, updateNote, deleteNote } = useNotes(user?.id);
-  const [notesSidebarOpen, setNotesSidebarOpen] = useState(false);
-  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
-  const [noteEditorOpen, setNoteEditorOpen] = useState(false);
 
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
@@ -548,34 +517,6 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
     setInCall(false);
   };
 
-  // Notes handlers
-  const handleNoteSelect = (note: Note) => {
-    setSelectedNote(note);
-    setNoteEditorOpen(true);
-  };
-
-  const handleCreateNote = async () => {
-    const newNote = await createNote({
-      title: "New Note",
-      content: "",
-      conversationId: id,
-    });
-    if (newNote) {
-      setSelectedNote(newNote);
-      setNoteEditorOpen(true);
-    }
-  };
-
-  const handleSaveToNotes = async (content: string, messageId: string) => {
-    const title = content.slice(0, 50) + (content.length > 50 ? "..." : "");
-    await createNote({
-      title,
-      content,
-      conversationId: id,
-      sourceMessageId: messageId,
-    });
-  };
-
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -644,7 +585,7 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
     <div className="min-h-screen bg-background flex">
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* WhatsApp-style Header */}
+        {/* Header */}
         <header className="bg-whatsapp-green text-white sticky top-0 z-10 shadow-md">
           <div className="px-2 py-2">
             <div className="flex items-center gap-2">
@@ -684,265 +625,204 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
                 onHighlightMessage={handleHighlightMessage}
                 className="text-white"
               />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-white hover:bg-whatsapp-green-dark"
-                onClick={() => setNotesSidebarOpen(!notesSidebarOpen)}
-              >
-                {notesSidebarOpen ? (
-                  <PanelRightClose className="w-5 h-5" />
-                ) : (
-                  <PanelRightOpen className="w-5 h-5" />
-                )}
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-white hover:bg-whatsapp-green-dark">
-                    <MoreVertical className="w-5 h-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setActiveTab("whiteboard")}>
-                    <PenTool className="w-4 h-4 mr-2" />
-                    Öppna Whiteboard
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {onOpenFiles && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-white hover:bg-whatsapp-green-dark"
+                  onClick={onOpenFiles}
+                >
+                  <FolderOpen className="w-5 h-5" />
+                </Button>
+              )}
             </div>
-          </div>
-
-          {/* Tab switcher */}
-          <div className="flex border-t border-white/10">
-            <button
-              onClick={() => setActiveTab("chat")}
-              className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                activeTab === "chat" 
-                  ? "text-white border-b-2 border-white" 
-                  : "text-white/60 hover:text-white/80"
-              }`}
-            >
-              <MessageSquare className="w-4 h-4 inline-block mr-1.5" />
-              CHATT
-            </button>
-            <button
-              onClick={() => setActiveTab("whiteboard")}
-              className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                activeTab === "whiteboard" 
-                  ? "text-white border-b-2 border-white" 
-                  : "text-white/60 hover:text-white/80"
-              }`}
-            >
-              <PenTool className="w-4 h-4 inline-block mr-1.5" />
-              WHITEBOARD
-            </button>
           </div>
         </header>
 
-        {/* Content */}
-        {activeTab === "chat" ? (
-          <div className="flex-1 flex flex-col bg-whatsapp-chat-bg overflow-hidden">
-            {/* Video Grid when in call */}
-            {inCall && (
-              <div className="p-3 border-b border-border/50 bg-background/95">
-                <VideoGrid
-                  localStream={localStream}
-                  screenStream={screenStream}
-                  participants={participants}
-                  videoEnabled={videoEnabled}
-                  audioEnabled={audioEnabled}
-                  isScreenSharing={isScreenSharing}
-                  displayName={profile?.display_name}
-                  onToggleVideo={toggleVideo}
-                  onToggleAudio={toggleAudio}
-                  onToggleScreenShare={toggleScreenShare}
-                  onLeaveCall={handleLeaveCall}
-                />
+        {/* Chat Content */}
+        <div className="flex-1 flex flex-col bg-whatsapp-chat-bg overflow-hidden">
+          {/* Video Grid when in call */}
+          {inCall && (
+            <div className="p-3 border-b border-border/50 bg-background/95">
+              <VideoGrid
+                localStream={localStream}
+                screenStream={screenStream}
+                participants={participants}
+                videoEnabled={videoEnabled}
+                audioEnabled={audioEnabled}
+                isScreenSharing={isScreenSharing}
+                displayName={profile?.display_name}
+                onToggleVideo={toggleVideo}
+                onToggleAudio={toggleAudio}
+                onToggleScreenShare={toggleScreenShare}
+                onLeaveCall={handleLeaveCall}
+              />
+            </div>
+          )}
+          
+          {/* Messages */}
+          <ScrollArea className="flex-1">
+            <div 
+              className="min-h-full px-3 py-2"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2325D366' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+              }}
+            >
+              <div className="max-w-3xl mx-auto space-y-1">
+                {messages.map((msg, index) => {
+                  const prevMsg = index > 0 ? messages[index - 1] : undefined;
+                  const showDateSeparator = shouldShowDateSeparator(msg, prevMsg);
+                  const isOwn = msg.user_id === user?.id;
+                  const isAI = msg.is_ai;
+                  const showSender = !isOwn && !isAI && (
+                    !prevMsg || 
+                    prevMsg.user_id !== msg.user_id || 
+                    showDateSeparator
+                  );
+
+                  return (
+                    <div 
+                      key={msg.id}
+                      ref={(el) => {
+                        if (el) messageRefs.current.set(msg.id, el);
+                      }}
+                    >
+                      {/* Date Separator */}
+                      {showDateSeparator && (
+                        <div className="flex justify-center my-3">
+                          <span className="bg-white/90 dark:bg-card/90 text-muted-foreground text-xs px-3 py-1 rounded-lg shadow-sm">
+                            {formatDateSeparator(msg.created_at)}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Message Bubble */}
+                      <div className={highlightedMessageId === msg.id ? "ring-2 ring-primary rounded-lg transition-all duration-300" : ""}>
+                        <MessageBubble
+                          message={msg}
+                          isOwn={isOwn}
+                          userId={user?.id}
+                          showSenderName={showSender}
+                          getUserColor={getUserColor}
+                          formatTime={formatMessageTime}
+                          onReply={(m) => setReplyTo(m)}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* AI typing indicator */}
+                {aiTyping && (
+                  <div className="flex justify-start mb-1">
+                    <div className="relative max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 shadow-sm bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-900/30 dark:to-purple-800/20 border border-purple-200 dark:border-purple-700/50">
+                      <div className="flex items-center gap-1.5 mb-1 text-purple-600 dark:text-purple-400">
+                        <Bot className="w-3.5 h-3.5" />
+                        <span className="text-xs font-medium">AI Assistent</span>
+                      </div>
+                      {aiResponse ? (
+                        <p className="whitespace-pre-wrap text-sm leading-relaxed">{aiResponse}</p>
+                      ) : (
+                        <div className="flex gap-1 py-1">
+                          <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                          <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                          <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div ref={messagesEndRef} />
+              </div>
+            </div>
+          </ScrollArea>
+
+          {/* Message Input */}
+          <div className="bg-whatsapp-chat-bg border-t border-border/50 p-2">
+            {/* Image preview */}
+            {pendingImage && (
+              <div className="max-w-3xl mx-auto mb-3">
+                <ImagePreview imageUrl={pendingImage} onRemove={() => setPendingImage(null)} />
               </div>
             )}
             
-            {/* Messages with WhatsApp pattern background */}
-            {/* Messages with WhatsApp pattern background */}
-            <ScrollArea className="flex-1">
-              <div 
-                className="min-h-full px-3 py-2"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2325D366' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-                }}
-              >
-                <div className="max-w-3xl mx-auto space-y-1">
-                  {messages.map((msg, index) => {
-                    const prevMsg = index > 0 ? messages[index - 1] : undefined;
-                    const showDateSeparator = shouldShowDateSeparator(msg, prevMsg);
-                    const isOwn = msg.user_id === user?.id;
-                    const isAI = msg.is_ai;
-                    const showSender = !isOwn && !isAI && (
-                      !prevMsg || 
-                      prevMsg.user_id !== msg.user_id || 
-                      showDateSeparator
-                    );
-
-                    return (
-                      <div 
-                        key={msg.id}
-                        ref={(el) => {
-                          if (el) messageRefs.current.set(msg.id, el);
-                        }}
-                      >
-                        {/* Date Separator */}
-                        {showDateSeparator && (
-                          <div className="flex justify-center my-3">
-                            <span className="bg-white/90 dark:bg-card/90 text-muted-foreground text-xs px-3 py-1 rounded-lg shadow-sm">
-                              {formatDateSeparator(msg.created_at)}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Message Bubble */}
-                        <div className={highlightedMessageId === msg.id ? "ring-2 ring-primary rounded-lg transition-all duration-300" : ""}>
-                          <MessageBubble
-                            message={msg}
-                            isOwn={isOwn}
-                            userId={user?.id}
-                            showSenderName={showSender}
-                            getUserColor={getUserColor}
-                            formatTime={formatMessageTime}
-                            onReply={(m) => setReplyTo(m)}
-                            onSaveToNotes={(content, messageId) => handleSaveToNotes(content, messageId)}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {/* AI typing indicator */}
-                  {aiTyping && (
-                    <div className="flex justify-start mb-1">
-                      <div className="relative max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 shadow-sm bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-900/30 dark:to-purple-800/20 border border-purple-200 dark:border-purple-700/50">
-                        <div className="flex items-center gap-1.5 mb-1 text-purple-600 dark:text-purple-400">
-                          <Bot className="w-3.5 h-3.5" />
-                          <span className="text-xs font-medium">AI Assistent</span>
-                        </div>
-                        {aiResponse ? (
-                          <p className="whitespace-pre-wrap text-sm leading-relaxed">{aiResponse}</p>
-                        ) : (
-                          <div className="flex gap-1 py-1">
-                            <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                            <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                            <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <div ref={messagesEndRef} />
-                </div>
-              </div>
-            </ScrollArea>
-
-            {/* WhatsApp-style Message Input */}
-            <div className="bg-whatsapp-chat-bg border-t border-border/50 p-2">
-              {/* Image preview */}
-              {pendingImage && (
-                <div className="max-w-3xl mx-auto mb-3">
-                  <ImagePreview imageUrl={pendingImage} onRemove={() => setPendingImage(null)} />
-                </div>
-              )}
-              
-              {/* Reply preview */}
-              {replyTo && (
-                <div className="max-w-3xl mx-auto mb-2">
-                  <ReplyPreview 
-                    replyTo={replyTo} 
-                    currentUserId={user?.id} 
-                    onCancel={() => setReplyTo(null)} 
-                  />
-                </div>
-              )}
-
-              {/* CAG Context Badge */}
-              {(cagFiles.length > 0 || cagNotes.length > 0) && onRemoveCAGFile && onClearCAG && (
-                <div className="max-w-3xl mx-auto mb-2">
-                  <CAGContextBadge 
-                    files={cagFiles} 
-                    notes={cagNotes}
-                    onRemoveFile={onRemoveCAGFile} 
-                    onRemoveNote={onRemoveCAGNote}
-                    onClearAll={onClearCAG} 
-                  />
-                </div>
-              )}
-              <form onSubmit={sendMessage} className="flex items-center gap-2 max-w-3xl mx-auto">
-                <EmojiPicker 
-                  onEmojiSelect={(emoji) => setNewMessage(prev => prev + emoji)} 
+            {/* Reply preview */}
+            {replyTo && (
+              <div className="max-w-3xl mx-auto mb-2">
+                <ReplyPreview 
+                  replyTo={replyTo} 
+                  currentUserId={user?.id} 
+                  onCancel={() => setReplyTo(null)} 
                 />
-                
-                <div className="flex-1 flex items-center bg-white dark:bg-card rounded-full px-4 py-2 shadow-sm">
-                  <Input
-                    value={newMessage}
-                    onChange={(e) => {
-                      setNewMessage(e.target.value);
-                      handleInputChange();
-                    }}
-                    onBlur={stopTyping}
-                    placeholder={
-                      cagFiles.length > 0
-                        ? `Ask about your ${cagFiles.length} file${cagFiles.length > 1 ? 's' : ''}...`
-                        : "Write a message"
-                    }
-                    className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0 text-sm"
-                    disabled={sending}
-                  />
-                  <ImageUploadButton 
-                    onImageSelect={(url) => setPendingImage(url)} 
-                    className="h-8 w-8"
-                  />
-                </div>
+              </div>
+            )}
 
-                {(newMessage.trim() || pendingImage) ? (
-                  <Button 
-                    type="submit" 
-                    size="icon" 
-                    disabled={sending}
-                    className="flex-shrink-0 rounded-full w-12 h-12 bg-whatsapp-green hover:bg-whatsapp-green-dark shadow-md"
-                  >
-                    <Send className="w-5 h-5" />
-                  </Button>
-                ) : (
-                  <Button 
-                    type="button" 
-                    size="icon"
-                    className="flex-shrink-0 rounded-full w-12 h-12 bg-whatsapp-green hover:bg-whatsapp-green-dark shadow-md"
-                  >
-                    <Mic className="w-5 h-5" />
-                  </Button>
-                )}
-              </form>
-
-              {/* AI hint */}
-              <p className="text-center text-xs text-muted-foreground mt-2">
-                Skriv <span className="font-medium text-whatsapp-green">@ai</span> för att prata med AI-assistenten
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="flex-1">
-            <Suspense
-              fallback={
-                <div className="flex-1 flex items-center justify-center h-full">
-                  <Loader2 className="w-8 h-8 animate-spin text-whatsapp-green" />
-                </div>
-              }
-            >
-              <GroupWhiteboardWrapper 
-                conversationId={id || ""} 
-                userId={user?.id || ""} 
-                groupName={group?.name || "Grupp"}
+            {/* CAG Context Badge */}
+            {(cagFiles.length > 0 || cagNotes.length > 0) && onRemoveCAGFile && onClearCAG && (
+              <div className="max-w-3xl mx-auto mb-2">
+                <CAGContextBadge 
+                  files={cagFiles} 
+                  notes={cagNotes}
+                  onRemoveFile={onRemoveCAGFile} 
+                  onRemoveNote={onRemoveCAGNote}
+                  onClearAll={onClearCAG} 
+                />
+              </div>
+            )}
+            <form onSubmit={sendMessage} className="flex items-center gap-2 max-w-3xl mx-auto">
+              <EmojiPicker 
+                onEmojiSelect={(emoji) => setNewMessage(prev => prev + emoji)} 
               />
-            </Suspense>
+              
+              <div className="flex-1 flex items-center bg-white dark:bg-card rounded-full px-4 py-2 shadow-sm">
+                <Input
+                  value={newMessage}
+                  onChange={(e) => {
+                    setNewMessage(e.target.value);
+                    handleInputChange();
+                  }}
+                  onBlur={stopTyping}
+                  placeholder={
+                    cagFiles.length > 0
+                      ? `Ask about your ${cagFiles.length} file${cagFiles.length > 1 ? 's' : ''}...`
+                      : "Write a message"
+                  }
+                  className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0 text-sm"
+                  disabled={sending}
+                />
+                <ImageUploadButton 
+                  onImageSelect={(url) => setPendingImage(url)} 
+                  className="h-8 w-8"
+                />
+              </div>
+
+              {(newMessage.trim() || pendingImage) ? (
+                <Button 
+                  type="submit" 
+                  size="icon" 
+                  disabled={sending}
+                  className="flex-shrink-0 rounded-full w-12 h-12 bg-whatsapp-green hover:bg-whatsapp-green-dark shadow-md"
+                >
+                  <Send className="w-5 h-5" />
+                </Button>
+              ) : (
+                <Button 
+                  type="button" 
+                  size="icon"
+                  className="flex-shrink-0 rounded-full w-12 h-12 bg-whatsapp-green hover:bg-whatsapp-green-dark shadow-md"
+                >
+                  <Mic className="w-5 h-5" />
+                </Button>
+              )}
+            </form>
+
+            {/* AI hint */}
+            <p className="text-center text-xs text-muted-foreground mt-2">
+              Skriv <span className="font-medium text-whatsapp-green">@ai</span> för att prata med AI-assistenten
+            </p>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Video Sidebar */}
@@ -961,32 +841,6 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
           onLeaveCall={handleLeaveCall}
         />
       )}
-
-      {/* Notes Sidebar */}
-      <NotesSidebar
-        notes={notes}
-        isLoading={notesLoading}
-        isOpen={notesSidebarOpen}
-        onClose={() => setNotesSidebarOpen(false)}
-        onNoteSelect={handleNoteSelect}
-        onCreateNote={handleCreateNote}
-      />
-
-      {/* Note Editor Dialog */}
-      <NoteEditor
-        note={selectedNote}
-        isOpen={noteEditorOpen}
-        onClose={() => {
-          setNoteEditorOpen(false);
-          setSelectedNote(null);
-        }}
-        onSave={async (noteId, updates) => {
-          const updated = await updateNote(noteId, updates);
-          if (updated) setSelectedNote(updated);
-          return updated;
-        }}
-        onDelete={deleteNote}
-      />
     </div>
   );
 };
