@@ -151,10 +151,13 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
   useEffect(() => {
     if (!user?.id || !id) return;
     
-    console.log('[Realtime] Setting up channel for conversation:', id);
+    // Use unique channel name to avoid conflicts
+    const channelName = `direct-chat-${id}-${user.id}`;
+    console.log('[DirectChat Realtime] Setting up channel:', channelName);
     
-    const channel = supabase
-      .channel(`chat-messages-${id}`)
+    const channel = supabase.channel(channelName);
+    
+    channel
       .on(
         "postgres_changes",
         {
@@ -165,17 +168,17 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
         },
         async (payload) => {
           const newMsg = payload.new as any;
-          console.log('[Realtime] New message received:', newMsg.id);
+          console.log('[DirectChat Realtime] New message received:', newMsg.id, 'from user:', newMsg.user_id);
           
           // Fetch profile for the new message if it has a user_id
-          let profile = undefined;
+          let msgProfile = undefined;
           if (newMsg.user_id) {
             const { data: profileData } = await supabase
               .from("profiles")
               .select("display_name")
               .eq("user_id", newMsg.user_id)
               .single();
-            profile = profileData || undefined;
+            msgProfile = profileData || undefined;
           }
 
           // Fetch reply_to if exists
@@ -209,13 +212,15 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
             created_at: newMsg.created_at,
             reply_to_id: newMsg.reply_to_id,
             reply_to,
-            profile,
+            attachment_type: newMsg.attachment_type,
+            attachment_name: newMsg.attachment_name,
+            profile: msgProfile,
           };
 
           setMessages((prev) => {
             // Skip if already exists with this ID
             if (prev.some((m) => m.id === newMsg.id)) {
-              console.log('[Realtime] Message already exists, skipping');
+              console.log('[DirectChat Realtime] Message already exists, skipping:', newMsg.id);
               return prev;
             }
             // Filter out matching temp messages and add the real one
@@ -223,21 +228,23 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
               !(m.id.startsWith('temp-') && m.content === newMsg.content && m.user_id === newMsg.user_id) &&
               !(m.id.startsWith('ai-temp-') && m.content === newMsg.content && m.is_ai)
             );
+            console.log('[DirectChat Realtime] Adding new message to chat');
             return [...filtered, enrichedMessage];
           });
 
           // Show notification for messages from others
-          if (newMsg.user_id !== user?.id && profile) {
-            const senderName = profile.display_name || "Någon";
+          if (newMsg.user_id !== user?.id && msgProfile) {
+            const senderName = msgProfile.display_name || "Någon";
             showMessageNotification(senderName, newMsg.content, id!, false);
           }
         }
       )
-      .subscribe((status) => {
-        console.log('[Realtime] Subscription status:', status);
+      .subscribe((status, err) => {
+        console.log('[DirectChat Realtime] Subscription status:', status, err ? `Error: ${err}` : '');
       });
 
     return () => {
+      console.log('[DirectChat Realtime] Removing channel:', channelName);
       supabase.removeChannel(channel);
       cancelStream();
     };
