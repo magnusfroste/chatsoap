@@ -20,6 +20,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChatMessageSearch } from "@/components/ChatMessageSearch";
 import { CAGContextBadge } from "@/components/CAGContextBadge";
 import { CAGFile, CAGNote } from "@/hooks/useCAGContext";
+import { emitBrowserNavigate, emitOpenApp } from "@/lib/canvas-apps/events";
 import {
   ArrowLeft,
   Send,
@@ -449,8 +450,20 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
             setAiTyping(false);
             setAiResponse("");
 
+            // Check for browser navigation command
+            let displayText = fullText;
+            const browserMatch = fullText.match(/__BROWSER_NAVIGATE__:(.+?)(?:\n|$)/);
+            if (browserMatch) {
+              const url = browserMatch[1].trim();
+              displayText = fullText.replace(/__BROWSER_NAVIGATE__:.+?(?:\n|$)/, '').trim();
+              
+              // Emit events to open browser and navigate
+              emitBrowserNavigate(url);
+              emitOpenApp('browser');
+            }
+
             await supabase.from("messages").insert({
-              content: fullText,
+              content: displayText || fullText,
               is_ai: true,
               user_id: null,
               conversation_id: id,
