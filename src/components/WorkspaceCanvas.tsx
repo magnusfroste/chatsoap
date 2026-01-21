@@ -126,10 +126,15 @@ export const WorkspaceCanvas = ({ conversationId, conversationType, cagContext, 
           <TabsList className="h-12 w-full justify-start gap-1 bg-transparent p-0">
             <TabsTrigger 
               value="notes" 
-              className="flex items-center gap-2 px-4 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none rounded-lg"
+              className="relative flex items-center gap-2 px-4 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none rounded-lg"
             >
               <FileText className="w-4 h-4" />
               <span className="hidden sm:inline">Notes</span>
+              {cag.selectedNotes.length > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground px-1">
+                  {cag.selectedNotes.length}
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger 
               value="whiteboard" 
@@ -140,10 +145,15 @@ export const WorkspaceCanvas = ({ conversationId, conversationType, cagContext, 
             </TabsTrigger>
             <TabsTrigger 
               value="files" 
-              className="flex items-center gap-2 px-4 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none rounded-lg"
+              className="relative flex items-center gap-2 px-4 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none rounded-lg"
             >
               <FolderOpen className="w-4 h-4" />
               <span className="hidden sm:inline">Files</span>
+              {cag.selectedFiles.length > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground px-1">
+                  {cag.selectedFiles.length}
+                </span>
+              )}
             </TabsTrigger>
             {selectedDocument && (
               <TabsTrigger 
