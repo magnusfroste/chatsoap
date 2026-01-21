@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Bot, Loader2, Check, AlertCircle } from "lucide-react";
+import { Bot, Loader2, Check, AlertCircle, Zap, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 type LLMProvider = "lovable" | "openai" | "gemini" | "custom";
@@ -35,9 +35,13 @@ const GEMINI_MODELS = [
   { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
 ];
 
+const NOTES_AI_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/notes-ai`;
+
 export function LLMSettingsCard() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
   const [provider, setProvider] = useState<LLMProvider>("lovable");
   const [openaiModel, setOpenaiModel] = useState("gpt-4o");
   const [geminiModel, setGeminiModel] = useState("gemini-2.5-flash");
@@ -109,6 +113,60 @@ export function LLMSettingsCard() {
       toast.error("Could not save settings");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const testConnection = async () => {
+    setTesting(true);
+    setTestResult(null);
+
+    try {
+      const response = await fetch(NOTES_AI_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          action: "summarize",
+          content: "Hello, this is a test message to verify the AI connection is working correctly.",
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Error: ${response.status}`);
+      }
+
+      // Read and consume the stream to verify it works
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No response body");
+
+      let receivedContent = false;
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const text = decoder.decode(value, { stream: true });
+        if (text.includes('"content"')) {
+          receivedContent = true;
+        }
+      }
+
+      if (receivedContent) {
+        setTestResult("success");
+        toast.success("Connection successful! AI provider is working.");
+      } else {
+        throw new Error("No content received from AI");
+      }
+    } catch (error) {
+      console.error("Test connection error:", error);
+      setTestResult("error");
+      toast.error((error as Error).message || "Connection failed");
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -278,8 +336,36 @@ export function LLMSettingsCard() {
           </div>
         )}
 
-        <div className="flex justify-end">
-          <Button onClick={saveSettings} disabled={saving}>
+        <div className="flex items-center justify-between gap-3 pt-2 border-t border-border/50">
+          <Button
+            variant="outline"
+            onClick={testConnection}
+            disabled={testing || saving}
+            className="gap-2"
+          >
+            {testing ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Testing...
+              </>
+            ) : testResult === "success" ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                Connected
+              </>
+            ) : testResult === "error" ? (
+              <>
+                <XCircle className="w-4 h-4 text-destructive" />
+                Failed
+              </>
+            ) : (
+              <>
+                <Zap className="w-4 h-4" />
+                Test Connection
+              </>
+            )}
+          </Button>
+          <Button onClick={saveSettings} disabled={saving || testing}>
             {saving ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
