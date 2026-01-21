@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAIChat } from "@/hooks/useAIChat";
-import { useDocumentAI } from "@/hooks/useDocumentAI";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useReadReceipts } from "@/hooks/useReadReceipts";
 import { useDirectCall } from "@/hooks/useDirectCall";
@@ -12,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Send, Bot, Loader2, Mic, Check, CheckCheck, Phone, Video, FolderOpen } from "lucide-react";
+import { ArrowLeft, Send, Bot, Loader2, Mic, Phone, Video, FolderOpen } from "lucide-react";
 import { ChatActionsMenu } from "@/components/ChatActionsMenu";
 import { MessageBubble, ReplyPreview } from "@/components/MessageBubble";
 import { CallUI } from "@/components/CallUI";
@@ -77,7 +76,6 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
   const navigate = useNavigate();
   const { user, profile, loading: authLoading } = useAuth();
   const { streamAIResponse, cancelStream } = useAIChat(id);
-  const { analyzeDocument, cancelAnalysis } = useDocumentAI();
   const { typingUsers, handleInputChange, stopTyping } = useTypingPresence(
     id,
     user?.id,
@@ -96,7 +94,6 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
   const [replyTo, setReplyTo] = useState<ReplyToMessage | null>(null);
   const [pendingFile, setPendingFile] = useState<UploadedFile | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
-  const [analyzingDocument, setAnalyzingDocument] = useState<{ url: string; name: string; mimeType: string } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -450,94 +447,10 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
         );
       }
 
-      // If we have both file and text with @ai, send the text as a separate message and trigger analysis
+      // Check if this is an AI message trigger
       const isAIMessage = messageText.toLowerCase().startsWith("@ai") || 
                           messageText.toLowerCase().startsWith("/ai");
       
-      // If file + @ai message, send text message and analyze document
-      if (currentFile && messageText && isAIMessage) {
-        // Insert the text question as a separate message
-        const textTempId = `temp-text-${Date.now()}`;
-        const textMessage: Message = {
-          id: textTempId,
-          content: messageText,
-          is_ai: false,
-          user_id: user.id,
-          created_at: new Date().toISOString(),
-          profile: { display_name: profile?.display_name || null },
-        };
-        setMessages((prev) => [...prev, textMessage]);
-
-        const { data: textMsgData } = await supabase.from("messages").insert({
-          content: messageText,
-          is_ai: false,
-          user_id: user.id,
-          conversation_id: id,
-        }).select().single();
-
-        if (textMsgData) {
-          setMessages((prev) => 
-            prev.map((m) => m.id === textTempId ? { ...textMessage, id: textMsgData.id } : m)
-          );
-        }
-
-        // Now analyze the document with the question
-        setAiTyping(true);
-        setAiResponse("");
-
-        const question = messageText.replace(/^[@/]ai\s*/i, "").trim() || "Sammanfatta detta dokument";
-        
-        const recentMessages = messages.slice(-5).map((m) => ({
-          content: m.content,
-          is_ai: m.is_ai,
-          display_name: m.profile?.display_name || "Användare",
-        }));
-
-        await analyzeDocument(
-          {
-            url: currentFile.url,
-            name: currentFile.name,
-            mimeType: currentFile.mimeType,
-          },
-          question,
-          recentMessages,
-          (delta) => {
-            setAiResponse((prev) => prev + delta);
-          },
-          async (fullText) => {
-            setAiTyping(false);
-            setAiResponse("");
-
-            const aiTempId = `ai-temp-${Date.now()}`;
-            const optimisticAiMessage: Message = {
-              id: aiTempId,
-              content: fullText,
-              is_ai: true,
-              user_id: null,
-              created_at: new Date().toISOString(),
-            };
-            setMessages((prev) => [...prev, optimisticAiMessage]);
-
-            const { data: aiMsg } = await supabase.from("messages").insert({
-              content: fullText,
-              is_ai: true,
-              user_id: null,
-              conversation_id: id,
-            }).select().single();
-
-            if (aiMsg) {
-              setMessages((prev) => 
-                prev.map((m) => m.id === aiTempId ? { ...optimisticAiMessage, id: aiMsg.id } : m)
-              );
-            }
-
-            await supabase
-              .from("conversations")
-              .update({ last_message_at: new Date().toISOString() })
-              .eq("id", id);
-          }
-        );
-      } 
       // Regular @ai message without document OR AI-chat auto-response
       const isAIChat = conversation?.type === "ai_chat";
       const triggerAI = (isAIMessage && !currentFile) || (isAIChat && !currentFile);
@@ -880,8 +793,6 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
                           onReply={(m) => setReplyTo(m)}
                           isRead={isOwn ? isMessageRead(msg.id, msg.user_id) : undefined}
                           onSaveToNotes={handleSaveToNotes}
-                          onAnalyzeDocument={handleAnalyzeFromMessage}
-                          onSaveDocumentToNotes={handleSaveDocumentToNotes}
                         />
                       </div>
                     </div>

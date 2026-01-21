@@ -1,11 +1,12 @@
 import { useState, useMemo } from "react";
-import { Bot, Check, CheckCheck, Reply, X, Image as ImageIcon, FileText, Clock, Trash2 } from "lucide-react";
+import { Bot, Check, CheckCheck, Reply, X, Clock, Trash2 } from "lucide-react";
 import { MessageReactions, ReactionPicker } from "./MessageReactions";
 import { SendToNotesButton } from "./SendToNotesButton";
-import { DocumentPreview } from "./DocumentPreview";
+import { FileAttachmentBadge, getFileTypeFromUrl, getFilenameFromUrl } from "./FileAttachmentBadge";
 import { ArtifactActions } from "./ArtifactActions";
 import { detectArtifacts } from "@/lib/content-detector";
 import { cn } from "@/lib/utils";
+
 // Helper to check if content is an image URL
 const isImageUrl = (content: string): boolean => {
   const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
@@ -22,28 +23,6 @@ const isDocumentUrl = (content: string): boolean => {
          (lowerContent.startsWith('http://') || lowerContent.startsWith('https://'));
 };
 
-// Get document type from URL
-const getDocumentType = (content: string): "pdf" | "document" => {
-  const lowerContent = content.toLowerCase();
-  if (lowerContent.includes('.pdf')) return "pdf";
-  return "document";
-};
-
-// Extract filename from URL
-const getFilenameFromUrl = (url: string): string => {
-  try {
-    const pathname = new URL(url).pathname;
-    const filename = pathname.split('/').pop() || "dokument";
-    // Remove timestamp prefix if present (e.g., "1234567890-abc123.pdf" -> "dokument.pdf")
-    const parts = filename.split('-');
-    if (parts.length > 1 && /^\d+$/.test(parts[0])) {
-      return parts.slice(1).join('-');
-    }
-    return filename;
-  } catch {
-    return "dokument";
-  }
-};
 interface ReplyToMessage {
   id: string;
   content: string;
@@ -79,8 +58,6 @@ interface MessageBubbleProps {
   onReply?: (message: { id: string; content: string; user_id: string | null; is_ai: boolean; profile?: { display_name: string | null } }) => void;
   isRead?: boolean;
   onSaveToNotes?: (content: string, messageId: string) => void;
-  onAnalyzeDocument?: (url: string, name: string, mimeType: string) => void;
-  onSaveDocumentToNotes?: (title: string, content: string) => void;
 }
 
 export const MessageBubble = ({
@@ -93,10 +70,8 @@ export const MessageBubble = ({
   onReply,
   isRead,
   onSaveToNotes,
-  onAnalyzeDocument,
-  onSaveDocumentToNotes,
 }: MessageBubbleProps) => {
-  const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const [, setShowReactionPicker] = useState(false);
   const isAI = message.is_ai;
   
   // Detect artifacts in AI messages
@@ -223,34 +198,23 @@ export const MessageBubble = ({
             <span className="text-sm text-muted-foreground italic">Fil borttagen</span>
           </div>
         ) : isImageUrl(message.content) ? (
+          // Images: compact badge, clicking opens Files tab
           <div className="w-full">
-            <img
-              src={message.content}
-              alt="Delad bild"
-              className="max-w-full max-h-[300px] rounded-lg object-contain cursor-pointer hover:opacity-90 transition-opacity"
-              onClick={() => window.open(message.content, '_blank')}
-              loading="lazy"
+            <FileAttachmentBadge
+              files={[{
+                name: message.attachment_name || getFilenameFromUrl(message.content),
+                type: "image"
+              }]}
             />
           </div>
         ) : isDocumentUrl(message.content) ? (
+          // Documents: compact badge, clicking opens Files tab
           <div className="w-full">
-            <DocumentPreview
-              url={message.content}
-              name={message.attachment_name || getFilenameFromUrl(message.content)}
-              type={getDocumentType(message.content)}
-              isOwnMessage={isOwn}
-              showAnalyzeButton={!!onAnalyzeDocument}
-              onAnalyze={onAnalyzeDocument ? () => {
-                const docType = getDocumentType(message.content);
-                const mimeType = docType === "pdf" ? "application/pdf" : "application/octet-stream";
-                onAnalyzeDocument(
-                  message.content,
-                  message.attachment_name || getFilenameFromUrl(message.content),
-                  mimeType
-                );
-              } : undefined}
-              showSaveToNotesButton={!!onSaveDocumentToNotes}
-              onSaveToNotes={onSaveDocumentToNotes}
+            <FileAttachmentBadge
+              files={[{
+                name: message.attachment_name || getFilenameFromUrl(message.content),
+                type: getFileTypeFromUrl(message.content)
+              }]}
             />
           </div>
         ) : (
@@ -321,8 +285,8 @@ export const MessageBubble = ({
           </div>
         </ReactionPicker>
         
-        {/* Save to Notes button */}
-        {onSaveToNotes && (
+        {/* Save to Notes button - only for text messages */}
+        {onSaveToNotes && !isImageUrl(message.content) && !isDocumentUrl(message.content) && (
           <SendToNotesButton
             onClick={() => onSaveToNotes(message.content, message.id)}
             className="opacity-0 group-hover:opacity-100 transition-opacity"
