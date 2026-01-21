@@ -222,6 +222,9 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
     }
   }, []);
 
+  // Track if haptic was already triggered for current pull
+  const hapticTriggered = useRef(false);
+
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!isPulling || isRefreshing) return;
     
@@ -229,12 +232,25 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
     if (scrollTop > 0) {
       setIsPulling(false);
       setPullDistance(0);
+      hapticTriggered.current = false;
       return;
     }
 
     const currentY = e.touches[0].clientY;
     const distance = Math.max(0, (currentY - pullStartY.current) * 0.5);
-    setPullDistance(Math.min(distance, PULL_THRESHOLD * 1.5));
+    const newDistance = Math.min(distance, PULL_THRESHOLD * 1.5);
+    
+    // Trigger haptic feedback when threshold is crossed
+    if (newDistance >= PULL_THRESHOLD && !hapticTriggered.current) {
+      hapticTriggered.current = true;
+      if ('vibrate' in navigator) {
+        navigator.vibrate(10);
+      }
+    } else if (newDistance < PULL_THRESHOLD) {
+      hapticTriggered.current = false;
+    }
+    
+    setPullDistance(newDistance);
   }, [isPulling, isRefreshing, PULL_THRESHOLD]);
 
   const handleTouchEnd = useCallback(() => {
