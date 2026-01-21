@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotes, Note } from "@/hooks/useNotes";
-import { useCAGContext, CAGFile } from "@/hooks/useCAGContext";
+import { useCAGContext, CAGFile, CAGNote } from "@/hooks/useCAGContext";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { FileText, PenTool, FolderOpen, FileSearch, Loader2 } from "lucide-react";
 import { NoteEditor } from "@/components/NoteEditor";
@@ -20,6 +20,9 @@ interface WorkspaceCanvasProps {
     selectedFiles: CAGFile[];
     toggleFile: (file: CAGFile) => void;
     isFileSelected: (fileId: string) => boolean;
+    selectedNotes: CAGNote[];
+    toggleNote: (note: CAGNote) => void;
+    isNoteSelected: (noteId: string) => boolean;
   };
   // External tab control
   activeTab?: CanvasApp;
@@ -40,8 +43,10 @@ export const WorkspaceCanvas = ({ conversationId, conversationType, cagContext, 
     selectedFiles: internalCAG.selectedFiles,
     toggleFile: internalCAG.toggleFile,
     isFileSelected: internalCAG.isFileSelected,
+    selectedNotes: internalCAG.selectedNotes,
+    toggleNote: internalCAG.toggleNote,
+    isNoteSelected: internalCAG.isNoteSelected,
   };
-  
   // Get initial app from localStorage or default to "notes"
   const [internalActiveApp, setInternalActiveApp] = useState<CanvasApp>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -162,6 +167,9 @@ export const WorkspaceCanvas = ({ conversationId, conversationType, cagContext, 
               isLoading={notesLoading}
               onNoteSelect={handleNoteSelect}
               onCreateNote={handleCreateNote}
+              selectedCAGNotes={cag.selectedNotes}
+              onToggleCAGNote={cag.toggleNote}
+              isNoteInCAG={cag.isNoteSelected}
             />
           )}
           {activeApp === "whiteboard" && (

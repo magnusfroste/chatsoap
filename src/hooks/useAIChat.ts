@@ -1,6 +1,6 @@
 import { useCallback, useRef } from "react";
 import { toast } from "sonner";
-import { CAGFile } from "./useCAGContext";
+import { CAGFile, CAGNote } from "./useCAGContext";
 
 interface Message {
   id: string;
@@ -25,7 +25,8 @@ export function useAIChat(roomId: string | undefined) {
       onDone: (fullText: string) => void,
       persona?: string,
       customSystemPrompt?: string,
-      cagFiles?: CAGFile[]
+      cagFiles?: CAGFile[],
+      cagNotes?: CAGNote[]
     ) => {
       if (!roomId) return;
 
@@ -54,6 +55,7 @@ export function useAIChat(roomId: string | undefined) {
             persona,
             customSystemPrompt,
             cagFiles: cagFiles || [],
+            cagNotes: cagNotes || [],
           }),
           signal: abortControllerRef.current.signal,
         });
