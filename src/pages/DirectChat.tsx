@@ -145,12 +145,21 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
           },
           async (payload) => {
             const newMsg = payload.new as any;
+            console.log('[Realtime] New message received:', newMsg.id, newMsg.content?.substring(0, 50));
             
-            // Skip if this exact message already exists
-            setMessages((prev) => {
-              if (prev.find((m) => m.id === newMsg.id)) return prev;
-              return prev;
+            // Skip if this exact message already exists (check first)
+            const existsAlready = await new Promise<boolean>((resolve) => {
+              setMessages((prev) => {
+                const exists = prev.some((m) => m.id === newMsg.id);
+                resolve(exists);
+                return prev; // Don't modify, just check
+              });
             });
+            
+            if (existsAlready) {
+              console.log('[Realtime] Message already exists, skipping:', newMsg.id);
+              return;
+            }
 
             // Fetch profile for the new message if it has a user_id
             let profile = undefined;
