@@ -885,6 +885,12 @@ Start with the basics and build understanding gradually.`,
     if (toolSettings.code_execution) {
       availableTools.push(allTools.code_execution);
     }
+    if (toolSettings.send_code_to_sandbox) {
+      availableTools.push(allTools.send_code_to_sandbox);
+    }
+    if (toolSettings.navigate_browser) {
+      availableTools.push(allTools.navigate_browser);
+    }
 
     console.log("Available tools:", availableTools.map(t => t.function.name).join(", ") || "none");
 
