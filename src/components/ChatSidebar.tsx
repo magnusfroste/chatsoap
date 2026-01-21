@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { MessageSquare, Users, LogOut, Search, MoreVertical, CheckCheck, Settings, Star, Archive, User, Pin, BellOff, ArchiveRestore, PanelLeftClose, PanelLeft, Bot } from "lucide-react";
+import { MessageSquare, Users, LogOut, Search, MoreVertical, CheckCheck, Settings, Star, Archive, User, Pin, BellOff, ArchiveRestore, PanelLeftClose, PanelLeft, Bot, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import NewChatDialog from "@/components/NewChatDialog";
@@ -55,6 +55,14 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
   const [filter, setFilter] = useState<"all" | "favorites" | "archived">("all");
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const conversationRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  
+  // Pull-to-refresh state
+  const [isPulling, setIsPulling] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const pullStartY = useRef(0);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const PULL_THRESHOLD = 80;
 
   useEffect(() => {
     if (user) {
@@ -103,8 +111,9 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
     }
   }, [user]);
 
-  const fetchConversations = async () => {
+  const fetchConversations = useCallback(async (isRefresh = false) => {
     if (!user) return;
+    if (isRefresh) setIsRefreshing(true);
 
     try {
       // Fetch member data with settings
@@ -200,8 +209,41 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
       console.error("Error fetching conversations:", error);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
-  };
+  }, [user]);
+
+  // Pull-to-refresh handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const scrollTop = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]')?.scrollTop ?? 0;
+    if (scrollTop <= 0) {
+      pullStartY.current = e.touches[0].clientY;
+      setIsPulling(true);
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isPulling || isRefreshing) return;
+    
+    const scrollTop = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]')?.scrollTop ?? 0;
+    if (scrollTop > 0) {
+      setIsPulling(false);
+      setPullDistance(0);
+      return;
+    }
+
+    const currentY = e.touches[0].clientY;
+    const distance = Math.max(0, (currentY - pullStartY.current) * 0.5);
+    setPullDistance(Math.min(distance, PULL_THRESHOLD * 1.5));
+  }, [isPulling, isRefreshing, PULL_THRESHOLD]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (pullDistance >= PULL_THRESHOLD && !isRefreshing) {
+      fetchConversations(true);
+    }
+    setIsPulling(false);
+    setPullDistance(0);
+  }, [pullDistance, PULL_THRESHOLD, isRefreshing, fetchConversations]);
 
   const handleLogout = async () => {
     await signOut();
@@ -409,7 +451,40 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
       </div>
 
       {/* Conversations List */}
-      <ScrollArea className="flex-1">
+      <ScrollArea 
+        className="flex-1 relative" 
+        ref={scrollAreaRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Pull-to-refresh indicator */}
+        <div 
+          className={`flex items-center justify-center overflow-hidden transition-all duration-200 ${
+            isCollapsed ? 'hidden' : ''
+          }`}
+          style={{ 
+            height: pullDistance > 0 || isRefreshing ? Math.max(pullDistance, isRefreshing ? 48 : 0) : 0,
+            opacity: pullDistance > 0 || isRefreshing ? 1 : 0 
+          }}
+        >
+          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+            <RefreshCw 
+              className={`w-4 h-4 transition-transform ${isRefreshing ? 'animate-spin' : ''}`}
+              style={{ 
+                transform: isRefreshing ? undefined : `rotate(${Math.min(pullDistance / PULL_THRESHOLD * 360, 360)}deg)` 
+              }}
+            />
+            {isRefreshing ? (
+              <span>Refreshing...</span>
+            ) : pullDistance >= PULL_THRESHOLD ? (
+              <span>Release to refresh</span>
+            ) : (
+              <span>Pull to refresh</span>
+            )}
+          </div>
+        </div>
+        
         {loading ? (
           <div className="flex flex-col">
             {Array.from({ length: 8 }).map((_, i) => (
