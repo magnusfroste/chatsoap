@@ -614,9 +614,9 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
                         {formatTime(conv.last_message_at)}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1 mt-0.5">
+                    <div className="flex items-center gap-1 mt-0.5 min-w-0">
                       <CheckCheck className="w-4 h-4 text-primary flex-shrink-0" />
-                      <p className="text-sm text-muted-foreground truncate flex-1">
+                      <p className="text-sm text-muted-foreground truncate flex-1 min-w-0">
                         {conv.last_message || (conv.type === "group" ? "Gruppchatt" : "Ny konversation")}
                       </p>
                       {conv.is_muted && <BellOff className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
