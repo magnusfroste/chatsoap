@@ -333,6 +333,7 @@ export type Database = {
           created_at: string
           id: string
           is_ai: boolean | null
+          is_attachment_deleted: boolean
           reply_to_id: string | null
           room_id: string | null
           user_id: string | null
@@ -345,6 +346,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_ai?: boolean | null
+          is_attachment_deleted?: boolean
           reply_to_id?: string | null
           room_id?: string | null
           user_id?: string | null
@@ -357,6 +359,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_ai?: boolean | null
+          is_attachment_deleted?: boolean
           reply_to_id?: string | null
           room_id?: string | null
           user_id?: string | null

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Bot, Check, CheckCheck, Reply, X, Image as ImageIcon, FileText, Clock } from "lucide-react";
+import { Bot, Check, CheckCheck, Reply, X, Image as ImageIcon, FileText, Clock, Trash2 } from "lucide-react";
 import { MessageReactions, ReactionPicker } from "./MessageReactions";
 import { SendToNotesButton } from "./SendToNotesButton";
 import { DocumentPreview } from "./DocumentPreview";
@@ -65,6 +65,7 @@ interface MessageBubbleProps {
     reply_to?: ReplyToMessage | null;
     attachment_type?: string | null;
     attachment_name?: string | null;
+    is_attachment_deleted?: boolean;
     sending?: boolean;
     profile?: {
       display_name: string | null;
@@ -216,7 +217,12 @@ export const MessageBubble = ({
 
       {/* Message Content with inline time */}
       <div className="flex flex-wrap items-end gap-x-2">
-        {isImageUrl(message.content) ? (
+        {message.is_attachment_deleted ? (
+          <div className="w-full flex items-center gap-2 p-3 rounded-lg bg-muted/50 border border-border/50">
+            <Trash2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            <span className="text-sm text-muted-foreground italic">Fil borttagen</span>
+          </div>
+        ) : isImageUrl(message.content) ? (
           <div className="w-full">
             <img
               src={message.content}

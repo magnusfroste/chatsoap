@@ -4,6 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { 
   FolderOpen, 
   Search, 
@@ -15,7 +25,8 @@ import {
   List,
   Download,
   ExternalLink,
-  Sparkles
+  Sparkles,
+  Trash2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -55,6 +66,9 @@ const FileManagerApp = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [filter, setFilter] = useState<"all" | "images" | "documents">("all");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<ConversationFile | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Helper to check if a message contains a file
   const isFileMessage = (content: string) => {
@@ -220,6 +234,56 @@ const FileManagerApp = ({
     } catch (err) {
       toast.error("Failed to download file");
     }
+  };
+
+  // Delete file (soft delete)
+  const handleDeleteFile = async () => {
+    if (!fileToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      // Extract the file path from the URL for storage deletion
+      const url = new URL(fileToDelete.url);
+      const pathMatch = url.pathname.match(/\/storage\/v1\/object\/public\/chat-media\/(.+)/);
+      const filePath = pathMatch ? pathMatch[1] : null;
+
+      // Delete from storage if we can extract the path
+      if (filePath) {
+        const { error: storageError } = await supabase.storage
+          .from("chat-media")
+          .remove([filePath]);
+        
+        if (storageError) {
+          console.error("Storage delete error:", storageError);
+          // Continue with soft delete even if storage deletion fails
+        }
+      }
+
+      // Soft delete: mark the message as having deleted attachment
+      const { error: updateError } = await supabase
+        .from("messages")
+        .update({ is_attachment_deleted: true })
+        .eq("id", fileToDelete.messageId);
+
+      if (updateError) throw updateError;
+
+      // Remove from local state
+      setFiles((prev) => prev.filter((f) => f.id !== fileToDelete.id));
+      
+      toast.success("Fil borttagen");
+    } catch (err) {
+      console.error("Delete error:", err);
+      toast.error("Kunde inte ta bort filen");
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setFileToDelete(null);
+    }
+  };
+
+  const confirmDelete = (file: ConversationFile) => {
+    setFileToDelete(file);
+    setDeleteDialogOpen(true);
   };
 
   // Helper to convert file to CAGFile format
@@ -430,6 +494,17 @@ const FileManagerApp = ({
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
                       </Button>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="h-7 w-7 shadow-md text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          confirmDelete(file);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </div>
                 );
@@ -527,6 +602,17 @@ const FileManagerApp = ({
                       >
                         <ExternalLink className="h-4 w-4" />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          confirmDelete(file);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 );
@@ -535,6 +621,36 @@ const FileManagerApp = ({
           )}
         </div>
       </ScrollArea>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ta bort fil?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Filen "{fileToDelete?.name}" kommer tas bort permanent. 
+              Meddelandet i chatten kommer visa "Fil borttagen" istället.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteFile}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Tar bort...
+                </>
+              ) : (
+                "Ta bort"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
