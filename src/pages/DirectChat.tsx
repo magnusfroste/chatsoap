@@ -144,109 +144,106 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
     if (user && id) {
       fetchConversation();
       fetchMessages();
-
-      // Subscribe to new messages with realtime
-      const channel = supabase
-        .channel(`chat-${id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "messages",
-            filter: `conversation_id=eq.${id}`,
-          },
-          async (payload) => {
-            const newMsg = payload.new as any;
-            console.log('[Realtime] New message received:', newMsg.id, newMsg.content?.substring(0, 50));
-            
-            // Skip if this exact message already exists (check first)
-            const existsAlready = await new Promise<boolean>((resolve) => {
-              setMessages((prev) => {
-                const exists = prev.some((m) => m.id === newMsg.id);
-                resolve(exists);
-                return prev; // Don't modify, just check
-              });
-            });
-            
-            if (existsAlready) {
-              console.log('[Realtime] Message already exists, skipping:', newMsg.id);
-              return;
-            }
-
-            // Fetch profile for the new message if it has a user_id
-            let profile = undefined;
-            if (newMsg.user_id) {
-              const { data: profileData } = await supabase
-                .from("profiles")
-                .select("display_name")
-                .eq("user_id", newMsg.user_id)
-                .single();
-              profile = profileData || undefined;
-            }
-
-            // Fetch reply_to if exists
-            let reply_to = undefined;
-            if (newMsg.reply_to_id) {
-              const { data: replyData } = await supabase
-                .from("messages")
-                .select("id, content, user_id, is_ai")
-                .eq("id", newMsg.reply_to_id)
-                .single();
-              
-              if (replyData) {
-                let replyProfile = undefined;
-                if (replyData.user_id) {
-                  const { data: rp } = await supabase
-                    .from("profiles")
-                    .select("display_name")
-                    .eq("user_id", replyData.user_id)
-                    .single();
-                  replyProfile = rp || undefined;
-                }
-                reply_to = { ...replyData, profile: replyProfile };
-              }
-            }
-
-            const enrichedMessage: Message = {
-              id: newMsg.id,
-              content: newMsg.content,
-              is_ai: newMsg.is_ai || false,
-              user_id: newMsg.user_id,
-              created_at: newMsg.created_at,
-              reply_to_id: newMsg.reply_to_id,
-              reply_to,
-              profile,
-            };
-
-            setMessages((prev) => {
-              // Skip if already exists with this ID
-              if (prev.find((m) => m.id === newMsg.id)) return prev;
-              // Filter out matching temp messages and add the real one
-              const filtered = prev.filter(m => 
-                !(m.id.startsWith('temp-') && m.content === newMsg.content && m.user_id === newMsg.user_id) &&
-                !(m.id.startsWith('ai-temp-') && m.content === newMsg.content && m.is_ai)
-              );
-              return [...filtered, enrichedMessage];
-            });
-
-            // Show notification for messages from others
-            if (newMsg.user_id !== user?.id && profile) {
-              const senderName = profile.display_name || "Någon";
-              showMessageNotification(senderName, newMsg.content, id!, false);
-            }
-          }
-        )
-        .subscribe((status) => {
-          console.log('[Realtime] Subscription status:', status);
-        });
-
-      return () => {
-        supabase.removeChannel(channel);
-        cancelStream();
-      };
     }
   }, [user, id]);
+
+  // Separate realtime subscription effect for better stability
+  useEffect(() => {
+    if (!user || !id) return;
+    
+    console.log('[Realtime] Setting up channel for conversation:', id);
+    
+    const channel = supabase
+      .channel(`direct-chat-${id}-${Date.now()}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${id}`,
+        },
+        async (payload) => {
+          const newMsg = payload.new as any;
+          console.log('[Realtime] INSERT received:', newMsg.id, 'from user:', newMsg.user_id);
+          
+          // Fetch profile for the new message if it has a user_id
+          let profile = undefined;
+          if (newMsg.user_id) {
+            const { data: profileData } = await supabase
+              .from("profiles")
+              .select("display_name")
+              .eq("user_id", newMsg.user_id)
+              .single();
+            profile = profileData || undefined;
+          }
+
+          // Fetch reply_to if exists
+          let reply_to = undefined;
+          if (newMsg.reply_to_id) {
+            const { data: replyData } = await supabase
+              .from("messages")
+              .select("id, content, user_id, is_ai")
+              .eq("id", newMsg.reply_to_id)
+              .single();
+            
+            if (replyData) {
+              let replyProfile = undefined;
+              if (replyData.user_id) {
+                const { data: rp } = await supabase
+                  .from("profiles")
+                  .select("display_name")
+                  .eq("user_id", replyData.user_id)
+                  .single();
+                replyProfile = rp || undefined;
+              }
+              reply_to = { ...replyData, profile: replyProfile };
+            }
+          }
+
+          const enrichedMessage: Message = {
+            id: newMsg.id,
+            content: newMsg.content,
+            is_ai: newMsg.is_ai || false,
+            user_id: newMsg.user_id,
+            created_at: newMsg.created_at,
+            reply_to_id: newMsg.reply_to_id,
+            reply_to,
+            profile,
+          };
+
+          setMessages((prev) => {
+            // Skip if already exists with this ID
+            if (prev.some((m) => m.id === newMsg.id)) {
+              console.log('[Realtime] Message already exists, skipping:', newMsg.id);
+              return prev;
+            }
+            // Filter out matching temp messages and add the real one
+            const filtered = prev.filter(m => 
+              !(m.id.startsWith('temp-') && m.content === newMsg.content && m.user_id === newMsg.user_id) &&
+              !(m.id.startsWith('ai-temp-') && m.content === newMsg.content && m.is_ai)
+            );
+            console.log('[Realtime] Adding new message to state:', newMsg.id);
+            return [...filtered, enrichedMessage];
+          });
+
+          // Show notification for messages from others
+          if (newMsg.user_id !== user?.id && profile) {
+            const senderName = profile.display_name || "Någon";
+            showMessageNotification(senderName, newMsg.content, id!, false);
+          }
+        }
+      )
+      .subscribe((status, err) => {
+        console.log('[Realtime] Subscription status:', status, err ? `Error: ${err.message}` : '');
+      });
+
+    return () => {
+      console.log('[Realtime] Removing channel for conversation:', id);
+      supabase.removeChannel(channel);
+      cancelStream();
+    };
+  }, [user?.id, id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
