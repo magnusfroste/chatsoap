@@ -18,6 +18,7 @@ import {
 import { ArrowLeft, Loader2, Shield, Users, Settings, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { LLMSettingsCard } from "@/components/LLMSettingsCard";
+import { AIToolsSettingsCard } from "@/components/AIToolsSettingsCard";
 
 interface InviteCode {
   id: string;
@@ -181,6 +182,9 @@ export default function Admin() {
       <main className="container mx-auto px-4 py-6 space-y-6">
         {/* LLM Settings Card */}
         <LLMSettingsCard />
+
+        {/* AI Tools Settings Card */}
+        <AIToolsSettingsCard />
 
         {/* Settings Card */}
         <Card className="glass-card border-border/50">
