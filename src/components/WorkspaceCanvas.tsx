@@ -1,6 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotes, Note } from "@/hooks/useNotes";
+import { useCAGContext, CAGFile } from "@/hooks/useCAGContext";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { FileText, PenTool, FolderOpen, FileSearch, Loader2 } from "lucide-react";
 import { NoteEditor } from "@/components/NoteEditor";
@@ -14,15 +15,29 @@ const DocumentViewerApp = lazy(() => import("@/components/canvas/DocumentViewerA
 interface WorkspaceCanvasProps {
   conversationId: string | undefined;
   conversationType?: "direct" | "group" | "ai_chat";
+  // CAG context - can be passed in or managed internally
+  cagContext?: {
+    selectedFiles: CAGFile[];
+    toggleFile: (file: CAGFile) => void;
+    isFileSelected: (fileId: string) => boolean;
+  };
 }
 
 type CanvasApp = "notes" | "whiteboard" | "files" | "document";
 
 const STORAGE_KEY = "workspace-canvas-app";
 
-export const WorkspaceCanvas = ({ conversationId, conversationType }: WorkspaceCanvasProps) => {
+export const WorkspaceCanvas = ({ conversationId, conversationType, cagContext }: WorkspaceCanvasProps) => {
   const { user } = useAuth();
   const { notes, isLoading: notesLoading, createNote, updateNote, deleteNote } = useNotes(user?.id);
+  
+  // Internal CAG context if not provided
+  const internalCAG = useCAGContext(conversationId);
+  const cag = cagContext || {
+    selectedFiles: internalCAG.selectedFiles,
+    toggleFile: internalCAG.toggleFile,
+    isFileSelected: internalCAG.isFileSelected,
+  };
   
   // Get initial app from localStorage or default to "notes"
   const [activeApp, setActiveApp] = useState<CanvasApp>(() => {
@@ -146,6 +161,9 @@ export const WorkspaceCanvas = ({ conversationId, conversationType }: WorkspaceC
             <FileManagerApp
               conversationId={conversationId}
               onViewDocument={handleViewDocument}
+              selectedCAGFiles={cag.selectedFiles}
+              onToggleCAGFile={cag.toggleFile}
+              isFileInCAG={cag.isFileSelected}
             />
           )}
           {activeApp === "document" && selectedDocument && (

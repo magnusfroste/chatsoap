@@ -3,6 +3,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   FolderOpen, 
   Search, 
@@ -19,6 +20,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { CAGFile } from "@/hooks/useCAGContext";
 
 interface ConversationFile {
   id: string;
@@ -35,9 +37,19 @@ interface ConversationFile {
 interface FileManagerAppProps {
   conversationId: string;
   onViewDocument: (url: string, name: string, type: string) => void;
+  // CAG props
+  selectedCAGFiles?: CAGFile[];
+  onToggleCAGFile?: (file: CAGFile) => void;
+  isFileInCAG?: (fileId: string) => boolean;
 }
 
-const FileManagerApp = ({ conversationId, onViewDocument }: FileManagerAppProps) => {
+const FileManagerApp = ({ 
+  conversationId, 
+  onViewDocument,
+  selectedCAGFiles = [],
+  onToggleCAGFile,
+  isFileInCAG,
+}: FileManagerAppProps) => {
   const [files, setFiles] = useState<ConversationFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -146,6 +158,17 @@ const FileManagerApp = ({ conversationId, onViewDocument }: FileManagerAppProps)
     }
   };
 
+  // Helper to convert file to CAGFile format
+  const toCAGFile = (file: ConversationFile): CAGFile => ({
+    id: file.id,
+    url: file.url,
+    name: file.name,
+    mimeType: file.mimeType,
+    messageId: file.messageId,
+  });
+
+  const cagFileCount = selectedCAGFiles?.length || 0;
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -159,6 +182,12 @@ const FileManagerApp = ({ conversationId, onViewDocument }: FileManagerAppProps)
             </span>
           </div>
           <div className="flex items-center gap-1">
+            {cagFileCount > 0 && (
+              <Badge variant="secondary" className="gap-1 text-xs">
+                <Sparkles className="w-3 h-3" />
+                {cagFileCount} in context
+              </Badge>
+            )}
             <Button
               variant={viewMode === "grid" ? "secondary" : "ghost"}
               size="icon"
@@ -215,6 +244,16 @@ const FileManagerApp = ({ conversationId, onViewDocument }: FileManagerAppProps)
             Documents
           </Badge>
         </div>
+
+        {/* CAG info banner */}
+        {onToggleCAGFile && (
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/10">
+            <Sparkles className="w-4 h-4 text-primary flex-shrink-0" />
+            <p className="text-xs text-muted-foreground">
+              Select files to include in AI context when using @ai
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Files Content */}
@@ -240,116 +279,194 @@ const FileManagerApp = ({ conversationId, onViewDocument }: FileManagerAppProps)
             </div>
           ) : viewMode === "grid" ? (
             <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-              {filteredFiles.map((file) => (
-                <div
-                  key={file.id}
-                  className="group relative rounded-xl border border-border bg-card overflow-hidden hover:border-primary/30 transition-all"
-                >
-                  {/* Preview */}
-                  <div 
-                    className="aspect-square bg-muted/50 flex items-center justify-center cursor-pointer"
-                    onClick={() => onViewDocument(file.url, file.name, file.mimeType)}
+              {filteredFiles.map((file) => {
+                const isInCAG = isFileInCAG?.(file.id) || false;
+                return (
+                  <div
+                    key={file.id}
+                    className={`group relative rounded-xl border bg-card overflow-hidden transition-all ${
+                      isInCAG 
+                        ? "border-primary/50 ring-1 ring-primary/20" 
+                        : "border-border hover:border-primary/30"
+                    }`}
                   >
-                    {file.type === "image" ? (
-                      <img 
-                        src={file.url} 
-                        alt={file.name} 
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      getFileIcon(file.type)
+                    {/* CAG Checkbox */}
+                    {onToggleCAGFile && (
+                      <div 
+                        className="absolute top-2 left-2 z-10"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div 
+                          className={`flex items-center justify-center w-6 h-6 rounded-md transition-all cursor-pointer ${
+                            isInCAG 
+                              ? "bg-primary text-primary-foreground" 
+                              : "bg-background/80 backdrop-blur-sm border border-border opacity-0 group-hover:opacity-100"
+                          }`}
+                          onClick={() => onToggleCAGFile(toCAGFile(file))}
+                        >
+                          {isInCAG ? (
+                            <Sparkles className="w-3.5 h-3.5" />
+                          ) : (
+                            <Checkbox 
+                              checked={false} 
+                              className="border-0 data-[state=checked]:bg-transparent"
+                            />
+                          )}
+                        </div>
+                      </div>
                     )}
-                  </div>
-                  
-                  {/* Info */}
-                  <div className="p-2">
-                    <p className="text-xs font-medium truncate" title={file.name}>
-                      {file.name}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {format(new Date(file.createdAt), "MMM d")}
-                    </p>
-                  </div>
 
-                  {/* Hover actions */}
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      variant="secondary"
-                      size="icon"
-                      className="h-7 w-7 shadow-md"
-                      onClick={() => handleDownload(file.url, file.name)}
+                    {/* Preview */}
+                    <div 
+                      className="aspect-square bg-muted/50 flex items-center justify-center cursor-pointer"
+                      onClick={() => onViewDocument(file.url, file.name, file.mimeType)}
                     >
-                      <Download className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="icon"
-                      className="h-7 w-7 shadow-md"
-                      onClick={() => window.open(file.url, "_blank")}
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </Button>
+                      {file.type === "image" ? (
+                        <img 
+                          src={file.url} 
+                          alt={file.name} 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        getFileIcon(file.type)
+                      )}
+                    </div>
+                    
+                    {/* Info */}
+                    <div className="p-2">
+                      <p className="text-xs font-medium truncate" title={file.name}>
+                        {file.name}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {format(new Date(file.createdAt), "MMM d")}
+                      </p>
+                    </div>
+
+                    {/* Hover actions */}
+                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="h-7 w-7 shadow-md"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownload(file.url, file.name);
+                        }}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="h-7 w-7 shadow-md"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(file.url, "_blank");
+                        }}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="space-y-2">
-              {filteredFiles.map((file) => (
-                <div
-                  key={file.id}
-                  className="group flex items-center gap-3 p-3 rounded-lg border border-border bg-card hover:border-primary/30 transition-all cursor-pointer"
-                  onClick={() => onViewDocument(file.url, file.name, file.mimeType)}
-                >
-                  {/* Icon or thumbnail */}
-                  <div className="w-10 h-10 rounded-lg bg-muted/50 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                    {file.type === "image" ? (
-                      <img 
-                        src={file.url} 
-                        alt={file.name} 
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      getFileIcon(file.type)
+              {filteredFiles.map((file) => {
+                const isInCAG = isFileInCAG?.(file.id) || false;
+                return (
+                  <div
+                    key={file.id}
+                    className={`group flex items-center gap-3 p-3 rounded-lg border bg-card transition-all cursor-pointer ${
+                      isInCAG 
+                        ? "border-primary/50 ring-1 ring-primary/20" 
+                        : "border-border hover:border-primary/30"
+                    }`}
+                    onClick={() => onViewDocument(file.url, file.name, file.mimeType)}
+                  >
+                    {/* CAG Checkbox */}
+                    {onToggleCAGFile && (
+                      <div 
+                        className={`flex items-center justify-center w-8 h-8 rounded-md transition-all cursor-pointer flex-shrink-0 ${
+                          isInCAG 
+                            ? "bg-primary text-primary-foreground" 
+                            : "bg-muted/50 border border-border hover:border-primary/30"
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleCAGFile(toCAGFile(file));
+                        }}
+                      >
+                        {isInCAG ? (
+                          <Sparkles className="w-4 h-4" />
+                        ) : (
+                          <Checkbox 
+                            checked={false} 
+                            className="border-0"
+                          />
+                        )}
+                      </div>
                     )}
-                  </div>
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{file.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {file.uploaderName && `${file.uploaderName} · `}
-                      {format(new Date(file.createdAt), "MMM d, yyyy")}
-                    </p>
-                  </div>
+                    {/* Icon or thumbnail */}
+                    <div className="w-10 h-10 rounded-lg bg-muted/50 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {file.type === "image" ? (
+                        <img 
+                          src={file.url} 
+                          alt={file.name} 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        getFileIcon(file.type)
+                      )}
+                    </div>
 
-                  {/* Actions */}
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDownload(file.url, file.name);
-                      }}
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        window.open(file.url, "_blank");
-                      }}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate">{file.name}</p>
+                        {isInCAG && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                            <Sparkles className="w-2.5 h-2.5 mr-0.5" />
+                            AI
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {file.uploaderName && `${file.uploaderName} · `}
+                        {format(new Date(file.createdAt), "MMM d, yyyy")}
+                      </p>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownload(file.url, file.name);
+                        }}
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(file.url, "_blank");
+                        }}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
