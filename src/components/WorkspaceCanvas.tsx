@@ -1,21 +1,15 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, Suspense, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotes, Note } from "@/hooks/useNotes";
 import { useCAGContext, CAGFile, CAGNote } from "@/hooks/useCAGContext";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { FileText, PenTool, FolderOpen, FileSearch, Loader2 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2 } from "lucide-react";
 import { NoteEditor } from "@/components/NoteEditor";
-
-// Lazy load canvas apps
-const NotesApp = lazy(() => import("@/components/canvas/NotesApp"));
-const WhiteboardApp = lazy(() => import("@/components/canvas/WhiteboardApp"));
-const FileManagerApp = lazy(() => import("@/components/canvas/FileManagerApp"));
-const DocumentViewerApp = lazy(() => import("@/components/canvas/DocumentViewerApp"));
+import { canvasAppRegistry, CanvasAppProps } from "@/lib/canvas-apps";
 
 interface WorkspaceCanvasProps {
   conversationId: string | undefined;
   conversationType?: "direct" | "group" | "ai_chat";
-  // CAG context - can be passed in or managed internally
   cagContext?: {
     selectedFiles: CAGFile[];
     toggleFile: (file: CAGFile) => void;
@@ -24,16 +18,21 @@ interface WorkspaceCanvasProps {
     toggleNote: (note: CAGNote) => void;
     isNoteSelected: (noteId: string) => boolean;
   };
-  // External tab control
-  activeTab?: CanvasApp;
-  onTabChange?: (tab: CanvasApp) => void;
+  activeTab?: string;
+  onTabChange?: (tab: string) => void;
 }
 
-export type CanvasApp = "notes" | "whiteboard" | "files" | "document";
+export type CanvasApp = string;
 
 const STORAGE_KEY = "workspace-canvas-app";
 
-export const WorkspaceCanvas = ({ conversationId, conversationType, cagContext, activeTab, onTabChange }: WorkspaceCanvasProps) => {
+export const WorkspaceCanvas = ({ 
+  conversationId, 
+  conversationType, 
+  cagContext, 
+  activeTab, 
+  onTabChange 
+}: WorkspaceCanvasProps) => {
   const { user } = useAuth();
   const { notes, isLoading: notesLoading, createNote, updateNote, deleteNote } = useNotes(user?.id);
   
@@ -47,25 +46,33 @@ export const WorkspaceCanvas = ({ conversationId, conversationType, cagContext, 
     toggleNote: internalCAG.toggleNote,
     isNoteSelected: internalCAG.isNoteSelected,
   };
-  // Get initial app from localStorage or default to "notes"
-  const [internalActiveApp, setInternalActiveApp] = useState<CanvasApp>(() => {
+
+  // Get all visible apps from registry
+  const visibleApps = canvasAppRegistry.getVisible();
+
+  // Get initial app from localStorage or default to first app
+  const [internalActiveApp, setInternalActiveApp] = useState<string>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return (saved as CanvasApp) || "notes";
+    // Validate saved app exists
+    if (saved && canvasAppRegistry.get(saved)) {
+      return saved;
+    }
+    return visibleApps[0]?.id || "notes";
   });
   
   // Use external control if provided, otherwise internal
   const activeApp = activeTab ?? internalActiveApp;
-  const setActiveApp = (app: CanvasApp) => {
+  const setActiveApp = useCallback((app: string) => {
     if (onTabChange) {
       onTabChange(app);
     } else {
       setInternalActiveApp(app);
     }
-  };
+  }, [onTabChange]);
   
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [noteEditorOpen, setNoteEditorOpen] = useState(false);
-  const [selectedDocument, setSelectedDocument] = useState<{ url: string; name: string; type: string } | null>(null);
+  const [documentParams, setDocumentParams] = useState<{ url: string; name: string; type: string } | null>(null);
 
   // Persist active app
   useEffect(() => {
@@ -94,17 +101,25 @@ export const WorkspaceCanvas = ({ conversationId, conversationType, cagContext, 
     }
   };
 
-  const handleViewDocument = (url: string, name: string, type: string) => {
-    setSelectedDocument({ url, name, type });
+  const handleViewDocument = useCallback((url: string, name: string, type: string) => {
+    setDocumentParams({ url, name, type });
     setActiveApp("document");
-  };
+  }, [setActiveApp]);
+
+  const handleOpenApp = useCallback((appId: string, params?: Record<string, unknown>) => {
+    if (appId === "document" && params) {
+      setDocumentParams(params as { url: string; name: string; type: string });
+    }
+    setActiveApp(appId);
+  }, [setActiveApp]);
 
   // Empty state when no conversation selected
   if (!conversationId) {
+    const EmptyIcon = visibleApps[0]?.icon;
     return (
       <div className="h-full flex flex-col items-center justify-center bg-muted/20 text-muted-foreground">
         <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-          <FolderOpen className="w-8 h-8 text-muted-foreground/50" />
+          {EmptyIcon && <EmptyIcon className="w-8 h-8 text-muted-foreground/50" />}
         </div>
         <p className="text-sm font-medium">Select a conversation</p>
         <p className="text-xs text-muted-foreground/70 mt-1">to access workspace tools</p>
@@ -118,96 +133,126 @@ export const WorkspaceCanvas = ({ conversationId, conversationType, cagContext, 
     </div>
   );
 
+  // Get current app definition
+  const currentAppDef = canvasAppRegistry.get(activeApp);
+
+  // Build props for the current app
+  const buildAppProps = (): CanvasAppProps => {
+    const baseProps: CanvasAppProps = {
+      conversationId,
+      userId: user?.id,
+      conversationType,
+      openApp: handleOpenApp,
+      viewDocument: handleViewDocument,
+    };
+
+    // Add CAG props for apps that support it
+    const appDef = canvasAppRegistry.get(activeApp);
+    if (appDef?.supportsCAG) {
+      return {
+        ...baseProps,
+        selectedCAGFiles: cag.selectedFiles,
+        selectedCAGNotes: cag.selectedNotes,
+        onToggleCAGFile: cag.toggleFile,
+        onToggleCAGNote: cag.toggleNote,
+        isFileInCAG: cag.isFileSelected,
+        isNoteInCAG: cag.isNoteSelected,
+      };
+    }
+
+    // Add document params for document viewer
+    if (activeApp === "document" && documentParams) {
+      return {
+        ...baseProps,
+        params: documentParams,
+      };
+    }
+
+    return baseProps;
+  };
+
+  // Get all apps including hidden ones that should be shown
+  const allApps = canvasAppRegistry.getAll();
+  const tabApps = allApps.filter(app => {
+    if (!app.hidden) return true;
+    // Show document tab only when viewing a document
+    if (app.id === "document" && documentParams) return true;
+    return false;
+  });
+
   return (
     <div className="h-full flex flex-col bg-background">
-      {/* App Switcher - Clean tab bar */}
+      {/* App Switcher - Dynamic tab bar from registry */}
       <div className="flex-shrink-0 border-b border-border bg-card px-2">
-        <Tabs value={activeApp} onValueChange={(v) => setActiveApp(v as CanvasApp)}>
+        <Tabs value={activeApp} onValueChange={setActiveApp}>
           <TabsList className="h-12 w-full justify-start gap-1 bg-transparent p-0">
-            <TabsTrigger 
-              value="notes" 
-              className="relative flex items-center gap-2 px-4 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none rounded-lg"
-            >
-              <FileText className="w-4 h-4" />
-              <span className="hidden sm:inline">Notes</span>
-              {cag.selectedNotes.length > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground px-1">
-                  {cag.selectedNotes.length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger 
-              value="whiteboard" 
-              className="flex items-center gap-2 px-4 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none rounded-lg"
-            >
-              <PenTool className="w-4 h-4" />
-              <span className="hidden sm:inline">Whiteboard</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="files" 
-              className="relative flex items-center gap-2 px-4 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none rounded-lg"
-            >
-              <FolderOpen className="w-4 h-4" />
-              <span className="hidden sm:inline">Files</span>
-              {cag.selectedFiles.length > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground px-1">
-                  {cag.selectedFiles.length}
-                </span>
-              )}
-            </TabsTrigger>
-            {selectedDocument && (
-              <TabsTrigger 
-                value="document" 
-                className="flex items-center gap-2 px-4 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none rounded-lg"
-              >
-                <FileSearch className="w-4 h-4" />
-                <span className="hidden sm:inline truncate max-w-[100px]">{selectedDocument.name}</span>
-              </TabsTrigger>
-            )}
+            {tabApps.map((app) => {
+              const Icon = app.icon;
+              const badge = app.getBadge?.({
+                selectedCAGFiles: cag.selectedFiles,
+                selectedCAGNotes: cag.selectedNotes,
+              });
+              
+              return (
+                <TabsTrigger 
+                  key={app.id}
+                  value={app.id} 
+                  className="relative flex items-center gap-2 px-4 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none rounded-lg"
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="hidden sm:inline truncate max-w-[100px]">
+                    {app.id === "document" && documentParams ? documentParams.name : app.name}
+                  </span>
+                  {badge && badge.type === "count" && (
+                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground px-1">
+                      {badge.value}
+                    </span>
+                  )}
+                </TabsTrigger>
+              );
+            })}
           </TabsList>
         </Tabs>
       </div>
 
-      {/* App Content */}
+      {/* App Content - Render from registry */}
       <div className="flex-1 overflow-hidden">
         <Suspense fallback={<LoadingFallback />}>
-          {activeApp === "notes" && (
-            <NotesApp
-              notes={conversationNotes}
-              isLoading={notesLoading}
-              onNoteSelect={handleNoteSelect}
-              onCreateNote={handleCreateNote}
-              selectedCAGNotes={cag.selectedNotes}
-              onToggleCAGNote={cag.toggleNote}
-              isNoteInCAG={cag.isNoteSelected}
-            />
-          )}
-          {activeApp === "whiteboard" && (
-            <WhiteboardApp
-              conversationId={conversationId}
-              userId={user?.id || ""}
-            />
-          )}
-          {activeApp === "files" && (
-            <FileManagerApp
-              conversationId={conversationId}
-              onViewDocument={handleViewDocument}
-              selectedCAGFiles={cag.selectedFiles}
-              onToggleCAGFile={cag.toggleFile}
-              isFileInCAG={cag.isFileSelected}
-            />
-          )}
-          {activeApp === "document" && selectedDocument && (
-            <DocumentViewerApp
-              url={selectedDocument.url}
-              name={selectedDocument.name}
-              type={selectedDocument.type}
-              onClose={() => {
-                setSelectedDocument(null);
-                setActiveApp("files");
-              }}
-            />
-          )}
+          {currentAppDef && (() => {
+            const Component = currentAppDef.component as any;
+            const props = buildAppProps();
+            
+            // Special handling for Notes app (needs extra props)
+            if (currentAppDef.id === "notes") {
+              return (
+                <Component
+                  {...props}
+                  notes={conversationNotes}
+                  isLoading={notesLoading}
+                  onNoteSelect={handleNoteSelect}
+                  onCreateNote={handleCreateNote}
+                />
+              );
+            }
+            
+            // Special handling for document viewer
+            if (currentAppDef.id === "document" && documentParams) {
+              return (
+                <Component
+                  {...props}
+                  url={documentParams.url}
+                  name={documentParams.name}
+                  type={documentParams.type}
+                  onClose={() => {
+                    setDocumentParams(null);
+                    setActiveApp("files");
+                  }}
+                />
+              );
+            }
+            
+            return <Component {...props} />;
+          })()}
         </Suspense>
       </div>
 

@@ -1,0 +1,128 @@
+import { lazy } from "react";
+import { FileText, PenTool, FolderOpen, FileSearch, Globe } from "lucide-react";
+import { CanvasAppDefinition, CanvasAppRegistry } from "./types";
+
+/**
+ * Core canvas apps registry
+ * Community apps can be added via registry.register()
+ */
+
+// Lazy load all canvas app components
+const NotesApp = lazy(() => import("@/components/canvas/NotesApp"));
+const WhiteboardApp = lazy(() => import("@/components/canvas/WhiteboardApp"));
+const FileManagerApp = lazy(() => import("@/components/canvas/FileManagerApp"));
+const DocumentViewerApp = lazy(() => import("@/components/canvas/DocumentViewerApp"));
+const MiniBrowserApp = lazy(() => import("@/components/canvas/MiniBrowserApp"));
+
+// Core app definitions
+const coreApps: CanvasAppDefinition[] = [
+  {
+    id: "notes",
+    name: "Notes",
+    description: "Create and manage notes for your conversations",
+    icon: FileText,
+    component: NotesApp as any,
+    isCore: true,
+    supportsCAG: true,
+    order: 1,
+    getBadge: ({ selectedCAGNotes }) => 
+      selectedCAGNotes.length > 0 
+        ? { type: "count", value: selectedCAGNotes.length, variant: "primary" }
+        : null,
+  },
+  {
+    id: "whiteboard",
+    name: "Whiteboard",
+    description: "Collaborative drawing and diagramming",
+    icon: PenTool,
+    component: WhiteboardApp as any,
+    isCore: true,
+    supportsCAG: false,
+    order: 2,
+  },
+  {
+    id: "files",
+    name: "Files",
+    description: "Browse and manage shared files",
+    icon: FolderOpen,
+    component: FileManagerApp as any,
+    isCore: true,
+    supportsCAG: true,
+    order: 3,
+    getBadge: ({ selectedCAGFiles }) => 
+      selectedCAGFiles.length > 0 
+        ? { type: "count", value: selectedCAGFiles.length, variant: "primary" }
+        : null,
+  },
+  {
+    id: "browser",
+    name: "Browser",
+    description: "Browse the web within your workspace",
+    icon: Globe,
+    component: MiniBrowserApp as any,
+    isCore: false,
+    supportsCAG: false,
+    order: 4,
+  },
+  {
+    id: "document",
+    name: "Document",
+    description: "View documents and files",
+    icon: FileSearch,
+    component: DocumentViewerApp as any,
+    isCore: true,
+    supportsCAG: false,
+    hidden: true, // Only shown when a document is being viewed
+    order: 99,
+  },
+];
+
+/**
+ * Create the canvas app registry
+ */
+function createRegistry(): CanvasAppRegistry {
+  const apps = new Map<string, CanvasAppDefinition>();
+
+  // Register core apps
+  coreApps.forEach((app) => {
+    apps.set(app.id, app);
+  });
+
+  return {
+    apps,
+    
+    register(app: CanvasAppDefinition) {
+      if (apps.has(app.id)) {
+        console.warn(`Canvas app "${app.id}" is already registered. Overwriting.`);
+      }
+      apps.set(app.id, app);
+    },
+
+    unregister(appId: string) {
+      const app = apps.get(appId);
+      if (app?.isCore) {
+        console.warn(`Cannot unregister core app "${appId}"`);
+        return;
+      }
+      apps.delete(appId);
+    },
+
+    get(appId: string) {
+      return apps.get(appId);
+    },
+
+    getAll() {
+      return Array.from(apps.values()).sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+    },
+
+    getVisible() {
+      return this.getAll().filter((app) => !app.hidden);
+    },
+  };
+}
+
+// Export singleton registry
+export const canvasAppRegistry = createRegistry();
+
+// Export for type inference
+export type CanvasAppId = typeof coreApps[number]["id"];
