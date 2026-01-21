@@ -46,6 +46,7 @@ interface Message {
   reply_to?: ReplyToMessage | null;
   attachment_type?: string | null;
   attachment_name?: string | null;
+  sending?: boolean;
   profile?: {
     display_name: string | null;
   };
@@ -147,13 +148,10 @@ const DirectChat = () => {
           async (payload) => {
             const newMsg = payload.new as any;
             
-            // Skip if message already exists (e.g., from optimistic update)
+            // Skip if this exact message already exists
             setMessages((prev) => {
               if (prev.find((m) => m.id === newMsg.id)) return prev;
-              
-              // Skip temp messages that will be replaced
-              const filtered = prev.filter(m => !m.id.startsWith('temp-') && !m.id.startsWith('ai-temp-'));
-              return filtered;
+              return prev;
             });
 
             // Fetch profile for the new message if it has a user_id
@@ -202,9 +200,14 @@ const DirectChat = () => {
             };
 
             setMessages((prev) => {
-              // Check again to avoid duplicates
+              // Skip if already exists with this ID
               if (prev.find((m) => m.id === newMsg.id)) return prev;
-              return [...prev, enrichedMessage];
+              // Filter out matching temp messages and add the real one
+              const filtered = prev.filter(m => 
+                !(m.id.startsWith('temp-') && m.content === newMsg.content && m.user_id === newMsg.user_id) &&
+                !(m.id.startsWith('ai-temp-') && m.content === newMsg.content && m.is_ai)
+              );
+              return [...filtered, enrichedMessage];
             });
 
             // Show notification for messages from others
@@ -418,6 +421,7 @@ const DirectChat = () => {
       reply_to: currentReplyTo,
       attachment_type: currentFile?.type || null,
       attachment_name: currentFile?.name || null,
+      sending: true,
       profile: { display_name: profile?.display_name || null },
     };
 
@@ -438,10 +442,10 @@ const DirectChat = () => {
 
       if (error) throw error;
 
-      // Replace temp message with real one (with correct ID)
+      // Replace temp message with real one (with correct ID, no longer sending)
       if (insertedMsg) {
         setMessages((prev) => 
-          prev.map((m) => m.id === tempId ? { ...optimisticMessage, id: insertedMsg.id } : m)
+          prev.map((m) => m.id === tempId ? { ...optimisticMessage, id: insertedMsg.id, sending: false } : m)
         );
       }
 

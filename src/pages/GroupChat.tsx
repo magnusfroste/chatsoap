@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, lazy, Suspense, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useAIChat } from "@/hooks/useAIChat";
 import { useWebRTC } from "@/hooks/useWebRTC";
@@ -70,6 +71,7 @@ interface Message {
   created_at: string;
   reply_to_id?: string | null;
   reply_to?: ReplyToMessage | null;
+  sending?: boolean;
   profile?: {
     display_name: string | null;
   };
@@ -399,6 +401,7 @@ const GroupChat = () => {
       created_at: new Date().toISOString(),
       reply_to_id: currentReplyTo?.id || null,
       reply_to: currentReplyTo,
+      sending: true,
       profile: { display_name: profile?.display_name || null },
     };
 
@@ -416,10 +419,10 @@ const GroupChat = () => {
 
       if (error) throw error;
 
-      // Replace temp message with real one (with correct ID)
+      // Replace temp message with real one (with correct ID, no longer sending)
       if (insertedMsg) {
         setMessages((prev) => 
-          prev.map((m) => m.id === tempId ? { ...optimisticMessage, id: insertedMsg.id } : m)
+          prev.map((m) => m.id === tempId ? { ...optimisticMessage, id: insertedMsg.id, sending: false } : m)
         );
       }
 
@@ -479,6 +482,9 @@ const GroupChat = () => {
       }
     } catch (error) {
       console.error("Error sending message:", error);
+      // Rollback optimistic message on error
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      toast.error("Failed to send message");
     } finally {
       setSending(false);
     }
