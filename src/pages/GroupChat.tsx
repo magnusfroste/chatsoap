@@ -880,7 +880,11 @@ const GroupChat = ({ cagFiles = [], onRemoveCAGFile, onClearCAG }: GroupChatProp
                       handleInputChange();
                     }}
                     onBlur={stopTyping}
-                    placeholder="Meddelande"
+                    placeholder={
+                      cagFiles.length > 0
+                        ? `Ask about your ${cagFiles.length} file${cagFiles.length > 1 ? 's' : ''}...`
+                        : "Write a message"
+                    }
                     className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0 text-sm"
                     disabled={sending}
                   />
