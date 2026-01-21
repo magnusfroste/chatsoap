@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Send, Bot, Loader2, Mic, Check, CheckCheck, Phone, Video, Images } from "lucide-react";
+import { ArrowLeft, Send, Bot, Loader2, Mic, Check, CheckCheck, Phone, Video, FolderOpen } from "lucide-react";
 import { ChatActionsMenu } from "@/components/ChatActionsMenu";
 import { MessageBubble, ReplyPreview } from "@/components/MessageBubble";
 import { CallUI } from "@/components/CallUI";
@@ -21,7 +21,6 @@ import { FileUploadButton, FilePreview, UploadedFile } from "@/components/FileUp
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChatMessageSearch } from "@/components/ChatMessageSearch";
 import { PersonaSwitcher, AI_PERSONAS } from "@/components/PersonaSwitcher";
-import { ChatMediaLibrary } from "@/components/ChatMediaLibrary";
 import { CAGContextBadge } from "@/components/CAGContextBadge";
 import { CAGFile } from "@/hooks/useCAGContext";
 
@@ -67,9 +66,10 @@ interface DirectChatProps {
   cagFiles?: CAGFile[];
   onRemoveCAGFile?: (fileId: string) => void;
   onClearCAG?: () => void;
+  onOpenFiles?: () => void;
 }
 
-const DirectChat = ({ cagFiles = [], onRemoveCAGFile, onClearCAG }: DirectChatProps) => {
+const DirectChat = ({ cagFiles = [], onRemoveCAGFile, onClearCAG, onOpenFiles }: DirectChatProps) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, profile, loading: authLoading } = useAuth();
@@ -82,8 +82,6 @@ const DirectChat = ({ cagFiles = [], onRemoveCAGFile, onClearCAG }: DirectChatPr
   );
   const { isMessageRead, markMessagesAsRead } = useReadReceipts(id, user?.id);
   const { showMessageNotification } = useNotifications();
-  
-  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
 
   const [conversation, setConversation] = useState<ConversationInfo | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -797,9 +795,10 @@ const DirectChat = ({ cagFiles = [], onRemoveCAGFile, onClearCAG }: DirectChatPr
                   variant="ghost" 
                   size="icon" 
                   className="text-muted-foreground hover:text-foreground"
-                  onClick={() => setMediaLibraryOpen(true)}
+                  onClick={onOpenFiles}
+                  title="Open Files"
                 >
-                  <Images className="w-5 h-5" />
+                  <FolderOpen className="w-5 h-5" />
                 </Button>
                 <ChatActionsMenu
                   conversationId={id || ""}
@@ -987,18 +986,6 @@ const DirectChat = ({ cagFiles = [], onRemoveCAGFile, onClearCAG }: DirectChatPr
             )}
           </div>
         </div>
-
-        {/* Media Library */}
-        <ChatMediaLibrary
-          open={mediaLibraryOpen}
-          onOpenChange={setMediaLibraryOpen}
-          conversationId={id || ""}
-          onAnalyze={(url, name, mimeType) => {
-            setAnalyzingDocument({ url, name, mimeType });
-            setNewMessage("@ai ");
-          }}
-          onSaveToNotes={handleSaveDocumentToNotes}
-        />
       </div>
     </TooltipProvider>
   );

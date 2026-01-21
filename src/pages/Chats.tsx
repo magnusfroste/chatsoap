@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense, useState } from "react";
+import { useEffect, lazy, Suspense, useState, useCallback } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useIncomingCallListener } from "@/hooks/useIncomingCallListener";
@@ -8,7 +8,7 @@ import ChatEmptyState from "@/components/ChatEmptyState";
 import DirectChat from "./DirectChat";
 import { NotificationPermissionBanner } from "@/components/NotificationPermissionBanner";
 import { IncomingCallOverlay } from "@/components/IncomingCallOverlay";
-import { WorkspaceCanvas } from "@/components/WorkspaceCanvas";
+import { WorkspaceCanvas, CanvasApp } from "@/components/WorkspaceCanvas";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { Loader2 } from "lucide-react";
 
@@ -27,6 +27,10 @@ const Chats = () => {
   const [isCanvasVisible, setIsCanvasVisible] = useState(() => {
     const saved = localStorage.getItem('canvas-visible');
     return saved !== 'false'; // Default to visible
+  });
+  const [canvasActiveTab, setCanvasActiveTab] = useState<CanvasApp>(() => {
+    const saved = localStorage.getItem('workspace-canvas-app');
+    return (saved as CanvasApp) || "notes";
   });
   
   // Global incoming call listener
@@ -54,6 +58,15 @@ const Chats = () => {
     });
   };
 
+  const handleOpenFilesTab = useCallback(() => {
+    setCanvasActiveTab("files");
+  }, []);
+
+  const handleCanvasTabChange = useCallback((tab: CanvasApp) => {
+    setCanvasActiveTab(tab);
+    localStorage.setItem('workspace-canvas-app', tab);
+  }, []);
+
   useEffect(() => {
     if (!authLoading && !user) {
       navigate("/auth");
@@ -70,7 +83,14 @@ const Chats = () => {
 
   const renderChatContent = () => {
     if (isDirectChat) {
-      return <DirectChat cagFiles={cagContext.selectedFiles} onRemoveCAGFile={cagContext.removeFile} onClearCAG={cagContext.clearAll} />;
+      return (
+        <DirectChat 
+          cagFiles={cagContext.selectedFiles} 
+          onRemoveCAGFile={cagContext.removeFile} 
+          onClearCAG={cagContext.clearAll}
+          onOpenFiles={handleOpenFilesTab}
+        />
+      );
     }
     if (isGroupChat) {
       return (
@@ -79,7 +99,12 @@ const Chats = () => {
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
         }>
-          <GroupChat cagFiles={cagContext.selectedFiles} onRemoveCAGFile={cagContext.removeFile} onClearCAG={cagContext.clearAll} />
+          <GroupChat 
+            cagFiles={cagContext.selectedFiles} 
+            onRemoveCAGFile={cagContext.removeFile} 
+            onClearCAG={cagContext.clearAll}
+            onOpenFiles={handleOpenFilesTab}
+          />
         </Suspense>
       );
     }
@@ -128,6 +153,8 @@ const Chats = () => {
                 toggleFile: cagContext.toggleFile,
                 isFileSelected: cagContext.isFileSelected,
               }}
+              activeTab={canvasActiveTab}
+              onTabChange={handleCanvasTabChange}
             />
           </ResizablePanel>
         </ResizablePanelGroup>
