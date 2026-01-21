@@ -39,6 +39,7 @@ interface ToolSettings {
   web_search: boolean;
   generate_image: boolean;
   code_execution: boolean;
+  send_code_to_sandbox: boolean;
   navigate_browser: boolean;
 }
 
@@ -47,6 +48,7 @@ const defaultToolSettings: ToolSettings = {
   web_search: true,
   generate_image: false,
   code_execution: false,
+  send_code_to_sandbox: true,
   navigate_browser: true,
 };
 
@@ -124,6 +126,32 @@ const allTools = {
             type: "string",
             enum: ["javascript", "typescript"],
             description: "The programming language",
+          },
+        },
+        required: ["code", "language"],
+      },
+    },
+  },
+  send_code_to_sandbox: {
+    type: "function",
+    function: {
+      name: "send_code_to_sandbox",
+      description: "Send code to the collaborative Code Sandbox canvas app where users can view, edit, and run it together. Use this when you want to share code that users can experiment with, modify collaboratively, or when teaching programming concepts. The code appears in the shared sandbox panel.",
+      parameters: {
+        type: "object",
+        properties: {
+          code: {
+            type: "string",
+            description: "The JavaScript or TypeScript code to send to the sandbox",
+          },
+          language: {
+            type: "string",
+            enum: ["javascript", "typescript"],
+            description: "The programming language (javascript or typescript)",
+          },
+          auto_run: {
+            type: "boolean",
+            description: "Whether to automatically run the code after sending (default: false)",
           },
         },
         required: ["code", "language"],
@@ -670,6 +698,11 @@ async function processToolCalls(
           break;
         case "code_execution":
           result = await executeCode(args.code, args.language);
+          break;
+        case "send_code_to_sandbox":
+          // This is a client-side action - we return an instruction for the frontend
+          const autoRun = args.auto_run || false;
+          result = `__CODE_SANDBOX__:${JSON.stringify({ code: args.code, language: args.language, autoRun })}`;
           break;
         case "navigate_browser":
           // This is a client-side action - we just return the instruction

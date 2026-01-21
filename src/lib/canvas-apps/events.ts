@@ -7,8 +7,15 @@ type BrowserNavigatePayload = {
   url: string;
 };
 
+type CodeSandboxPayload = {
+  code: string;
+  language: "javascript" | "typescript";
+  autoRun?: boolean;
+};
+
 type CanvasEventPayload = {
   "browser:navigate": BrowserNavigatePayload;
+  "code:send": CodeSandboxPayload;
   "app:open": { appId: string; params?: Record<string, unknown> };
 };
 
@@ -54,11 +61,15 @@ function createEventBus(): EventBus {
 // Singleton event bus for canvas apps
 export const canvasEventBus = createEventBus();
 
-// Helper hooks for common patterns
+// Helper functions for common patterns
 export function emitBrowserNavigate(url: string) {
   canvasEventBus.emit("browser:navigate", { url });
 }
 
 export function emitOpenApp(appId: string, params?: Record<string, unknown>) {
   canvasEventBus.emit("app:open", { appId, params });
+}
+
+export function emitCodeToSandbox(code: string, language: "javascript" | "typescript" = "javascript", autoRun = false) {
+  canvasEventBus.emit("code:send", { code, language, autoRun });
 }

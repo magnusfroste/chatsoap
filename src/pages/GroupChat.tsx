@@ -456,10 +456,22 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
             if (browserMatch) {
               const url = browserMatch[1].trim();
               displayText = fullText.replace(/__BROWSER_NAVIGATE__:.+?(?:\n|$)/, '').trim();
-              
-              // Emit events to open browser and navigate
               emitBrowserNavigate(url);
               emitOpenApp('browser');
+            }
+
+            // Check for code sandbox command
+            const codeSandboxMatch = fullText.match(/__CODE_SANDBOX__:({.+?})/);
+            if (codeSandboxMatch) {
+              try {
+                const { code, language, autoRun } = JSON.parse(codeSandboxMatch[1]);
+                displayText = displayText.replace(/__CODE_SANDBOX__:{.+?}\s*/g, "").trim();
+                const { emitCodeToSandbox } = await import("@/lib/canvas-apps/events");
+                emitCodeToSandbox(code, language, autoRun);
+                emitOpenApp('code');
+              } catch (e) {
+                console.error("Failed to parse code sandbox command:", e);
+              }
             }
 
             await supabase.from("messages").insert({

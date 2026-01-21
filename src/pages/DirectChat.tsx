@@ -577,11 +577,23 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
             const browserNavMatch = fullText.match(/__BROWSER_NAVIGATE__:([^\s]+)/);
             if (browserNavMatch) {
               const url = browserNavMatch[1];
-              // Remove the command from displayed text
               displayText = fullText.replace(/__BROWSER_NAVIGATE__:[^\s]+\s*/g, "").trim();
-              // Emit event to navigate browser and switch to browser tab
               emitBrowserNavigate(url);
               emitOpenApp("browser");
+            }
+
+            // Check for code sandbox command from AI tools
+            const codeSandboxMatch = fullText.match(/__CODE_SANDBOX__:({.+?})/);
+            if (codeSandboxMatch) {
+              try {
+                const { code, language, autoRun } = JSON.parse(codeSandboxMatch[1]);
+                displayText = displayText.replace(/__CODE_SANDBOX__:{.+?}\s*/g, "").trim();
+                const { emitCodeToSandbox } = await import("@/lib/canvas-apps/events");
+                emitCodeToSandbox(code, language, autoRun);
+                emitOpenApp("code");
+              } catch (e) {
+                console.error("Failed to parse code sandbox command:", e);
+              }
             }
 
             const aiTempId = `ai-temp-${Date.now()}`;
