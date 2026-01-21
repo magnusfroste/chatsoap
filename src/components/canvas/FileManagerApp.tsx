@@ -47,7 +47,10 @@ interface ConversationFile {
 
 interface FileManagerAppProps {
   conversationId: string;
-  onViewDocument: (url: string, name: string, type: string) => void;
+  // From CanvasAppProps (registry)
+  viewDocument?: (url: string, name: string, type: string) => void;
+  // Legacy prop name (for backwards compatibility)
+  onViewDocument?: (url: string, name: string, type: string) => void;
   // CAG props
   selectedCAGFiles?: CAGFile[];
   onToggleCAGFile?: (file: CAGFile) => void;
@@ -56,11 +59,14 @@ interface FileManagerAppProps {
 
 const FileManagerApp = ({ 
   conversationId, 
+  viewDocument,
   onViewDocument,
   selectedCAGFiles = [],
   onToggleCAGFile,
   isFileInCAG,
 }: FileManagerAppProps) => {
+  // Use viewDocument from registry, fall back to legacy onViewDocument
+  const handleViewDocument = viewDocument || onViewDocument || ((url: string) => window.open(url, "_blank"));
   const [files, setFiles] = useState<ConversationFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -447,7 +453,7 @@ const FileManagerApp = ({
                     {/* Preview */}
                     <div 
                       className="aspect-square bg-muted/50 flex items-center justify-center cursor-pointer"
-                      onClick={() => onViewDocument(file.url, file.name, file.mimeType)}
+                      onClick={() => handleViewDocument(file.url, file.name, file.mimeType)}
                     >
                       {file.type === "image" ? (
                         <img 
@@ -522,7 +528,7 @@ const FileManagerApp = ({
                         ? "border-primary/50 ring-1 ring-primary/20" 
                         : "border-border hover:border-primary/30"
                     }`}
-                    onClick={() => onViewDocument(file.url, file.name, file.mimeType)}
+                    onClick={() => handleViewDocument(file.url, file.name, file.mimeType)}
                   >
                     {/* CAG Checkbox */}
                     {onToggleCAGFile && (
