@@ -179,14 +179,27 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
             .single();
 
           // Count unread messages (messages not read by current user)
-          const { count: unreadCount } = await supabase
+          // First get all message IDs from this conversation that are from other users
+          const { data: otherUsersMessages } = await supabase
             .from("messages")
-            .select("id", { count: "exact", head: true })
+            .select("id")
             .eq("conversation_id", conv.id)
-            .neq("user_id", user.id)
-            .not("id", "in", `(
-              SELECT message_id FROM message_read_receipts WHERE user_id = '${user.id}'
-            )`);
+            .neq("user_id", user.id);
+
+          let unreadCount = 0;
+          if (otherUsersMessages && otherUsersMessages.length > 0) {
+            const messageIds = otherUsersMessages.map(m => m.id);
+            
+            // Get read receipts for these messages by current user
+            const { data: readReceipts } = await supabase
+              .from("message_read_receipts")
+              .select("message_id")
+              .eq("user_id", user.id)
+              .in("message_id", messageIds);
+
+            const readMessageIds = new Set(readReceipts?.map(r => r.message_id) || []);
+            unreadCount = messageIds.filter(id => !readMessageIds.has(id)).length;
+          }
 
           const settings = memberSettingsMap.get(conv.id);
 
