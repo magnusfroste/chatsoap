@@ -23,6 +23,7 @@ import { ChatMessageSearch } from "@/components/ChatMessageSearch";
 import { PersonaSwitcher, AI_PERSONAS } from "@/components/PersonaSwitcher";
 import { CAGContextBadge } from "@/components/CAGContextBadge";
 import { CAGFile, CAGNote } from "@/hooks/useCAGContext";
+import { emitBrowserNavigate, emitOpenApp } from "@/lib/canvas-apps";
 
 interface ReplyToMessage {
   id: string;
@@ -571,10 +572,22 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
             setAiTyping(false);
             setAiResponse("");
 
+            // Check for browser navigate command from AI tools
+            let displayText = fullText;
+            const browserNavMatch = fullText.match(/__BROWSER_NAVIGATE__:([^\s]+)/);
+            if (browserNavMatch) {
+              const url = browserNavMatch[1];
+              // Remove the command from displayed text
+              displayText = fullText.replace(/__BROWSER_NAVIGATE__:[^\s]+\s*/g, "").trim();
+              // Emit event to navigate browser and switch to browser tab
+              emitBrowserNavigate(url);
+              emitOpenApp("browser");
+            }
+
             const aiTempId = `ai-temp-${Date.now()}`;
             const optimisticAiMessage: Message = {
               id: aiTempId,
-              content: fullText,
+              content: displayText || "Opening website in browser...",
               is_ai: true,
               user_id: null,
               created_at: new Date().toISOString(),
@@ -582,7 +595,7 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
             setMessages((prev) => [...prev, optimisticAiMessage]);
 
             const { data: aiMsg } = await supabase.from("messages").insert({
-              content: fullText,
+              content: displayText || "Opening website in browser...",
               is_ai: true,
               user_id: null,
               conversation_id: id,

@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Globe, 
   ArrowLeft, 
@@ -9,7 +8,6 @@ import {
   RotateCw, 
   Home,
   ExternalLink,
-  Search,
   Star,
   StarOff,
   Loader2,
@@ -19,7 +17,9 @@ import {
   Unlock
 } from "lucide-react";
 import { CanvasAppProps } from "@/lib/canvas-apps/types";
+import { canvasEventBus } from "@/lib/canvas-apps/events";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Bookmark {
   id: string;
@@ -63,6 +63,23 @@ const MiniBrowserApp = ({ conversationId, sendToChat }: CanvasAppProps) => {
   useEffect(() => {
     localStorage.setItem(`browser-bookmarks-${conversationId}`, JSON.stringify(bookmarks));
   }, [bookmarks, conversationId]);
+
+  // Reference to navigate function for event handler
+  const navigateRef = useRef<((url: string) => void) | null>(null);
+
+  // Listen for browser navigate events from AI chat
+  useEffect(() => {
+    const unsubscribe = canvasEventBus.on("browser:navigate", ({ url }) => {
+      console.log("Browser received navigate event:", url);
+      toast.success(`Navigating to ${url}`);
+      // Use ref to access latest navigate function
+      if (navigateRef.current) {
+        navigateRef.current(url);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
 
   const isValidUrl = (string: string) => {
     try {
@@ -108,6 +125,11 @@ const MiniBrowserApp = ({ conversationId, sendToChat }: CanvasAppProps) => {
     });
     setHistoryIndex(prev => prev + 1);
   }, [activeTabId, historyIndex]);
+
+  // Keep navigateRef updated with latest navigate function
+  useEffect(() => {
+    navigateRef.current = navigate;
+  }, [navigate]);
 
   const goBack = useCallback(() => {
     if (historyIndex > 0) {

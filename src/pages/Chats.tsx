@@ -9,6 +9,7 @@ import DirectChat from "./DirectChat";
 import { NotificationPermissionBanner } from "@/components/NotificationPermissionBanner";
 import { IncomingCallOverlay } from "@/components/IncomingCallOverlay";
 import { WorkspaceCanvas, CanvasApp } from "@/components/WorkspaceCanvas";
+import { canvasEventBus } from "@/lib/canvas-apps";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { Loader2 } from "lucide-react";
 
@@ -65,6 +66,15 @@ const Chats = () => {
   const handleCanvasTabChange = useCallback((tab: CanvasApp) => {
     setCanvasActiveTab(tab);
     localStorage.setItem('workspace-canvas-app', tab);
+  }, []);
+
+  // Listen for app:open events from AI chat
+  useEffect(() => {
+    const unsubscribe = canvasEventBus.on("app:open", ({ appId }) => {
+      setCanvasActiveTab(appId as CanvasApp);
+      localStorage.setItem('workspace-canvas-app', appId);
+    });
+    return unsubscribe;
   }, []);
 
   useEffect(() => {
