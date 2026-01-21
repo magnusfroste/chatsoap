@@ -73,13 +73,13 @@ async function getLLMConfig(): Promise<LLMConfig> {
   }
 }
 
-// Parse PDF using the parse-document edge function
-async function parsePdfContent(file: CAGFile): Promise<string> {
+// Parse document (PDF, DOCX, etc.) using the parse-document edge function
+async function parseDocumentContent(file: CAGFile): Promise<string> {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     
-    console.log(`Parsing PDF via parse-document: ${file.name}`);
+    console.log(`Parsing document via parse-document: ${file.name} (${file.mimeType})`);
     
     const response = await fetch(`${supabaseUrl}/functions/v1/parse-document`, {
       method: "POST",
@@ -96,13 +96,13 @@ async function parsePdfContent(file: CAGFile): Promise<string> {
 
     if (!response.ok) {
       console.error(`parse-document error: ${response.status}`);
-      return `[PDF attached: ${file.name}] - Could not extract text.`;
+      return `[Document attached: ${file.name}] - Could not extract text.`;
     }
 
     // Read the streaming response and collect markdown
     const reader = response.body?.getReader();
     if (!reader) {
-      return `[PDF attached: ${file.name}] - No response body.`;
+      return `[Document attached: ${file.name}] - No response body.`;
     }
 
     let markdown = "";
@@ -134,16 +134,31 @@ async function parsePdfContent(file: CAGFile): Promise<string> {
       // Limit size to prevent context overflow
       const maxLength = 80000;
       if (markdown.length > maxLength) {
-        return `[PDF: ${file.name}]\n${markdown.substring(0, maxLength)}...\n[Content truncated]`;
+        return `[Document: ${file.name}]\n${markdown.substring(0, maxLength)}...\n[Content truncated]`;
       }
-      return `[PDF: ${file.name}]\n${markdown}`;
+      return `[Document: ${file.name}]\n${markdown}`;
     }
     
-    return `[PDF attached: ${file.name}] - No text extracted.`;
+    return `[Document attached: ${file.name}] - No text extracted.`;
   } catch (error) {
-    console.error(`Error parsing PDF ${file.name}:`, error);
-    return `[PDF attached: ${file.name}] - Error during extraction.`;
+    console.error(`Error parsing document ${file.name}:`, error);
+    return `[Document attached: ${file.name}] - Error during extraction.`;
   }
+}
+
+// Check if file is a parseable document type
+function isParseableDocument(mimeType: string): boolean {
+  const parseableMimeTypes = [
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/rtf",
+  ];
+  return parseableMimeTypes.includes(mimeType);
 }
 
 // Fetch text content from a file URL
@@ -156,9 +171,9 @@ async function fetchFileContent(file: CAGFile): Promise<string | null> {
       return `[Image attached: ${file.name}]`;
     }
     
-    // For PDFs, use the parse-document edge function for full extraction
-    if (file.mimeType === "application/pdf") {
-      return await parsePdfContent(file);
+    // For PDFs and Office documents, use parse-document for full extraction
+    if (isParseableDocument(file.mimeType)) {
+      return await parseDocumentContent(file);
     }
     
     // For text-based files, fetch directly
