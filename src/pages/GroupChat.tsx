@@ -95,9 +95,10 @@ interface GroupChatProps {
   cagFiles?: CAGFile[];
   onRemoveCAGFile?: (fileId: string) => void;
   onClearCAG?: () => void;
+  onOpenFiles?: () => void;
 }
 
-const GroupChat = ({ cagFiles = [], onRemoveCAGFile, onClearCAG }: GroupChatProps) => {
+const GroupChat = ({ cagFiles = [], onRemoveCAGFile, onClearCAG, onOpenFiles }: GroupChatProps) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, profile, loading: authLoading } = useAuth();

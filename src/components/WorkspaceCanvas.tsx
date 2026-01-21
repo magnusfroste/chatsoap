@@ -21,13 +21,16 @@ interface WorkspaceCanvasProps {
     toggleFile: (file: CAGFile) => void;
     isFileSelected: (fileId: string) => boolean;
   };
+  // External tab control
+  activeTab?: CanvasApp;
+  onTabChange?: (tab: CanvasApp) => void;
 }
 
-type CanvasApp = "notes" | "whiteboard" | "files" | "document";
+export type CanvasApp = "notes" | "whiteboard" | "files" | "document";
 
 const STORAGE_KEY = "workspace-canvas-app";
 
-export const WorkspaceCanvas = ({ conversationId, conversationType, cagContext }: WorkspaceCanvasProps) => {
+export const WorkspaceCanvas = ({ conversationId, conversationType, cagContext, activeTab, onTabChange }: WorkspaceCanvasProps) => {
   const { user } = useAuth();
   const { notes, isLoading: notesLoading, createNote, updateNote, deleteNote } = useNotes(user?.id);
   
@@ -40,10 +43,20 @@ export const WorkspaceCanvas = ({ conversationId, conversationType, cagContext }
   };
   
   // Get initial app from localStorage or default to "notes"
-  const [activeApp, setActiveApp] = useState<CanvasApp>(() => {
+  const [internalActiveApp, setInternalActiveApp] = useState<CanvasApp>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     return (saved as CanvasApp) || "notes";
   });
+  
+  // Use external control if provided, otherwise internal
+  const activeApp = activeTab ?? internalActiveApp;
+  const setActiveApp = (app: CanvasApp) => {
+    if (onTabChange) {
+      onTabChange(app);
+    } else {
+      setInternalActiveApp(app);
+    }
+  };
   
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [noteEditorOpen, setNoteEditorOpen] = useState(false);
