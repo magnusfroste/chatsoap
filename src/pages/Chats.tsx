@@ -2,6 +2,7 @@ import { useEffect, lazy, Suspense, useState } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useIncomingCallListener } from "@/hooks/useIncomingCallListener";
+import { useCAGContext } from "@/hooks/useCAGContext";
 import ChatSidebar from "@/components/ChatSidebar";
 import ChatEmptyState from "@/components/ChatEmptyState";
 import DirectChat from "./DirectChat";
@@ -41,6 +42,9 @@ const Chats = () => {
 
   // Determine conversation type
   const conversationType = isGroupChat ? "group" : isDirectChat ? "direct" : undefined;
+  
+  // CAG context for the active conversation
+  const cagContext = useCAGContext(activeConversationId);
 
   const toggleSidebarCollapse = () => {
     setIsSidebarCollapsed(prev => {
@@ -66,7 +70,7 @@ const Chats = () => {
 
   const renderChatContent = () => {
     if (isDirectChat) {
-      return <DirectChat />;
+      return <DirectChat cagFiles={cagContext.selectedFiles} onRemoveCAGFile={cagContext.removeFile} onClearCAG={cagContext.clearAll} />;
     }
     if (isGroupChat) {
       return (
@@ -75,7 +79,7 @@ const Chats = () => {
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
         }>
-          <GroupChat />
+          <GroupChat cagFiles={cagContext.selectedFiles} onRemoveCAGFile={cagContext.removeFile} onClearCAG={cagContext.clearAll} />
         </Suspense>
       );
     }
@@ -119,6 +123,11 @@ const Chats = () => {
             <WorkspaceCanvas 
               conversationId={activeConversationId}
               conversationType={conversationType as "direct" | "group" | "ai_chat" | undefined}
+              cagContext={{
+                selectedFiles: cagContext.selectedFiles,
+                toggleFile: cagContext.toggleFile,
+                isFileSelected: cagContext.isFileSelected,
+              }}
             />
           </ResizablePanel>
         </ResizablePanelGroup>

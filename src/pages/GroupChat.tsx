@@ -22,6 +22,8 @@ import { NotesSidebar } from "@/components/NotesSidebar";
 import { NoteEditor } from "@/components/NoteEditor";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChatMessageSearch } from "@/components/ChatMessageSearch";
+import { CAGContextBadge } from "@/components/CAGContextBadge";
+import { CAGFile } from "@/hooks/useCAGContext";
 import {
   ArrowLeft,
   Send,
@@ -89,7 +91,13 @@ interface Member {
   display_name: string;
 }
 
-const GroupChat = () => {
+interface GroupChatProps {
+  cagFiles?: CAGFile[];
+  onRemoveCAGFile?: (fileId: string) => void;
+  onClearCAG?: () => void;
+}
+
+const GroupChat = ({ cagFiles = [], onRemoveCAGFile, onClearCAG }: GroupChatProps) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, profile, loading: authLoading } = useAuth();
@@ -845,7 +853,17 @@ const GroupChat = () => {
                   />
                 </div>
               )}
-              
+
+              {/* CAG Context Badge */}
+              {cagFiles.length > 0 && onRemoveCAGFile && onClearCAG && (
+                <div className="max-w-3xl mx-auto mb-2">
+                  <CAGContextBadge 
+                    files={cagFiles} 
+                    onRemoveFile={onRemoveCAGFile} 
+                    onClearAll={onClearCAG} 
+                  />
+                </div>
+              )}
               <form onSubmit={sendMessage} className="flex items-center gap-2 max-w-3xl mx-auto">
                 <EmojiPicker 
                   onEmojiSelect={(emoji) => setNewMessage(prev => prev + emoji)} 

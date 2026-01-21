@@ -22,6 +22,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChatMessageSearch } from "@/components/ChatMessageSearch";
 import { PersonaSwitcher, AI_PERSONAS } from "@/components/PersonaSwitcher";
 import { ChatMediaLibrary } from "@/components/ChatMediaLibrary";
+import { CAGContextBadge } from "@/components/CAGContextBadge";
+import { CAGFile } from "@/hooks/useCAGContext";
+
 interface ReplyToMessage {
   id: string;
   content: string;
@@ -60,7 +63,13 @@ interface ConversationInfo {
   };
 }
 
-const DirectChat = () => {
+interface DirectChatProps {
+  cagFiles?: CAGFile[];
+  onRemoveCAGFile?: (fileId: string) => void;
+  onClearCAG?: () => void;
+}
+
+const DirectChat = ({ cagFiles = [], onRemoveCAGFile, onClearCAG }: DirectChatProps) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, profile, loading: authLoading } = useAuth();
@@ -897,6 +906,17 @@ const DirectChat = () => {
                   replyTo={replyTo} 
                   currentUserId={user?.id} 
                   onCancel={() => setReplyTo(null)} 
+                />
+              </div>
+            )}
+
+            {/* CAG Context Badge */}
+            {cagFiles.length > 0 && onRemoveCAGFile && onClearCAG && (
+              <div className="max-w-4xl mx-auto mb-2">
+                <CAGContextBadge 
+                  files={cagFiles} 
+                  onRemoveFile={onRemoveCAGFile} 
+                  onClearAll={onClearCAG} 
                 />
               </div>
             )}
