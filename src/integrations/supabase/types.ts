@@ -502,6 +502,44 @@ export type Database = {
           },
         ]
       }
+      room_code_sandbox: {
+        Row: {
+          code: string | null
+          id: string
+          language: string | null
+          last_output: string | null
+          room_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          code?: string | null
+          id?: string
+          language?: string | null
+          last_output?: string | null
+          room_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          code?: string | null
+          id?: string
+          language?: string | null
+          last_output?: string | null
+          room_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_code_sandbox_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: true
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       room_members: {
         Row: {
           id: string

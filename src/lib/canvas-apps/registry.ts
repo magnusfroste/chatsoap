@@ -1,5 +1,5 @@
 import { lazy } from "react";
-import { FileText, PenTool, FolderOpen, FileSearch, Globe } from "lucide-react";
+import { FileText, PenTool, FolderOpen, FileSearch, Globe, Code2 } from "lucide-react";
 import { CanvasAppDefinition, CanvasAppRegistry } from "./types";
 
 /**
@@ -13,6 +13,7 @@ const WhiteboardApp = lazy(() => import("@/components/canvas/WhiteboardApp"));
 const FileManagerApp = lazy(() => import("@/components/canvas/FileManagerApp"));
 const DocumentViewerApp = lazy(() => import("@/components/canvas/DocumentViewerApp"));
 const MiniBrowserApp = lazy(() => import("@/components/canvas/MiniBrowserApp"));
+const CodeSandboxApp = lazy(() => import("@/components/canvas/CodeSandboxApp"));
 
 // Core app definitions
 const coreApps: CanvasAppDefinition[] = [
@@ -55,6 +56,16 @@ const coreApps: CanvasAppDefinition[] = [
         : null,
   },
   {
+    id: "code",
+    name: "Code",
+    description: "Collaborative JavaScript/TypeScript sandbox",
+    icon: Code2,
+    component: CodeSandboxApp as any,
+    isCore: true,
+    supportsCAG: false,
+    order: 4,
+  },
+  {
     id: "browser",
     name: "Browser",
     description: "Browse the web within your workspace",
@@ -62,7 +73,7 @@ const coreApps: CanvasAppDefinition[] = [
     component: MiniBrowserApp as any,
     isCore: false,
     supportsCAG: false,
-    order: 4,
+    order: 5,
   },
   {
     id: "document",
