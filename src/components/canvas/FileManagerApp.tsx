@@ -91,11 +91,12 @@ const FileManagerApp = ({
     const fetchFiles = async () => {
       setIsLoading(true);
       try {
-        // Fetch messages with attachments
+        // Fetch messages with attachments (exclude soft-deleted files)
         const { data: messages, error } = await supabase
           .from("messages")
-          .select("id, content, created_at, user_id, attachment_type, attachment_name")
+          .select("id, content, created_at, user_id, attachment_type, attachment_name, is_attachment_deleted")
           .eq("conversation_id", conversationId)
+          .eq("is_attachment_deleted", false)
           .order("created_at", { ascending: false });
 
         if (error) throw error;
