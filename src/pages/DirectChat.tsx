@@ -148,16 +148,15 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
   }, [user, id]);
 
   // Separate realtime subscription effect for better stability
+  // Realtime subscription - simple refetch pattern like ChatSidebar
   useEffect(() => {
     if (!user?.id || !id) return;
     
-    // Use unique channel name to avoid conflicts
     const channelName = `direct-chat-${id}-${user.id}`;
     console.log('[DirectChat Realtime] Setting up channel:', channelName);
     
-    const channel = supabase.channel(channelName);
-    
-    channel
+    const channel = supabase
+      .channel(channelName)
       .on(
         "postgres_changes",
         {
@@ -166,76 +165,15 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
           table: "messages",
           filter: `conversation_id=eq.${id}`,
         },
-        async (payload) => {
+        (payload) => {
           const newMsg = payload.new as any;
           console.log('[DirectChat Realtime] New message received:', newMsg.id, 'from user:', newMsg.user_id);
           
-          // Fetch profile for the new message if it has a user_id
-          let msgProfile = undefined;
-          if (newMsg.user_id) {
-            const { data: profileData } = await supabase
-              .from("profiles")
-              .select("display_name")
-              .eq("user_id", newMsg.user_id)
-              .single();
-            msgProfile = profileData || undefined;
-          }
-
-          // Fetch reply_to if exists
-          let reply_to = undefined;
-          if (newMsg.reply_to_id) {
-            const { data: replyData } = await supabase
-              .from("messages")
-              .select("id, content, user_id, is_ai")
-              .eq("id", newMsg.reply_to_id)
-              .single();
-            
-            if (replyData) {
-              let replyProfile = undefined;
-              if (replyData.user_id) {
-                const { data: rp } = await supabase
-                  .from("profiles")
-                  .select("display_name")
-                  .eq("user_id", replyData.user_id)
-                  .single();
-                replyProfile = rp || undefined;
-              }
-              reply_to = { ...replyData, profile: replyProfile };
-            }
-          }
-
-          const enrichedMessage: Message = {
-            id: newMsg.id,
-            content: newMsg.content,
-            is_ai: newMsg.is_ai || false,
-            user_id: newMsg.user_id,
-            created_at: newMsg.created_at,
-            reply_to_id: newMsg.reply_to_id,
-            reply_to,
-            attachment_type: newMsg.attachment_type,
-            attachment_name: newMsg.attachment_name,
-            profile: msgProfile,
-          };
-
-          setMessages((prev) => {
-            // Skip if already exists with this ID
-            if (prev.some((m) => m.id === newMsg.id)) {
-              console.log('[DirectChat Realtime] Message already exists, skipping:', newMsg.id);
-              return prev;
-            }
-            // Filter out matching temp messages and add the real one
-            const filtered = prev.filter(m => 
-              !(m.id.startsWith('temp-') && m.content === newMsg.content && m.user_id === newMsg.user_id) &&
-              !(m.id.startsWith('ai-temp-') && m.content === newMsg.content && m.is_ai)
-            );
-            console.log('[DirectChat Realtime] Adding new message to chat');
-            return [...filtered, enrichedMessage];
-          });
-
-          // Show notification for messages from others
-          if (newMsg.user_id !== user?.id && msgProfile) {
-            const senderName = msgProfile.display_name || "Någon";
-            showMessageNotification(senderName, newMsg.content, id!, false);
+          // If message is from another user, refetch to ensure we have it
+          // For our own messages, we already have the optimistic update
+          if (newMsg.user_id !== user.id) {
+            console.log('[DirectChat Realtime] Message from other user, refetching...');
+            fetchMessages();
           }
         }
       )
