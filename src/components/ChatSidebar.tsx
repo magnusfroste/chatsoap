@@ -396,7 +396,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
   };
 
   return (
-    <div className={`h-full flex flex-col bg-card border-r border-border transition-all duration-300 ease-in-out overflow-hidden ${isCollapsed ? 'w-[72px]' : 'w-full max-w-full'}`}>
+    <div className={`h-full flex flex-col bg-card border-r border-border transition-all duration-300 ease-in-out overflow-hidden min-w-0 ${isCollapsed ? 'w-[72px]' : 'w-full max-w-full'}`}>
       {/* Header */}
       <header className={`flex-shrink-0 border-b border-border bg-card transition-all duration-300 ${isCollapsed ? 'px-2 py-3' : 'px-4 py-3'}`}>
         <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>

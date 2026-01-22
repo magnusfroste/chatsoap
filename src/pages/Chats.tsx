@@ -147,10 +147,10 @@ const Chats = () => {
 
       {/* Desktop: Middle Chat + Right Canvas with Resizable Panels */}
       <div className="flex-1 hidden md:flex">
-        <ResizablePanelGroup direction="horizontal">
+        <ResizablePanelGroup direction="horizontal" className="min-w-0">
           {/* Middle - Chat Area */}
-          <ResizablePanel defaultSize={45} minSize={30}>
-            <div className="h-full flex flex-col">
+          <ResizablePanel defaultSize={45} minSize={30} className="min-w-0">
+            <div className="h-full flex flex-col min-w-0 overflow-hidden">
               {renderChatContent()}
             </div>
           </ResizablePanel>
@@ -158,7 +158,7 @@ const Chats = () => {
           <ResizableHandle withHandle />
 
           {/* Right - Canvas/Workspace */}
-          <ResizablePanel defaultSize={55} minSize={35}>
+          <ResizablePanel defaultSize={55} minSize={35} className="min-w-0">
             <WorkspaceCanvas 
               conversationId={activeConversationId}
               conversationType={conversationType as "direct" | "group" | "ai_chat" | undefined}
