@@ -723,7 +723,7 @@ const FileManagerApp = ({
 
   return (
     <div 
-      className="h-full flex flex-col relative"
+      className="h-full flex flex-col relative min-w-0 overflow-hidden"
       onDrop={handleDrop}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}

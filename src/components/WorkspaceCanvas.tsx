@@ -207,7 +207,7 @@ export const WorkspaceCanvas = ({
   });
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col bg-background min-w-0 overflow-hidden">
       {/* App Switcher - Dynamic tab bar from registry */}
       <div className="flex-shrink-0 border-b border-border bg-card px-2">
         <Tabs value={activeApp} onValueChange={setActiveApp}>
