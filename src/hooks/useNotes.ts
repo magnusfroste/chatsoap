@@ -209,6 +209,9 @@ export const useNotes = (userId: string | undefined) => {
 
   const deleteNote = useCallback(
     async (noteId: string) => {
+      // Optimistically remove from UI immediately
+      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+      
       try {
         const { error } = await supabase.from("notes").delete().eq("id", noteId);
 
@@ -221,7 +224,9 @@ export const useNotes = (userId: string | undefined) => {
 
         return true;
       } catch (error) {
+        // Refetch on error to restore the note
         console.error("Error deleting note:", error);
+        fetchNotes();
         toast({
           title: "Error",
           description: "Could not delete note",
@@ -230,7 +235,7 @@ export const useNotes = (userId: string | undefined) => {
         return false;
       }
     },
-    [toast]
+    [toast, fetchNotes]
   );
 
   return {
