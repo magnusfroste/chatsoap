@@ -190,6 +190,13 @@ export const WorkspaceCanvas = ({
     return baseProps;
   };
 
+  // Build props specifically for files app (includes note callbacks)
+  const buildFilesAppProps = () => ({
+    ...buildAppProps(),
+    onNoteSelect: handleNoteSelect,
+    onCreateNote: handleCreateNote,
+  });
+
   // Get all apps including hidden ones that should be shown
   const allApps = canvasAppRegistry.getAll();
   const tabApps = allApps.filter(app => {
@@ -241,7 +248,12 @@ export const WorkspaceCanvas = ({
             const Component = currentAppDef.component as any;
             const props = buildAppProps();
             
-            // Special handling for Notes app (needs extra props)
+            // Special handling for Files app (includes notes now)
+            if (currentAppDef.id === "files") {
+              return <Component {...buildFilesAppProps()} />;
+            }
+            
+            // Special handling for Notes app (legacy, now hidden)
             if (currentAppDef.id === "notes") {
               return (
                 <Component

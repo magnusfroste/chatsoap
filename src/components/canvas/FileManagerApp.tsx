@@ -14,6 +14,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { 
   FolderOpen, 
   Search, 
@@ -26,23 +33,32 @@ import {
   Download,
   ExternalLink,
   Sparkles,
-  Trash2
+  Trash2,
+  StickyNote,
+  MoreVertical,
+  FileDown,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { CAGFile } from "@/hooks/useCAGContext";
+import { CAGFile, CAGNote } from "@/hooks/useCAGContext";
+import { useAuth } from "@/hooks/useAuth";
+import { Note } from "@/hooks/useNotes";
 
 interface ConversationFile {
   id: string;
   url: string;
   name: string;
-  type: "image" | "pdf" | "document";
+  type: "image" | "pdf" | "document" | "note";
   mimeType: string;
   messageId: string;
   createdAt: string;
   uploaderId: string | null;
   uploaderName: string | null;
+  // New fields for unified view
+  source: "attachment" | "note";
+  noteContent?: string;
+  noteId?: string;
 }
 
 interface FileManagerAppProps {
@@ -55,6 +71,13 @@ interface FileManagerAppProps {
   selectedCAGFiles?: CAGFile[];
   onToggleCAGFile?: (file: CAGFile) => void;
   isFileInCAG?: (fileId: string) => boolean;
+  // Note props for unified view
+  selectedCAGNotes?: CAGNote[];
+  onToggleCAGNote?: (note: CAGNote) => void;
+  isNoteInCAG?: (noteId: string) => boolean;
+  // Callbacks for note editing
+  onNoteSelect?: (note: Note) => void;
+  onCreateNote?: () => void;
 }
 
 const FileManagerApp = ({ 
@@ -64,14 +87,20 @@ const FileManagerApp = ({
   selectedCAGFiles = [],
   onToggleCAGFile,
   isFileInCAG,
+  selectedCAGNotes = [],
+  onToggleCAGNote,
+  isNoteInCAG,
+  onNoteSelect,
+  onCreateNote,
 }: FileManagerAppProps) => {
+  const { user } = useAuth();
   // Use viewDocument from registry, fall back to legacy onViewDocument
   const handleViewDocument = viewDocument || onViewDocument || ((url: string) => window.open(url, "_blank"));
   const [files, setFiles] = useState<ConversationFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [filter, setFilter] = useState<"all" | "images" | "documents">("all");
+  const [filter, setFilter] = useState<"all" | "images" | "documents" | "notes">("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<ConversationFile | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -84,22 +113,36 @@ const FileManagerApp = ({
     );
   };
 
-  // Fetch files from conversation messages
+  // Fetch files and notes from conversation
   useEffect(() => {
     if (!conversationId) return;
 
-    const fetchFiles = async () => {
+    const fetchFilesAndNotes = async () => {
       setIsLoading(true);
       try {
         // Fetch messages with attachments (exclude soft-deleted files)
-        const { data: messages, error } = await supabase
+        const messagesPromise = supabase
           .from("messages")
           .select("id, content, created_at, user_id, attachment_type, attachment_name, is_attachment_deleted")
           .eq("conversation_id", conversationId)
           .eq("is_attachment_deleted", false)
           .order("created_at", { ascending: false });
 
-        if (error) throw error;
+        // Fetch notes for current user
+        const notesPromise = user?.id
+          ? supabase
+              .from("notes")
+              .select("*")
+              .eq("user_id", user.id)
+              .order("updated_at", { ascending: false })
+          : Promise.resolve({ data: [], error: null });
+
+        const [messagesResult, notesResult] = await Promise.all([messagesPromise, notesPromise]);
+
+        if (messagesResult.error) throw messagesResult.error;
+
+        const messages = messagesResult.data || [];
+        const notes = notesResult.data || [];
 
         // Filter messages that contain file URLs
         const fileMessages = messages?.filter((msg) => isFileMessage(msg.content)) || [];
@@ -117,7 +160,7 @@ const FileManagerApp = ({
         }
 
         // Extract file info from messages
-        const extractedFiles: ConversationFile[] = fileMessages.map((msg) => {
+        const attachmentFiles: ConversationFile[] = fileMessages.map((msg) => {
           const url = msg.content;
           const fileName = msg.attachment_name || getFilenameFromUrl(url);
           const type = getFileType(url, msg.attachment_type);
@@ -133,10 +176,32 @@ const FileManagerApp = ({
             createdAt: msg.created_at,
             uploaderId: msg.user_id,
             uploaderName: msg.user_id ? profileMap.get(msg.user_id) || "User" : null,
+            source: "attachment" as const,
           };
         });
 
-        setFiles(extractedFiles);
+        // Convert notes to ConversationFile format
+        const noteFiles: ConversationFile[] = notes.map((note: any) => ({
+          id: `note-${note.id}`,
+          url: "",
+          name: `${note.title || "Untitled"}.md`,
+          type: "note" as const,
+          mimeType: "text/markdown",
+          messageId: "",
+          createdAt: note.updated_at || note.created_at,
+          uploaderId: note.user_id,
+          uploaderName: user?.email?.split("@")[0] || "You",
+          source: "note" as const,
+          noteContent: note.content,
+          noteId: note.id,
+        }));
+
+        // Combine and sort by date
+        const allFiles = [...attachmentFiles, ...noteFiles].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+
+        setFiles(allFiles);
       } catch (err) {
         console.error("Failed to fetch files:", err);
         toast.error("Failed to load files");
@@ -145,10 +210,10 @@ const FileManagerApp = ({
       }
     };
 
-    fetchFiles();
+    fetchFilesAndNotes();
 
     // Subscribe to new messages with attachments
-    const channel = supabase
+    const messageChannel = supabase
       .channel(`files-${conversationId}`)
       .on(
         "postgres_changes",
@@ -191,6 +256,7 @@ const FileManagerApp = ({
             createdAt: newMsg.created_at,
             uploaderId: newMsg.user_id,
             uploaderName,
+            source: "attachment",
           };
 
           // Add to beginning of list (newest first)
@@ -202,18 +268,74 @@ const FileManagerApp = ({
       )
       .subscribe();
 
+    // Subscribe to notes changes
+    const notesChannel = user?.id
+      ? supabase
+          .channel(`notes-files-${user.id}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "notes",
+              filter: `user_id=eq.${user.id}`,
+            },
+            async (payload) => {
+              if (payload.eventType === "INSERT") {
+                const note = payload.new as any;
+                const newNoteFile: ConversationFile = {
+                  id: `note-${note.id}`,
+                  url: "",
+                  name: `${note.title || "Untitled"}.md`,
+                  type: "note",
+                  mimeType: "text/markdown",
+                  messageId: "",
+                  createdAt: note.updated_at || note.created_at,
+                  uploaderId: note.user_id,
+                  uploaderName: user?.email?.split("@")[0] || "You",
+                  source: "note",
+                  noteContent: note.content,
+                  noteId: note.id,
+                };
+                setFiles((prev) => [newNoteFile, ...prev]);
+              } else if (payload.eventType === "UPDATE") {
+                const note = payload.new as any;
+                setFiles((prev) =>
+                  prev.map((f) =>
+                    f.noteId === note.id
+                      ? {
+                          ...f,
+                          name: `${note.title || "Untitled"}.md`,
+                          noteContent: note.content,
+                          createdAt: note.updated_at || note.created_at,
+                        }
+                      : f
+                  )
+                );
+              } else if (payload.eventType === "DELETE") {
+                const note = payload.old as any;
+                setFiles((prev) => prev.filter((f) => f.noteId !== note.id));
+              }
+            }
+          )
+          .subscribe()
+      : null;
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(messageChannel);
+      if (notesChannel) supabase.removeChannel(notesChannel);
     };
-  }, [conversationId]);
+  }, [conversationId, user?.id]);
 
   // Filter files
   const filteredFiles = files.filter((file) => {
-    const matchesSearch = file.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = file.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (file.noteContent?.toLowerCase().includes(searchQuery.toLowerCase()) || false);
     const matchesFilter = 
       filter === "all" ||
       (filter === "images" && file.type === "image") ||
-      (filter === "documents" && (file.type === "pdf" || file.type === "document"));
+      (filter === "documents" && (file.type === "pdf" || file.type === "document")) ||
+      (filter === "notes" && file.type === "note");
     return matchesSearch && matchesFilter;
   });
 
@@ -223,6 +345,8 @@ const FileManagerApp = ({
         return <ImageIcon className="w-5 h-5 text-blue-500" />;
       case "pdf":
         return <FileText className="w-5 h-5 text-red-500" />;
+      case "note":
+        return <StickyNote className="w-5 h-5 text-yellow-500" />;
       default:
         return <File className="w-5 h-5 text-muted-foreground" />;
     }
@@ -243,44 +367,163 @@ const FileManagerApp = ({
     }
   };
 
-  // Delete file (soft delete)
+  // Download note as markdown
+  const handleDownloadNote = (file: ConversationFile) => {
+    if (!file.noteContent) return;
+    const blob = new Blob([file.noteContent], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = file.name;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Downloaded as Markdown");
+  };
+
+  // Export note as PDF (using print)
+  const handleExportPDF = (file: ConversationFile) => {
+    if (!file.noteContent) return;
+    
+    // Create a styled print window
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      toast.error("Pop-up blocked. Please allow pop-ups.");
+      return;
+    }
+
+    const title = file.name.replace(".md", "");
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${title}</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              max-width: 800px;
+              margin: 40px auto;
+              padding: 20px;
+              line-height: 1.6;
+              color: #333;
+            }
+            h1 { font-size: 24px; margin-bottom: 16px; }
+            h2 { font-size: 20px; margin-top: 24px; }
+            h3 { font-size: 18px; }
+            code {
+              background: #f4f4f4;
+              padding: 2px 6px;
+              border-radius: 4px;
+              font-family: 'SF Mono', Monaco, monospace;
+            }
+            pre {
+              background: #f4f4f4;
+              padding: 16px;
+              border-radius: 8px;
+              overflow-x: auto;
+            }
+            pre code { background: none; padding: 0; }
+            blockquote {
+              border-left: 3px solid #ddd;
+              margin: 0;
+              padding-left: 16px;
+              color: #666;
+            }
+            @media print {
+              body { margin: 0; padding: 20px; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>${title}</h1>
+          <div style="white-space: pre-wrap;">${file.noteContent}</div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    
+    // Trigger print dialog
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
+    
+    toast.success("Print dialog opened - Save as PDF");
+  };
+
+  // Handle file click
+  const handleFileClick = (file: ConversationFile) => {
+    if (file.source === "note" && file.noteId) {
+      // Open note editor
+      if (onNoteSelect) {
+        // Convert back to Note format
+        const note: Note = {
+          id: file.noteId,
+          user_id: file.uploaderId || "",
+          conversation_id: conversationId,
+          room_id: null,
+          source_message_id: null,
+          title: file.name.replace(".md", ""),
+          content: file.noteContent || "",
+          created_at: file.createdAt,
+          updated_at: file.createdAt,
+        };
+        onNoteSelect(note);
+      }
+    } else {
+      // Open document viewer for attachments
+      handleViewDocument(file.url, file.name, file.mimeType);
+    }
+  };
+
+  // Delete file (soft delete) or note
   const handleDeleteFile = async () => {
     if (!fileToDelete) return;
     
     setIsDeleting(true);
     try {
-      // Extract the file path from the URL for storage deletion
-      const url = new URL(fileToDelete.url);
-      const pathMatch = url.pathname.match(/\/storage\/v1\/object\/public\/chat-media\/(.+)/);
-      const filePath = pathMatch ? pathMatch[1] : null;
-
-      // Delete from storage if we can extract the path
-      if (filePath) {
-        const { error: storageError } = await supabase.storage
-          .from("chat-media")
-          .remove([filePath]);
+      if (fileToDelete.source === "note" && fileToDelete.noteId) {
+        // Delete note
+        const { error } = await supabase
+          .from("notes")
+          .delete()
+          .eq("id", fileToDelete.noteId);
         
-        if (storageError) {
-          console.error("Storage delete error:", storageError);
-          // Continue with soft delete even if storage deletion fails
+        if (error) throw error;
+        
+        // Remove from local state
+        setFiles((prev) => prev.filter((f) => f.id !== fileToDelete.id));
+        toast.success("Note deleted");
+      } else {
+        // Extract the file path from the URL for storage deletion
+        const url = new URL(fileToDelete.url);
+        const pathMatch = url.pathname.match(/\/storage\/v1\/object\/public\/chat-media\/(.+)/);
+        const filePath = pathMatch ? pathMatch[1] : null;
+
+        // Delete from storage if we can extract the path
+        if (filePath) {
+          const { error: storageError } = await supabase.storage
+            .from("chat-media")
+            .remove([filePath]);
+          
+          if (storageError) {
+            console.error("Storage delete error:", storageError);
+          }
         }
+
+        // Soft delete: mark the message as having deleted attachment
+        const { error: updateError } = await supabase
+          .from("messages")
+          .update({ is_attachment_deleted: true })
+          .eq("id", fileToDelete.messageId);
+
+        if (updateError) throw updateError;
+
+        // Remove from local state
+        setFiles((prev) => prev.filter((f) => f.id !== fileToDelete.id));
+        toast.success("File removed");
       }
-
-      // Soft delete: mark the message as having deleted attachment
-      const { error: updateError } = await supabase
-        .from("messages")
-        .update({ is_attachment_deleted: true })
-        .eq("id", fileToDelete.messageId);
-
-      if (updateError) throw updateError;
-
-      // Remove from local state
-      setFiles((prev) => prev.filter((f) => f.id !== fileToDelete.id));
-      
-      toast.success("Fil borttagen");
     } catch (err) {
       console.error("Delete error:", err);
-      toast.error("Kunde inte ta bort filen");
+      toast.error("Could not delete");
     } finally {
       setIsDeleting(false);
       setDeleteDialogOpen(false);
@@ -302,7 +545,21 @@ const FileManagerApp = ({
     messageId: file.messageId,
   });
 
+  // Helper to convert note file to CAGNote format
+  const toCAGNote = (file: ConversationFile): CAGNote => ({
+    id: file.noteId || file.id,
+    title: file.name.replace(".md", ""),
+    content: file.noteContent || "",
+  });
+
   const cagFileCount = selectedCAGFiles?.length || 0;
+  const cagNoteCount = selectedCAGNotes?.length || 0;
+  const totalInContext = cagFileCount + cagNoteCount;
+
+  // Count by type
+  const imageCount = files.filter(f => f.type === "image").length;
+  const docCount = files.filter(f => f.type === "pdf" || f.type === "document").length;
+  const noteCount = files.filter(f => f.type === "note").length;
 
   return (
     <div className="h-full flex flex-col">
@@ -317,11 +574,22 @@ const FileManagerApp = ({
             </span>
           </div>
           <div className="flex items-center gap-1">
-            {cagFileCount > 0 && (
+            {totalInContext > 0 && (
               <Badge variant="secondary" className="gap-1 text-xs">
                 <Sparkles className="w-3 h-3" />
-                {cagFileCount} in context
+                {totalInContext} in context
               </Badge>
+            )}
+            {onCreateNote && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onCreateNote}
+                className="h-8 gap-1"
+              >
+                <StickyNote className="h-4 w-4" />
+                <span className="hidden sm:inline">New Note</span>
+              </Button>
             )}
             <Button
               variant={viewMode === "grid" ? "secondary" : "ghost"}
@@ -346,7 +614,7 @@ const FileManagerApp = ({
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search files..."
+            placeholder="Search files and notes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 bg-muted/50"
@@ -354,7 +622,7 @@ const FileManagerApp = ({
         </div>
 
         {/* Filter tabs */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Badge
             variant={filter === "all" ? "default" : "outline"}
             className="cursor-pointer"
@@ -363,12 +631,20 @@ const FileManagerApp = ({
             All
           </Badge>
           <Badge
+            variant={filter === "notes" ? "default" : "outline"}
+            className="cursor-pointer"
+            onClick={() => setFilter("notes")}
+          >
+            <StickyNote className="w-3 h-3 mr-1" />
+            Notes {noteCount > 0 && `(${noteCount})`}
+          </Badge>
+          <Badge
             variant={filter === "images" ? "default" : "outline"}
             className="cursor-pointer"
             onClick={() => setFilter("images")}
           >
             <ImageIcon className="w-3 h-3 mr-1" />
-            Images
+            Images {imageCount > 0 && `(${imageCount})`}
           </Badge>
           <Badge
             variant={filter === "documents" ? "default" : "outline"}
@@ -376,16 +652,16 @@ const FileManagerApp = ({
             onClick={() => setFilter("documents")}
           >
             <FileText className="w-3 h-3 mr-1" />
-            Documents
+            Docs {docCount > 0 && `(${docCount})`}
           </Badge>
         </div>
 
         {/* CAG info banner */}
-        {onToggleCAGFile && (
+        {(onToggleCAGFile || onToggleCAGNote) && (
           <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/10">
             <Sparkles className="w-4 h-4 text-primary flex-shrink-0" />
             <p className="text-xs text-muted-foreground">
-              Select files to include in AI context when using @ai
+              Select files or notes to include in AI context
             </p>
           </div>
         )}
@@ -409,13 +685,27 @@ const FileManagerApp = ({
               <p className="text-xs text-muted-foreground/70 mt-1 max-w-[250px]">
                 {searchQuery 
                   ? "Try a different search term" 
-                  : "Files uploaded in chat will appear here"}
+                  : "Files and notes will appear here"}
               </p>
+              {onCreateNote && !searchQuery && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onCreateNote}
+                  className="mt-4"
+                >
+                  <StickyNote className="h-4 w-4 mr-2" />
+                  Create a note
+                </Button>
+              )}
             </div>
           ) : viewMode === "grid" ? (
             <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
               {filteredFiles.map((file) => {
-                const isInCAG = isFileInCAG?.(file.id) || false;
+                const isInCAG = file.source === "note" 
+                  ? isNoteInCAG?.(file.noteId || "") || false
+                  : isFileInCAG?.(file.id) || false;
+                
                 return (
                   <div
                     key={file.id}
@@ -426,7 +716,7 @@ const FileManagerApp = ({
                     }`}
                   >
                     {/* CAG Checkbox */}
-                    {onToggleCAGFile && (
+                    {(file.source === "note" ? onToggleCAGNote : onToggleCAGFile) && (
                       <div 
                         className="absolute top-2 left-2 z-10"
                         onClick={(e) => e.stopPropagation()}
@@ -437,7 +727,13 @@ const FileManagerApp = ({
                               ? "bg-primary text-primary-foreground" 
                               : "bg-background/80 backdrop-blur-sm border border-border opacity-0 group-hover:opacity-100"
                           }`}
-                          onClick={() => onToggleCAGFile(toCAGFile(file))}
+                          onClick={() => {
+                            if (file.source === "note") {
+                              onToggleCAGNote?.(toCAGNote(file));
+                            } else {
+                              onToggleCAGFile?.(toCAGFile(file));
+                            }
+                          }}
                         >
                           {isInCAG ? (
                             <Sparkles className="w-3.5 h-3.5" />
@@ -454,7 +750,7 @@ const FileManagerApp = ({
                     {/* Preview */}
                     <div 
                       className="aspect-square bg-muted/50 flex items-center justify-center cursor-pointer"
-                      onClick={() => handleViewDocument(file.url, file.name, file.mimeType)}
+                      onClick={() => handleFileClick(file)}
                     >
                       {file.type === "image" ? (
                         <img 
@@ -462,6 +758,13 @@ const FileManagerApp = ({
                           alt={file.name} 
                           className="w-full h-full object-cover"
                         />
+                      ) : file.type === "note" ? (
+                        <div className="w-full h-full p-3 flex flex-col">
+                          <StickyNote className="w-6 h-6 text-yellow-500 mb-2" />
+                          <p className="text-xs text-muted-foreground line-clamp-4">
+                            {file.noteContent?.slice(0, 100) || "Empty note"}
+                          </p>
+                        </div>
                       ) : (
                         getFileIcon(file.type)
                       )}
@@ -479,39 +782,69 @@ const FileManagerApp = ({
 
                     {/* Hover actions */}
                     <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        variant="secondary"
-                        size="icon"
-                        className="h-7 w-7 shadow-md"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDownload(file.url, file.name);
-                        }}
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="icon"
-                        className="h-7 w-7 shadow-md"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open(file.url, "_blank");
-                        }}
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="icon"
-                        className="h-7 w-7 shadow-md text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          confirmDelete(file);
-                        }}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      {file.source === "note" ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="secondary" size="icon" className="h-7 w-7 shadow-md">
+                              <MoreVertical className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleDownloadNote(file)}>
+                              <Download className="h-4 w-4 mr-2" />
+                              Download .md
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExportPDF(file)}>
+                              <FileDown className="h-4 w-4 mr-2" />
+                              Export as PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => confirmDelete(file)}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : (
+                        <>
+                          <Button
+                            variant="secondary"
+                            size="icon"
+                            className="h-7 w-7 shadow-md"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDownload(file.url, file.name);
+                            }}
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="icon"
+                            className="h-7 w-7 shadow-md"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(file.url, "_blank");
+                            }}
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="icon"
+                            className="h-7 w-7 shadow-md text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              confirmDelete(file);
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -520,7 +853,10 @@ const FileManagerApp = ({
           ) : (
             <div className="space-y-2">
               {filteredFiles.map((file) => {
-                const isInCAG = isFileInCAG?.(file.id) || false;
+                const isInCAG = file.source === "note"
+                  ? isNoteInCAG?.(file.noteId || "") || false
+                  : isFileInCAG?.(file.id) || false;
+                
                 return (
                   <div
                     key={file.id}
@@ -529,10 +865,10 @@ const FileManagerApp = ({
                         ? "border-primary/50 ring-1 ring-primary/20" 
                         : "border-border hover:border-primary/30"
                     }`}
-                    onClick={() => handleViewDocument(file.url, file.name, file.mimeType)}
+                    onClick={() => handleFileClick(file)}
                   >
                     {/* CAG Checkbox */}
-                    {onToggleCAGFile && (
+                    {(file.source === "note" ? onToggleCAGNote : onToggleCAGFile) && (
                       <div 
                         className={`flex items-center justify-center w-8 h-8 rounded-md transition-all cursor-pointer flex-shrink-0 ${
                           isInCAG 
@@ -541,7 +877,11 @@ const FileManagerApp = ({
                         }`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          onToggleCAGFile(toCAGFile(file));
+                          if (file.source === "note") {
+                            onToggleCAGNote?.(toCAGNote(file));
+                          } else {
+                            onToggleCAGFile?.(toCAGFile(file));
+                          }
                         }}
                       >
                         {isInCAG ? (
@@ -578,6 +918,11 @@ const FileManagerApp = ({
                             AI
                           </Badge>
                         )}
+                        {file.source === "note" && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                            Note
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         {file.uploaderName && `${file.uploaderName} · `}
@@ -587,39 +932,69 @@ const FileManagerApp = ({
 
                     {/* Actions */}
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDownload(file.url, file.name);
-                        }}
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open(file.url, "_blank");
-                        }}
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          confirmDelete(file);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {file.source === "note" ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleDownloadNote(file)}>
+                              <Download className="h-4 w-4 mr-2" />
+                              Download .md
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExportPDF(file)}>
+                              <FileDown className="h-4 w-4 mr-2" />
+                              Export as PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => confirmDelete(file)}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDownload(file.url, file.name);
+                            }}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(file.url, "_blank");
+                            }}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              confirmDelete(file);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -633,14 +1008,18 @@ const FileManagerApp = ({
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Ta bort fil?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {fileToDelete?.source === "note" ? "Delete note?" : "Remove file?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Filen "{fileToDelete?.name}" kommer tas bort permanent. 
-              Meddelandet i chatten kommer visa "Fil borttagen" istället.
+              {fileToDelete?.source === "note" 
+                ? `The note "${fileToDelete?.name.replace(".md", "")}" will be permanently deleted.`
+                : `The file "${fileToDelete?.name}" will be removed. The message in chat will show "File removed" instead.`
+              }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Avbryt</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteFile}
               disabled={isDeleting}
@@ -649,10 +1028,10 @@ const FileManagerApp = ({
               {isDeleting ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Tar bort...
+                  Deleting...
                 </>
               ) : (
-                "Ta bort"
+                "Delete"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
