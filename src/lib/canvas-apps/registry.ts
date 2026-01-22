@@ -17,6 +17,7 @@ const CodeSandboxApp = lazy(() => import("@/components/canvas/CodeSandboxApp"));
 
 // Core app definitions
 const coreApps: CanvasAppDefinition[] = [
+  // Notes is now integrated into Files - hidden from tab bar
   {
     id: "notes",
     name: "Notes",
@@ -25,6 +26,7 @@ const coreApps: CanvasAppDefinition[] = [
     component: NotesApp as any,
     isCore: true,
     supportsCAG: true,
+    hidden: true, // Now integrated into Files
     order: 1,
     getBadge: ({ selectedCAGNotes }) => 
       selectedCAGNotes.length > 0 
@@ -44,16 +46,18 @@ const coreApps: CanvasAppDefinition[] = [
   {
     id: "files",
     name: "Files",
-    description: "Browse and manage shared files",
+    description: "Browse files and notes in one place",
     icon: FolderOpen,
     component: FileManagerApp as any,
     isCore: true,
     supportsCAG: true,
-    order: 3,
-    getBadge: ({ selectedCAGFiles }) => 
-      selectedCAGFiles.length > 0 
-        ? { type: "count", value: selectedCAGFiles.length, variant: "primary" }
-        : null,
+    order: 1,
+    getBadge: ({ selectedCAGFiles, selectedCAGNotes }) => {
+      const total = selectedCAGFiles.length + selectedCAGNotes.length;
+      return total > 0 
+        ? { type: "count", value: total, variant: "primary" }
+        : null;
+    },
   },
   {
     id: "code",
