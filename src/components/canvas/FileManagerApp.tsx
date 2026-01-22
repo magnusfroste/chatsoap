@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,8 @@ import {
   StickyNote,
   MoreVertical,
   FileDown,
+  Upload,
+  Plus,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -44,6 +46,7 @@ import { toast } from "sonner";
 import { CAGFile, CAGNote } from "@/hooks/useCAGContext";
 import { useAuth } from "@/hooks/useAuth";
 import { Note } from "@/hooks/useNotes";
+import { cn } from "@/lib/utils";
 
 interface ConversationFile {
   id: string;
@@ -104,6 +107,163 @@ const FileManagerApp = ({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<ConversationFile | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Drag-and-drop state
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragCounter = useRef(0);
+
+  // File upload constants
+  const ACCEPTED_TYPES = {
+    image: ["image/jpeg", "image/png", "image/gif", "image/webp"],
+    document: ["application/pdf", "text/plain", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+  };
+  const ALL_ACCEPTED = [...ACCEPTED_TYPES.image, ...ACCEPTED_TYPES.document];
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+  // Upload file to storage
+  const uploadFile = useCallback(async (file: File) => {
+    // Validate file type
+    if (!ALL_ACCEPTED.includes(file.type)) {
+      toast.error("File type not supported. Choose image, PDF, TXT or DOCX.");
+      return null;
+    }
+
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error("File must be max 10MB");
+      return null;
+    }
+
+    const getFileType = (mimeType: string) => {
+      if (ACCEPTED_TYPES.image.includes(mimeType)) return "image";
+      if (mimeType === "application/pdf") return "pdf";
+      return "document";
+    };
+
+    const fileType = getFileType(file.type);
+    const storagePath = fileType === "image" ? "chat-images" : "chat-documents";
+    
+    // Generate unique filename
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const filePath = `${storagePath}/${fileName}`;
+
+    // Upload to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from("chat-media")
+      .upload(filePath, file);
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from("chat-media")
+      .getPublicUrl(filePath);
+
+    if (!urlData?.publicUrl) {
+      throw new Error("Failed to get public URL");
+    }
+
+    // Create message with attachment
+    const { error: messageError } = await supabase
+      .from("messages")
+      .insert({
+        content: urlData.publicUrl,
+        conversation_id: conversationId,
+        user_id: user?.id,
+        attachment_type: file.type,
+        attachment_name: file.name,
+      });
+
+    if (messageError) {
+      throw messageError;
+    }
+
+    return {
+      url: urlData.publicUrl,
+      name: file.name,
+      type: fileType,
+      mimeType: file.type,
+    };
+  }, [conversationId, user?.id]);
+
+  // Handle file drop
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    dragCounter.current = 0;
+
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    if (droppedFiles.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      const uploadPromises = droppedFiles.map(file => uploadFile(file));
+      const results = await Promise.all(uploadPromises);
+      const successCount = results.filter(Boolean).length;
+      
+      if (successCount > 0) {
+        toast.success(`${successCount} file${successCount > 1 ? 's' : ''} uploaded!`);
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("Failed to upload files");
+    } finally {
+      setIsUploading(false);
+    }
+  }, [uploadFile]);
+
+  // Handle drag events
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragOver(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setIsDragOver(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  // Handle file input change
+  const handleFileInputChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      const uploadPromises = selectedFiles.map(file => uploadFile(file));
+      const results = await Promise.all(uploadPromises);
+      const successCount = results.filter(Boolean).length;
+      
+      if (successCount > 0) {
+        toast.success(`${successCount} file${successCount > 1 ? 's' : ''} uploaded!`);
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("Failed to upload files");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }, [uploadFile]);
 
   // Helper to check if a message contains a file
   const isFileMessage = (content: string) => {
@@ -562,7 +722,44 @@ const FileManagerApp = ({
   const noteCount = files.filter(f => f.type === "note").length;
 
   return (
-    <div className="h-full flex flex-col">
+    <div 
+      className="h-full flex flex-col relative"
+      onDrop={handleDrop}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+    >
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept="image/*,application/pdf,.txt,.docx"
+        onChange={handleFileInputChange}
+        className="hidden"
+      />
+
+      {/* Drag overlay */}
+      {isDragOver && (
+        <div className="absolute inset-0 z-50 bg-primary/10 backdrop-blur-sm border-2 border-dashed border-primary rounded-lg flex items-center justify-center">
+          <div className="text-center">
+            <Upload className="h-12 w-12 text-primary mx-auto mb-3" />
+            <p className="text-lg font-medium text-primary">Drop files here</p>
+            <p className="text-sm text-muted-foreground mt-1">Images, PDFs, TXT, DOCX</p>
+          </div>
+        </div>
+      )}
+
+      {/* Upload overlay */}
+      {isUploading && (
+        <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-10 w-10 text-primary mx-auto mb-3 animate-spin" />
+            <p className="text-sm font-medium">Uploading...</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex-shrink-0 p-4 border-b border-border space-y-3">
         <div className="flex items-center justify-between">
@@ -580,6 +777,20 @@ const FileManagerApp = ({
                 {totalInContext} in context
               </Badge>
             )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              className="h-8 gap-1"
+              disabled={isUploading}
+            >
+              {isUploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">Upload</span>
+            </Button>
             {onCreateNote && (
               <Button
                 variant="ghost"
@@ -677,7 +888,11 @@ const FileManagerApp = ({
           ) : filteredFiles.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-                <FolderOpen className="h-8 w-8 text-muted-foreground/50" />
+                {searchQuery ? (
+                  <Search className="h-8 w-8 text-muted-foreground/50" />
+                ) : (
+                  <Upload className="h-8 w-8 text-muted-foreground/50" />
+                )}
               </div>
               <p className="text-sm font-medium text-muted-foreground">
                 {searchQuery ? "No matching files" : "No files yet"}
@@ -685,18 +900,29 @@ const FileManagerApp = ({
               <p className="text-xs text-muted-foreground/70 mt-1 max-w-[250px]">
                 {searchQuery 
                   ? "Try a different search term" 
-                  : "Files and notes will appear here"}
+                  : "Drag and drop files here, or use the upload button"}
               </p>
-              {onCreateNote && !searchQuery && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onCreateNote}
-                  className="mt-4"
-                >
-                  <StickyNote className="h-4 w-4 mr-2" />
-                  Create a note
-                </Button>
+              {!searchQuery && (
+                <div className="flex gap-2 mt-4">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload files
+                  </Button>
+                  {onCreateNote && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={onCreateNote}
+                    >
+                      <StickyNote className="h-4 w-4 mr-2" />
+                      Create note
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
           ) : viewMode === "grid" ? (
