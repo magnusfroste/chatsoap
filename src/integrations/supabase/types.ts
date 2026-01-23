@@ -642,6 +642,42 @@ export type Database = {
           },
         ]
       }
+      room_slides: {
+        Row: {
+          created_at: string
+          current_slide: number
+          id: string
+          room_id: string
+          slides: Json
+          theme: string
+          title: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          current_slide?: number
+          id?: string
+          room_id: string
+          slides?: Json
+          theme?: string
+          title?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          current_slide?: number
+          id?: string
+          room_id?: string
+          slides?: Json
+          theme?: string
+          title?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       rooms: {
         Row: {
           created_at: string

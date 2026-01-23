@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Wrench, Search, ScanEye, Loader2, Code2, Play, ImagePlus } from "lucide-react";
+import { Wrench, Search, ScanEye, Loader2, Code2, Play, ImagePlus, Presentation } from "lucide-react";
 import { toast } from "sonner";
 
 interface ToolSettings {
@@ -12,6 +12,7 @@ interface ToolSettings {
   send_code_to_sandbox: boolean;
   code_execution: boolean;
   generate_image: boolean;
+  generate_slides: boolean;
 }
 
 const defaultSettings: ToolSettings = {
@@ -20,6 +21,7 @@ const defaultSettings: ToolSettings = {
   send_code_to_sandbox: true,
   code_execution: false,
   generate_image: false,
+  generate_slides: true,
 };
 
 const toolInfo = {
@@ -47,6 +49,11 @@ const toolInfo = {
     name: "Image Generation",
     description: "Let AI generate images from text descriptions",
     icon: ImagePlus,
+  },
+  generate_slides: {
+    name: "Slide Generation",
+    description: "Let AI create presentations from text descriptions",
+    icon: Presentation,
   },
 };
 

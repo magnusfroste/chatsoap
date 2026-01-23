@@ -35,6 +35,7 @@ interface ToolSettings {
   generate_image: boolean;
   code_execution: boolean;
   send_code_to_sandbox: boolean;
+  generate_slides: boolean;
 }
 
 const defaultToolSettings: ToolSettings = {
@@ -43,6 +44,7 @@ const defaultToolSettings: ToolSettings = {
   generate_image: false,
   code_execution: false,
   send_code_to_sandbox: true, // Always enabled for Claude-like artifact experience
+  generate_slides: true, // Enabled by default for presentation generation
 };
 
 // All available tool definitions
@@ -148,6 +150,59 @@ const allTools = {
           },
         },
         required: ["code", "language"],
+      },
+    },
+  },
+  generate_slides: {
+    type: "function",
+    function: {
+      name: "generate_slides",
+      description: "Generate a presentation with slides. Use this when the user asks to create a presentation, slideshow, pitch deck, or slides about any topic. The slides will appear in the Slides canvas app.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: {
+            type: "string",
+            description: "The presentation title",
+          },
+          slides: {
+            type: "array",
+            description: "Array of slides to generate",
+            items: {
+              type: "object",
+              properties: {
+                id: {
+                  type: "string",
+                  description: "Unique slide ID (e.g., 'slide-1')",
+                },
+                title: {
+                  type: "string",
+                  description: "Slide title",
+                },
+                content: {
+                  type: "string",
+                  description: "Slide content. Use '- ' prefix for bullet points. Use '\\n\\n' for two-column splits.",
+                },
+                notes: {
+                  type: "string",
+                  description: "Speaker notes (optional)",
+                },
+                layout: {
+                  type: "string",
+                  enum: ["title", "title-content", "two-column", "bullets", "quote"],
+                  description: "Slide layout type",
+                },
+              },
+              required: ["id", "title", "content", "layout"],
+            },
+          },
+          theme: {
+            type: "string",
+            enum: ["dark", "light", "minimal", "bold"],
+            description: "Presentation theme (default: dark)",
+          },
+        },
+        required: ["title", "slides"],
       },
     },
   },
@@ -628,6 +683,14 @@ async function processToolCalls(
           const autoRun = args.auto_run || false;
           result = `__CODE_SANDBOX__:${JSON.stringify({ code: args.code, language: args.language, autoRun })}`;
           break;
+        case "generate_slides":
+          // This is a client-side action - we return an instruction for the frontend to open slides
+          result = `__SLIDES_UPDATE__:${JSON.stringify({ 
+            slides: args.slides, 
+            title: args.title, 
+            theme: args.theme || "dark" 
+          })}`;
+          break;
         case "navigate_browser":
           // This is a client-side action - we just return the instruction
           result = `__BROWSER_NAVIGATE__:${args.url}`;
@@ -691,9 +754,12 @@ You have access to tools when enabled by admin:
 - generate_image: Use when the user asks you to create, draw, or generate an image
 - code_execution: Use when the user asks you to run or execute code directly and show the result
 - send_code_to_sandbox: Use when the user asks you to "write a function", "create code", "show me code", or wants to collaborate on code. This sends the code to the shared Code Sandbox canvas where everyone can see, edit, and run it together. ALWAYS use this for coding requests!
+- generate_slides: Use when the user asks to create a presentation, slideshow, pitch deck, or slides. Generate well-structured slides with clear titles and bullet points.
 - navigate_browser: Use when the user asks you to "go to", "open", "visit", or "navigate to" a website
 
-IMPORTANT: When a user asks you to write, create, or show code/functions, ALWAYS use send_code_to_sandbox to send it to the collaborative sandbox!
+IMPORTANT: 
+- When a user asks you to write, create, or show code/functions, ALWAYS use send_code_to_sandbox!
+- When a user asks for a presentation or slides, ALWAYS use generate_slides!
 
 Be:
 - Concise but informative
@@ -703,7 +769,8 @@ Be:
 
 If someone asks something you don't know, use web_search to find current information.
 If someone asks you to open or go to a website, use navigate_browser.
-If someone asks you to write code or a function, use send_code_to_sandbox.`,
+If someone asks you to write code or a function, use send_code_to_sandbox.
+If someone asks you to create a presentation or slides, use generate_slides.`,
 
       code: `You are an expert code assistant with deep knowledge in programming and software development.
 
@@ -811,6 +878,9 @@ Start with the basics and build understanding gradually.`,
     }
     if (toolSettings.send_code_to_sandbox) {
       availableTools.push(allTools.send_code_to_sandbox);
+    }
+    if (toolSettings.generate_slides) {
+      availableTools.push(allTools.generate_slides);
     }
 
     console.log("Available tools:", availableTools.map(t => t.function.name).join(", ") || "none");
