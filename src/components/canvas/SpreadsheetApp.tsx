@@ -503,9 +503,10 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
   const isInFormulaMode = editValue.startsWith("=") && editingCell !== null;
 
   // Handle cell click - either add to formula or select cell
-  const handleCellClick = useCallback((cellId: string) => {
+  const handleCellClick = useCallback((cellId: string, e?: React.MouseEvent) => {
     // If in formula mode, append cell reference instead of navigating
     if (isInFormulaMode && formulaSourceCell && cellId !== formulaSourceCell) {
+      e?.preventDefault();
       setEditValue(prev => prev + cellId);
       // Keep focus on the formula bar
       setTimeout(() => inputRef.current?.focus(), 0);
@@ -519,6 +520,13 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
     const cell = data.cells[cellId];
     setEditValue(cell?.formula || cell?.value || "");
   }, [data.cells, isInFormulaMode, formulaSourceCell]);
+
+  // Handle mouse down on cell - prevent blur when in formula mode
+  const handleCellMouseDown = useCallback((cellId: string, e: React.MouseEvent) => {
+    if (isInFormulaMode && formulaSourceCell && cellId !== formulaSourceCell) {
+      e.preventDefault(); // Prevent blur from firing
+    }
+  }, [isInFormulaMode, formulaSourceCell]);
 
   // Handle cell double-click - select all text
   const handleCellDoubleClick = useCallback((cellId: string) => {
@@ -801,23 +809,25 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
                     const isEditing = editingCell === cellId;
                     const displayValue = computedValues[cellId] ?? "";
                     
-                    return (
-                      <td
-                        key={colIndex}
-                        className={cn(
-                          "w-20 h-6 border border-border p-0 relative",
-                          isSelected && "ring-2 ring-primary ring-inset",
-                          cell?.format?.bold && "font-bold",
-                          cell?.format?.italic && "italic"
-                        )}
-                        style={{
-                          textAlign: cell?.format?.align || "left",
-                          backgroundColor: cell?.format?.bgColor,
-                          color: cell?.format?.textColor,
-                        }}
-                        onClick={() => handleCellClick(cellId)}
-                        onDoubleClick={() => handleCellDoubleClick(cellId)}
-                      >
+                      return (
+                        <td
+                          key={colIndex}
+                          className={cn(
+                            "w-20 h-6 border border-border p-0 relative cursor-cell",
+                            isSelected && "ring-2 ring-primary ring-inset",
+                            isInFormulaMode && formulaSourceCell && cellId !== formulaSourceCell && "hover:bg-primary/10",
+                            cell?.format?.bold && "font-bold",
+                            cell?.format?.italic && "italic"
+                          )}
+                          style={{
+                            textAlign: cell?.format?.align || "left",
+                            backgroundColor: cell?.format?.bgColor,
+                            color: cell?.format?.textColor,
+                          }}
+                          onMouseDown={(e) => handleCellMouseDown(cellId, e)}
+                          onClick={(e) => handleCellClick(cellId, e)}
+                          onDoubleClick={() => handleCellDoubleClick(cellId)}
+                        >
                         {isEditing ? (
                           <input
                             className="absolute inset-0 w-full h-full px-1 text-xs bg-background border-0 outline-none"
