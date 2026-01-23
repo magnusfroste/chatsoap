@@ -1,5 +1,5 @@
 import { lazy } from "react";
-import { FileText, PenTool, FolderOpen, FileSearch, Globe, Code2, Presentation } from "lucide-react";
+import { FileText, PenTool, FolderOpen, FileSearch, Globe, Code2, Presentation, Table2 } from "lucide-react";
 import { CanvasAppDefinition, CanvasAppRegistry } from "./types";
 
 /**
@@ -15,6 +15,7 @@ const DocumentViewerApp = lazy(() => import("@/components/canvas/DocumentViewerA
 const MiniBrowserApp = lazy(() => import("@/components/canvas/MiniBrowserApp"));
 const CodeSandboxApp = lazy(() => import("@/components/canvas/CodeSandboxApp"));
 const SlidesApp = lazy(() => import("@/components/canvas/SlidesApp"));
+const SpreadsheetApp = lazy(() => import("@/components/canvas/SpreadsheetApp"));
 
 // Core app definitions
 const coreApps: CanvasAppDefinition[] = [
@@ -89,6 +90,16 @@ const coreApps: CanvasAppDefinition[] = [
     isCore: false,
     supportsCAG: false,
     order: 5,
+  },
+  {
+    id: "spreadsheet",
+    name: "Spreadsheet",
+    description: "Collaborative spreadsheet with formulas",
+    icon: Table2,
+    component: SpreadsheetApp as any,
+    isCore: true,
+    supportsCAG: false,
+    order: 6,
   },
   {
     id: "document",
