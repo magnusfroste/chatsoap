@@ -321,7 +321,7 @@ registerTool({
       },
     },
   },
-  promptInstructions: 'Use when the user asks to fill cells, create tables, add data, or write formulas in the spreadsheet. Examples: "fill A1:A5 with 1-5", "create a budget table", "calculate the sum in B10". Supported formulas: =SUM, =AVERAGE, =COUNT, =MIN, =MAX, and arithmetic with cell references like =A1+B1*C1. ALWAYS use this tool for spreadsheet requests!',
+  promptInstructions: 'CRITICAL: When the user asks to add data, create tables, fill cells, or work with the spreadsheet, you MUST call this tool. Do NOT just write a markdown table - you MUST use update_spreadsheet to actually put the data in the spreadsheet. Examples: "create a product table", "fill A1:A5", "add prices". Supported formulas: =SUM, =AVERAGE, =COUNT, =MIN, =MAX. Always use this tool for ANY spreadsheet request!',
   execute: async (args, context): Promise<ToolResult> => {
     return { success: true, content: "Spreadsheet updated" };
   },
