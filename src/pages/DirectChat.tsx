@@ -490,6 +490,23 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
               }
             }
 
+            // Check for spreadsheet update command from AI tools
+            const spreadsheetMatch = fullText.match(/__SPREADSHEET_UPDATE__:({.+})/s);
+            if (spreadsheetMatch) {
+              try {
+                const { updates, description } = JSON.parse(spreadsheetMatch[1]);
+                displayText = displayText.replace(/__SPREADSHEET_UPDATE__:{.+}/s, "").trim();
+                if (!displayText && description) {
+                  displayText = `📊 ${description}`;
+                }
+                const { emitSpreadsheetUpdate } = await import("@/lib/canvas-apps/events");
+                emitSpreadsheetUpdate(updates, description);
+                emitOpenApp("spreadsheet");
+              } catch (e) {
+                console.error("Failed to parse spreadsheet command:", e);
+              }
+            }
+
             const aiTempId = `ai-temp-${Date.now()}`;
             const optimisticAiMessage: Message = {
               id: aiTempId,

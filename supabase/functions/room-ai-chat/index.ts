@@ -46,6 +46,7 @@ interface ToolSettings {
   send_code_to_sandbox: boolean;
   generate_slides: boolean;
   navigate_browser: boolean;
+  update_spreadsheet: boolean;
 }
 
 const defaultToolSettings: ToolSettings = {
@@ -56,6 +57,7 @@ const defaultToolSettings: ToolSettings = {
   send_code_to_sandbox: true,
   generate_slides: true,
   navigate_browser: true,
+  update_spreadsheet: true,
 };
 
 async function getToolSettings(): Promise<ToolSettings> {
@@ -541,6 +543,12 @@ async function processToolCalls(
           break;
         case "navigate_browser":
           result = `__BROWSER_NAVIGATE__:${args.url}`;
+          break;
+        case "update_spreadsheet":
+          result = `__SPREADSHEET_UPDATE__:${JSON.stringify({ 
+            updates: args.updates, 
+            description: args.description || "Data added" 
+          })}`;
           break;
         default:
           result = `Unknown tool: ${toolCall.function.name}`;

@@ -40,6 +40,14 @@ type PresentationStartPayload = {
   presenterId: string;
 };
 
+type SpreadsheetUpdatePayload = {
+  updates: Array<{
+    cell: string;
+    value: string;
+  }>;
+  description?: string;
+};
+
 type CanvasEventPayload = {
   "browser:navigate": BrowserNavigatePayload;
   "browser:preview": BrowserPreviewPayload;
@@ -47,6 +55,7 @@ type CanvasEventPayload = {
   "notes:create": NotesCreatePayload;
   "slides:update": SlidesUpdatePayload;
   "slides:presenting": PresentationStartPayload;
+  "spreadsheet:update": SpreadsheetUpdatePayload;
   "app:open": { appId: string; params?: Record<string, unknown> };
 };
 
@@ -123,4 +132,11 @@ export function emitSlidesUpdate(
 
 export function emitPresentationStart(conversationId: string, presenterId: string) {
   canvasEventBus.emit("slides:presenting", { conversationId, presenterId });
+}
+
+export function emitSpreadsheetUpdate(
+  updates: SpreadsheetUpdatePayload["updates"],
+  description?: string
+) {
+  canvasEventBus.emit("spreadsheet:update", { updates, description });
 }

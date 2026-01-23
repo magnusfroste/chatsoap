@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { canvasEventBus } from "@/lib/canvas-apps/events";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -505,6 +506,7 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
     };
   }, [roomId, user?.id]);
 
+
   // Save data with debounce
   const saveData = useCallback(async (newData: SpreadsheetData) => {
     if (!user) return;
@@ -569,6 +571,77 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
       saveData(newData);
     }, 500);
   }, [saveData]);
+
+  // Listen for AI spreadsheet updates via event bus
+  useEffect(() => {
+    const unsubscribe = canvasEventBus.on("spreadsheet:update", (payload) => {
+      if (!payload.updates || !Array.isArray(payload.updates)) return;
+      
+      setData((prev) => {
+        // Push to undo stack
+        setUndoStack(stack => {
+          const newStack = [...stack, JSON.parse(JSON.stringify(prev))];
+          if (newStack.length > MAX_HISTORY) {
+            return newStack.slice(-MAX_HISTORY);
+          }
+          return newStack;
+        });
+        setRedoStack([]);
+        
+        const newCells = { ...prev.cells };
+        let maxRow = prev.rows;
+        let maxCol = prev.columns;
+        
+        for (const update of payload.updates) {
+          const cellId = update.cell.toUpperCase();
+          const value = update.value;
+          const isFormula = value.startsWith("=");
+          
+          // Parse cell reference to check if we need more rows/columns
+          const match = cellId.match(/^([A-Z]+)(\d+)$/);
+          if (match) {
+            let col = 0;
+            for (let i = 0; i < match[1].length; i++) {
+              col = col * 26 + (match[1].charCodeAt(i) - 64);
+            }
+            col -= 1; // 0-indexed
+            const row = parseInt(match[2], 10) - 1; // 0-indexed
+            
+            // Expand grid if needed
+            if (row + 1 > maxRow) maxRow = row + 1;
+            if (col + 1 > maxCol) maxCol = col + 1;
+          }
+          
+          newCells[cellId] = {
+            ...newCells[cellId],
+            value: isFormula ? "" : value,
+            formula: isFormula ? value : undefined,
+          };
+        }
+        
+        const newData = { 
+          ...prev, 
+          cells: newCells,
+          rows: Math.max(maxRow, prev.rows),
+          columns: Math.max(maxCol, prev.columns),
+        };
+        
+        // Save to database
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+        }
+        saveTimeoutRef.current = setTimeout(() => {
+          saveData(newData);
+        }, 500);
+        
+        return newData;
+      });
+      
+      toast.success(payload.description || "Spreadsheet updated by AI");
+    });
+    
+    return () => unsubscribe();
+  }, [saveData, MAX_HISTORY]);
 
   // Push current state to undo stack before making changes
   const pushToUndoStack = useCallback((currentData: SpreadsheetData) => {

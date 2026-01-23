@@ -283,3 +283,46 @@ registerTool({
     return { success: true, content: "Browser navigated" };
   },
 });
+
+registerTool({
+  id: "update_spreadsheet",
+  definition: {
+    type: "function",
+    function: {
+      name: "update_spreadsheet",
+      description: "Update cells in the collaborative spreadsheet with values or formulas",
+      parameters: {
+        type: "object",
+        properties: {
+          updates: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                cell: {
+                  type: "string",
+                  description: "Cell reference (e.g., A1, B2, C10)",
+                },
+                value: {
+                  type: "string",
+                  description: "Value or formula to set (formulas start with =, e.g., =SUM(A1:A5))",
+                },
+              },
+              required: ["cell", "value"],
+            },
+            description: "Array of cell updates to apply",
+          },
+          description: {
+            type: "string",
+            description: "Brief description of what was added to the spreadsheet",
+          },
+        },
+        required: ["updates"],
+      },
+    },
+  },
+  promptInstructions: 'Use when the user asks to fill cells, create tables, add data, or write formulas in the spreadsheet. Examples: "fill A1:A5 with 1-5", "create a budget table", "calculate the sum in B10". Supported formulas: =SUM, =AVERAGE, =COUNT, =MIN, =MAX, and arithmetic with cell references like =A1+B1*C1. ALWAYS use this tool for spreadsheet requests!',
+  execute: async (args, context): Promise<ToolResult> => {
+    return { success: true, content: "Spreadsheet updated" };
+  },
+});
