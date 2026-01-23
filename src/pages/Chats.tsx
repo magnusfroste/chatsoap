@@ -138,7 +138,7 @@ const Chats = () => {
   return (
     <div className="h-screen flex bg-background overflow-hidden">
       {/* Left Sidebar - Conversations List (Desktop) */}
-      <div className={`${isSidebarCollapsed ? 'w-[72px]' : 'w-[320px]'} flex-shrink-0 border-r border-border hidden md:block transition-all duration-300 overflow-hidden`}>
+      <div className={`${isSidebarCollapsed ? 'w-[72px]' : 'w-[320px]'} flex-shrink-0 border-r border-border hidden md:flex flex-col transition-all duration-300 overflow-hidden min-w-0`}>
         <ChatSidebar 
           activeConversationId={activeConversationId} 
           isCollapsed={isSidebarCollapsed}
@@ -147,7 +147,7 @@ const Chats = () => {
       </div>
 
       {/* Mobile: Show only sidebar if not on chat page */}
-      <div className="w-full md:hidden">
+      <div className="w-full md:hidden min-w-0 overflow-hidden">
         {!isOnChatPage ? (
           <ChatSidebar activeConversationId={activeConversationId} />
         ) : (

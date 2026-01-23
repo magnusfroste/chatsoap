@@ -396,7 +396,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
   };
 
   return (
-    <div className={`h-full flex flex-col bg-card border-r border-border transition-all duration-300 ease-in-out overflow-hidden min-w-0 ${isCollapsed ? 'w-[72px]' : 'w-full max-w-full'}`}>
+    <div className={`h-full flex flex-col bg-card border-r border-border transition-all duration-300 ease-in-out overflow-hidden ${isCollapsed ? 'w-[72px] min-w-[72px] max-w-[72px]' : 'w-full min-w-0 max-w-full'}`}>
       {/* Header */}
       <header className={`flex-shrink-0 border-b border-border bg-card transition-all duration-300 ${isCollapsed ? 'px-2 py-3' : 'px-4 py-3'}`}>
         <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
@@ -611,11 +611,11 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
 
                   {/* Content - fades out when collapsed */}
                   <div 
-                    className={`min-w-0 flex-1 overflow-hidden transition-all duration-300 ${
-                      isCollapsed ? 'w-0 opacity-0' : 'opacity-100'
+                    className={`flex-1 overflow-hidden transition-all duration-300 ${
+                      isCollapsed ? 'w-0 opacity-0 min-w-0' : 'opacity-100 min-w-0'
                     }`}
                   >
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 overflow-hidden">
                       <div className="flex items-center gap-1.5 min-w-0 flex-1">
                         {conv.is_pinned && <Pin className="w-3 h-3 text-primary flex-shrink-0" />}
                         <span className="font-medium text-foreground truncate">
@@ -627,7 +627,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
                         {formatTime(conv.last_message_at)}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1 mt-0.5 min-w-0">
+                    <div className="flex items-center gap-1 mt-0.5 min-w-0 overflow-hidden">
                       <CheckCheck className="w-4 h-4 text-primary flex-shrink-0" />
                       <p className="text-sm text-muted-foreground truncate flex-1 min-w-0">
                         {conv.last_message || (conv.type === "group" ? "Gruppchatt" : "Ny konversation")}
