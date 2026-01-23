@@ -105,6 +105,32 @@ export function PersonaSwitcher({ conversationId, currentPersona, onPersonaChang
   useEffect(() => {
     fetchCustomPersonas();
     fetchPersonaSettings();
+
+    // Subscribe to realtime changes for persona settings
+    const channel = supabase
+      .channel('persona-settings-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'app_settings',
+          filter: 'key=eq.ai_personas_enabled',
+        },
+        (payload) => {
+          if (payload.new && typeof payload.new === 'object' && 'value' in payload.new) {
+            const newValue = payload.new.value;
+            if (newValue && typeof newValue === 'object') {
+              setPersonaSettings({ ...defaultPersonaSettings, ...(newValue as PersonaSettings) });
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchPersonaSettings = async () => {
