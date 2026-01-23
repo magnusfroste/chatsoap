@@ -1,5 +1,5 @@
 import { lazy } from "react";
-import { FileText, PenTool, FolderOpen, FileSearch, Globe, Code2 } from "lucide-react";
+import { FileText, PenTool, FolderOpen, FileSearch, Globe, Code2, Presentation } from "lucide-react";
 import { CanvasAppDefinition, CanvasAppRegistry } from "./types";
 
 /**
@@ -14,6 +14,7 @@ const FileManagerApp = lazy(() => import("@/components/canvas/FileManagerApp"));
 const DocumentViewerApp = lazy(() => import("@/components/canvas/DocumentViewerApp"));
 const MiniBrowserApp = lazy(() => import("@/components/canvas/MiniBrowserApp"));
 const CodeSandboxApp = lazy(() => import("@/components/canvas/CodeSandboxApp"));
+const SlidesApp = lazy(() => import("@/components/canvas/SlidesApp"));
 
 // Core app definitions
 const coreApps: CanvasAppDefinition[] = [
@@ -58,6 +59,16 @@ const coreApps: CanvasAppDefinition[] = [
         ? { type: "count", value: total, variant: "primary" }
         : null;
     },
+  },
+  {
+    id: "slides",
+    name: "Slides",
+    description: "AI-powered presentations",
+    icon: Presentation,
+    component: SlidesApp as any,
+    isCore: true,
+    supportsCAG: false,
+    order: 3,
   },
   {
     id: "code",

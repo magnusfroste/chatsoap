@@ -474,6 +474,20 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
               }
             }
 
+            // Check for slides update command from AI tools
+            const slidesMatch = fullText.match(/__SLIDES_UPDATE__:({.+})/s);
+            if (slidesMatch) {
+              try {
+                const { slides, title, theme } = JSON.parse(slidesMatch[1]);
+                displayText = displayText.replace(/__SLIDES_UPDATE__:{.+}/s, "").trim();
+                const { emitSlidesUpdate } = await import("@/lib/canvas-apps/events");
+                emitSlidesUpdate(slides, title, theme);
+                emitOpenApp('slides');
+              } catch (e) {
+                console.error("Failed to parse slides command:", e);
+              }
+            }
+
             await supabase.from("messages").insert({
               content: displayText || fullText,
               is_ai: true,

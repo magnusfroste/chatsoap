@@ -23,11 +23,24 @@ type NotesCreatePayload = {
   content: string;
 };
 
+type SlidesUpdatePayload = {
+  slides: Array<{
+    id: string;
+    title: string;
+    content: string;
+    notes?: string;
+    layout: "title" | "title-content" | "two-column" | "bullets" | "quote";
+  }>;
+  title?: string;
+  theme?: "dark" | "light" | "minimal" | "bold";
+};
+
 type CanvasEventPayload = {
   "browser:navigate": BrowserNavigatePayload;
   "browser:preview": BrowserPreviewPayload;
   "code:send": CodeSandboxPayload;
   "notes:create": NotesCreatePayload;
+  "slides:update": SlidesUpdatePayload;
   "app:open": { appId: string; params?: Record<string, unknown> };
 };
 
@@ -92,4 +105,12 @@ export function emitCodeToSandbox(code: string, language: "javascript" | "typesc
 
 export function emitCreateNote(content: string, title?: string) {
   canvasEventBus.emit("notes:create", { content, title });
+}
+
+export function emitSlidesUpdate(
+  slides: SlidesUpdatePayload["slides"],
+  title?: string,
+  theme?: SlidesUpdatePayload["theme"]
+) {
+  canvasEventBus.emit("slides:update", { slides, title, theme });
 }
