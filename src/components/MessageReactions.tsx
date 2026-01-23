@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { FileText, Reply } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -148,6 +149,7 @@ interface ReactionPickerProps {
   children: React.ReactNode;
   onReactionAdded?: () => void;
   onReply?: () => void;
+  onSaveToNotes?: () => void;
 }
 
 export const ReactionPicker = ({ 
@@ -156,7 +158,8 @@ export const ReactionPicker = ({
   isOwn, 
   children,
   onReactionAdded,
-  onReply
+  onReply,
+  onSaveToNotes
 }: ReactionPickerProps) => {
   const [open, setOpen] = useState(false);
 
@@ -198,6 +201,11 @@ export const ReactionPicker = ({
     onReply?.();
   };
 
+  const handleSaveToNotes = () => {
+    setOpen(false);
+    onSaveToNotes?.();
+  };
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -220,17 +228,26 @@ export const ReactionPicker = ({
               </button>
             ))}
           </div>
-          {onReply && (
-            <button
-              onClick={handleReply}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-              </svg>
-              Svara
-            </button>
-          )}
+          <div className="flex flex-col gap-0.5 border-t border-border pt-2">
+            {onReply && (
+              <button
+                onClick={handleReply}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+              >
+                <Reply className="w-4 h-4" />
+                Svara
+              </button>
+            )}
+            {onSaveToNotes && (
+              <button
+                onClick={handleSaveToNotes}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+              >
+                <FileText className="w-4 h-4" />
+                Spara till anteckningar
+              </button>
+            )}
+          </div>
         </div>
       </PopoverContent>
     </Popover>
