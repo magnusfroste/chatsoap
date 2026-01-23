@@ -806,52 +806,52 @@ const FileManagerApp = ({
       )}
 
       {/* Header */}
-      <div className="flex-shrink-0 p-4 border-b border-border space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FolderOpen className="h-5 w-5 text-primary" />
-            <h2 className="font-semibold text-foreground">Files</h2>
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+      <div className="flex-shrink-0 p-4 border-b border-border space-y-3 min-w-0">
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
+            <FolderOpen className="h-5 w-5 text-primary flex-shrink-0" />
+            <h2 className="font-semibold text-foreground truncate">Files</h2>
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full flex-shrink-0">
               {files.length}
             </span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-shrink-0">
             {totalInContext > 0 && (
-              <Badge variant="secondary" className="gap-1 text-xs">
+              <Badge variant="secondary" className="gap-1 text-xs flex-shrink-0">
                 <Sparkles className="w-3 h-3" />
-                {totalInContext} in context
+                {totalInContext}
               </Badge>
             )}
             <Button
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={() => fileInputRef.current?.click()}
-              className="h-8 gap-1"
+              className="h-8 w-8 flex-shrink-0"
               disabled={isUploading}
+              title="Upload files"
             >
               {isUploading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Plus className="h-4 w-4" />
               )}
-              <span className="hidden sm:inline">Upload</span>
             </Button>
             {onCreateNote && (
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon"
                 onClick={onCreateNote}
-                className="h-8 gap-1"
+                className="h-8 w-8 flex-shrink-0"
+                title="New note"
               >
                 <StickyNote className="h-4 w-4" />
-                <span className="hidden sm:inline">New Note</span>
               </Button>
             )}
             <Button
               variant={viewMode === "grid" ? "secondary" : "ghost"}
               size="icon"
               onClick={() => setViewMode("grid")}
-              className="h-8 w-8"
+              className="h-8 w-8 flex-shrink-0"
             >
               <Grid3X3 className="h-4 w-4" />
             </Button>
@@ -859,7 +859,7 @@ const FileManagerApp = ({
               variant={viewMode === "list" ? "secondary" : "ghost"}
               size="icon"
               onClick={() => setViewMode("list")}
-              className="h-8 w-8"
+              className="h-8 w-8 flex-shrink-0"
             >
               <List className="h-4 w-4" />
             </Button>
@@ -878,69 +878,69 @@ const FileManagerApp = ({
         </div>
 
         {/* Filter tabs */}
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-1.5 flex-wrap min-w-0">
           <Badge
             variant={filter === "all" ? "default" : "outline"}
-            className="cursor-pointer"
+            className="cursor-pointer flex-shrink-0"
             onClick={() => setFilter("all")}
           >
             All
           </Badge>
           <Badge
             variant={filter === "notes" ? "default" : "outline"}
-            className="cursor-pointer"
+            className="cursor-pointer flex-shrink-0"
             onClick={() => setFilter("notes")}
           >
             <StickyNote className="w-3 h-3 mr-1" />
-            Notes {noteCount > 0 && `(${noteCount})`}
+            {noteCount}
           </Badge>
           <Badge
             variant={filter === "images" ? "default" : "outline"}
-            className="cursor-pointer"
+            className="cursor-pointer flex-shrink-0"
             onClick={() => setFilter("images")}
           >
             <ImageIcon className="w-3 h-3 mr-1" />
-            Images {imageCount > 0 && `(${imageCount})`}
+            {imageCount}
           </Badge>
           <Badge
             variant={filter === "documents" ? "default" : "outline"}
-            className="cursor-pointer"
+            className="cursor-pointer flex-shrink-0"
             onClick={() => setFilter("documents")}
           >
             <FileText className="w-3 h-3 mr-1" />
-            Docs {docCount > 0 && `(${docCount})`}
+            {docCount}
           </Badge>
         </div>
 
         {/* CAG actions bar */}
         {(onToggleCAGFile || onToggleCAGNote) && filteredFiles.length > 0 && (
-          <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-primary/5 border border-primary/10">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-primary/5 border border-primary/10 min-w-0">
+            <div className="flex items-center gap-2 min-w-0 overflow-hidden">
               <Sparkles className="w-4 h-4 text-primary flex-shrink-0" />
-              <p className="text-xs text-muted-foreground">
-                {totalInContext > 0 ? `${totalInContext} in context` : "Select for AI context"}
+              <p className="text-xs text-muted-foreground truncate">
+                {totalInContext > 0 ? `${totalInContext} selected` : "Select for AI"}
               </p>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 flex-shrink-0">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleSelectAll}
                 disabled={allSelected}
-                className="h-7 text-xs gap-1 px-2"
+                className="h-7 text-xs px-2"
+                title="Select all"
               >
                 <CheckSquare className="w-3.5 h-3.5" />
-                All
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleDeselectAll}
                 disabled={totalInContext === 0}
-                className="h-7 text-xs gap-1 px-2"
+                className="h-7 text-xs px-2"
+                title="Deselect all"
               >
                 <Square className="w-3.5 h-3.5" />
-                None
               </Button>
             </div>
           </div>
@@ -1155,7 +1155,7 @@ const FileManagerApp = ({
                 return (
                   <div
                     key={file.id}
-                    className={`group flex items-center gap-3 p-3 rounded-lg border bg-card transition-all cursor-pointer ${
+                    className={`group flex items-center gap-3 p-3 rounded-lg border bg-card transition-all cursor-pointer min-w-0 ${
                       isInCAG 
                         ? "border-primary/50 ring-1 ring-primary/20" 
                         : "border-border hover:border-primary/30"
