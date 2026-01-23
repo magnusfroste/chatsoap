@@ -3,19 +3,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Wrench, Search, ScanEye, Loader2, Code2 } from "lucide-react";
+import { Wrench, Search, ScanEye, Loader2, Code2, Play } from "lucide-react";
 import { toast } from "sonner";
 
 interface ToolSettings {
   analyze_images: boolean;
   web_search: boolean;
   send_code_to_sandbox: boolean;
+  code_execution: boolean;
 }
 
 const defaultSettings: ToolSettings = {
   analyze_images: true,
   web_search: true,
   send_code_to_sandbox: true,
+  code_execution: false,
 };
 
 const toolInfo = {
@@ -33,6 +35,11 @@ const toolInfo = {
     name: "Code to Sandbox",
     description: "Auto-send generated code to collaborative sandbox (Claude-like artifacts)",
     icon: Code2,
+  },
+  code_execution: {
+    name: "Code Execution",
+    description: "Let AI run code directly and show output in chat responses",
+    icon: Play,
   },
 };
 
