@@ -66,6 +66,18 @@ interface PersonaSwitcherProps {
   onPersonaChange: (persona: string, customSystemPrompt?: string) => void;
 }
 
+interface PersonaSettings {
+  [key: string]: boolean;
+}
+
+const defaultPersonaSettings: PersonaSettings = {
+  general: true,
+  code: true,
+  writer: true,
+  creative: true,
+  learning: true,
+};
+
 export function PersonaSwitcher({ conversationId, currentPersona, onPersonaChange }: PersonaSwitcherProps) {
   const [updating, setUpdating] = useState(false);
   const [customPersonas, setCustomPersonas] = useState<CustomPersona[]>([]);
@@ -73,11 +85,15 @@ export function PersonaSwitcher({ conversationId, currentPersona, onPersonaChang
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPersona, setEditingPersona] = useState<EditablePersona | null>(null);
+  const [personaSettings, setPersonaSettings] = useState<PersonaSettings>(defaultPersonaSettings);
   
   // Check if current persona is a custom one
   const isCustomPersona = currentPersona?.startsWith("custom:");
   const customPersonaId = isCustomPersona ? currentPersona.replace("custom:", "") : null;
   const currentCustomPersona = customPersonas.find(p => p.id === customPersonaId);
+  
+  // Filter built-in personas based on admin settings
+  const enabledBuiltInPersonas = AI_PERSONAS.filter(p => personaSettings[p.id] !== false);
   
   const currentBuiltInPersona = AI_PERSONAS.find(p => p.id === currentPersona);
   const currentPersonaData = currentCustomPersona || currentBuiltInPersona || AI_PERSONAS[0];
@@ -88,7 +104,24 @@ export function PersonaSwitcher({ conversationId, currentPersona, onPersonaChang
 
   useEffect(() => {
     fetchCustomPersonas();
+    fetchPersonaSettings();
   }, []);
+
+  const fetchPersonaSettings = async () => {
+    try {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "ai_personas_enabled")
+        .single();
+
+      if (data?.value && typeof data.value === "object") {
+        setPersonaSettings({ ...defaultPersonaSettings, ...(data.value as PersonaSettings) });
+      }
+    } catch {
+      // Use defaults
+    }
+  };
 
   const fetchCustomPersonas = async () => {
     try {
@@ -211,8 +244,8 @@ export function PersonaSwitcher({ conversationId, currentPersona, onPersonaChang
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-72">
-          {/* Built-in personas */}
-          {AI_PERSONAS.map((persona) => {
+          {/* Built-in personas (filtered by admin settings) */}
+          {enabledBuiltInPersonas.map((persona) => {
             const Icon = persona.icon;
             const isActive = persona.id === currentPersona || (!currentPersona && persona.id === "general");
             return (
