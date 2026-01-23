@@ -263,81 +263,128 @@ const evaluateFormula = (
     return getCellValue(cellId, cells, new Set(visited).add(cellId));
   }
   
-  // General arithmetic expression (e.g., =A1+B1+C1*D1)
-  // Supports multiple cell references with +, -, *, /
-  const generalArithMatch = formula.match(/^=([A-Z]+\d+(?:[+\-*/][A-Z]+\d+)+)$/i);
-  if (generalArithMatch) {
-    const expression = generalArithMatch[1].toUpperCase();
+  // General arithmetic expression with parentheses support
+  // Supports: cell refs, numbers, +, -, *, /, parentheses
+  // e.g., =(A1+B1)*C1, =A1+B1+C1*D1, =(A1+2)*3
+  try {
+    const expr = formula.slice(1).toUpperCase().replace(/\s/g, "");
     
-    // Parse tokens: split by operators while keeping operators
+    // Tokenize: numbers, cell refs, operators, parentheses
+    const tokenRegex = /(\d+\.?\d*|[A-Z]+\d+|[+\-*/()])/g;
     const tokens: string[] = [];
-    let current = "";
-    for (const char of expression) {
-      if (["+", "-", "*", "/"].includes(char)) {
-        if (current) tokens.push(current);
-        tokens.push(char);
-        current = "";
-      } else {
-        current += char;
-      }
-    }
-    if (current) tokens.push(current);
+    let match;
+    let lastIndex = 0;
     
-    // First pass: handle * and / (higher precedence)
-    const intermediate: (number | string)[] = [];
-    let i = 0;
-    while (i < tokens.length) {
-      const token = tokens[i];
-      if (token === "*" || token === "/") {
-        const prevValue = intermediate.pop();
-        const nextValue = getCellValue(tokens[i + 1], cells, new Set(visited));
-        const prev = parseFloat(String(prevValue));
-        const next = parseFloat(String(nextValue));
-        if (isNaN(prev) || isNaN(next)) return "#VALUE!";
-        if (token === "/" && next === 0) return "#DIV/0!";
-        intermediate.push(token === "*" ? prev * next : prev / next);
-        i += 2;
-      } else if (token === "+" || token === "-") {
-        intermediate.push(token);
-        i++;
-      } else {
-        // Cell reference
+    while ((match = tokenRegex.exec(expr)) !== null) {
+      if (match.index !== lastIndex) {
+        // There's unrecognized content
+        return "#ERROR!";
+      }
+      tokens.push(match[0]);
+      lastIndex = tokenRegex.lastIndex;
+    }
+    
+    if (lastIndex !== expr.length || tokens.length === 0) {
+      return "#ERROR!";
+    }
+    
+    // Recursive descent parser
+    let pos = 0;
+    
+    const peek = (): string | null => tokens[pos] || null;
+    const consume = (): string => tokens[pos++];
+    
+    const parseNumber = (): number | string => {
+      const token = consume();
+      
+      // Check if it's a number
+      if (/^\d+\.?\d*$/.test(token)) {
+        return parseFloat(token);
+      }
+      
+      // It's a cell reference
+      if (/^[A-Z]+\d+$/.test(token)) {
         const value = getCellValue(token, cells, new Set(visited));
         const num = parseFloat(String(value));
         if (isNaN(num)) return "#VALUE!";
-        intermediate.push(num);
-        i++;
+        return num;
       }
-    }
+      
+      return "#ERROR!";
+    };
     
-    // Second pass: handle + and - (left to right)
-    let result = intermediate[0] as number;
-    for (let j = 1; j < intermediate.length; j += 2) {
-      const op = intermediate[j] as string;
-      const val = intermediate[j + 1] as number;
-      if (op === "+") result += val;
-      else if (op === "-") result -= val;
+    const parseFactor = (): number | string => {
+      const token = peek();
+      
+      if (token === "(") {
+        consume(); // consume '('
+        const result = parseExpression();
+        if (typeof result === "string") return result;
+        if (peek() !== ")") return "#ERROR!";
+        consume(); // consume ')'
+        return result;
+      }
+      
+      if (token === "-") {
+        consume(); // consume '-'
+        const factor = parseFactor();
+        if (typeof factor === "string") return factor;
+        return -factor;
+      }
+      
+      return parseNumber();
+    };
+    
+    const parseTerm = (): number | string => {
+      let left = parseFactor();
+      if (typeof left === "string") return left;
+      
+      while (peek() === "*" || peek() === "/") {
+        const op = consume();
+        const right = parseFactor();
+        if (typeof right === "string") return right;
+        
+        if (op === "*") {
+          left = left * right;
+        } else {
+          if (right === 0) return "#DIV/0!";
+          left = left / right;
+        }
+      }
+      
+      return left;
+    };
+    
+    const parseExpression = (): number | string => {
+      let left = parseTerm();
+      if (typeof left === "string") return left;
+      
+      while (peek() === "+" || peek() === "-") {
+        const op = consume();
+        const right = parseTerm();
+        if (typeof right === "string") return right;
+        
+        if (op === "+") {
+          left = left + right;
+        } else {
+          left = left - right;
+        }
+      }
+      
+      return left;
+    };
+    
+    const result = parseExpression();
+    
+    // Make sure we consumed all tokens
+    if (pos !== tokens.length) {
+      return "#ERROR!";
     }
     
     return result;
+  } catch {
+    return "#ERROR!";
   }
-  
-  // Simple arithmetic with two cells (fallback)
-  const arithMatch = formula.match(/^=([A-Z]+\d+)([+\-*/])([A-Z]+\d+)$/i);
-  if (arithMatch) {
-    const val1 = parseFloat(String(getCellValue(arithMatch[1].toUpperCase(), cells, new Set(visited))));
-    const val2 = parseFloat(String(getCellValue(arithMatch[3].toUpperCase(), cells, new Set(visited))));
-    if (isNaN(val1) || isNaN(val2)) return "#VALUE!";
-    
-    switch (arithMatch[2]) {
-      case "+": return val1 + val2;
-      case "-": return val1 - val2;
-      case "*": return val1 * val2;
-      case "/": return val2 === 0 ? "#DIV/0!" : val1 / val2;
-    }
-  }
-  
-  return "#ERROR!";
 };
 
 // Get computed cell value
