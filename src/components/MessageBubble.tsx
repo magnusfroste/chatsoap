@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { Bot, Check, CheckCheck, Reply, X, Clock, Trash2 } from "lucide-react";
 import { MessageReactions, ReactionPicker } from "./MessageReactions";
-import { SendToNotesButton } from "./SendToNotesButton";
 import { FileAttachmentBadge, getFileTypeFromUrl, getFilenameFromUrl } from "./FileAttachmentBadge";
 import { ArtifactActions } from "./ArtifactActions";
 import { detectArtifacts } from "@/lib/content-detector";
@@ -270,6 +269,15 @@ export const MessageBubble = ({
     </div>
   );
 
+  // Check if this message can be saved to notes (text content only)
+  const canSaveToNotes = onSaveToNotes && !isImageUrl(message.content) && !isDocumentUrl(message.content);
+
+  const handleSaveToNotes = () => {
+    if (onSaveToNotes) {
+      onSaveToNotes(message.content, message.id);
+    }
+  };
+
   return (
     <div className={cn("flex flex-col", isOwn ? "items-end" : "items-start")}>
       <div className={cn("flex items-end gap-1", isOwn ? "justify-end flex-row-reverse" : "justify-start")}>
@@ -279,19 +287,12 @@ export const MessageBubble = ({
           isOwn={isOwn}
           onReactionAdded={() => setShowReactionPicker(false)}
           onReply={onReply ? handleReply : undefined}
+          onSaveToNotes={canSaveToNotes ? handleSaveToNotes : undefined}
         >
           <div className="cursor-pointer">
             {bubbleContent}
           </div>
         </ReactionPicker>
-        
-        {/* Save to Notes button - only for text messages */}
-        {onSaveToNotes && !isImageUrl(message.content) && !isDocumentUrl(message.content) && (
-          <SendToNotesButton
-            onClick={() => onSaveToNotes(message.content, message.id)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity"
-          />
-        )}
       </div>
       
       {/* Reactions */}
