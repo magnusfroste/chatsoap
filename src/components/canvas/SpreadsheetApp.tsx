@@ -497,18 +497,24 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
   }, [saveData]);
 
   // Handle cell click
+  // Handle cell click - immediately enable editing
   const handleCellClick = useCallback((cellId: string) => {
     setSelectedCell(cellId);
-    setEditingCell(null);
-  }, []);
+    setEditingCell(cellId);
+    const cell = data.cells[cellId];
+    setEditValue(cell?.formula || cell?.value || "");
+  }, [data.cells]);
 
-  // Handle cell double-click
+  // Handle cell double-click - select all text
   const handleCellDoubleClick = useCallback((cellId: string) => {
     setSelectedCell(cellId);
     setEditingCell(cellId);
     const cell = data.cells[cellId];
     setEditValue(cell?.formula || cell?.value || "");
-    setTimeout(() => inputRef.current?.focus(), 0);
+    setTimeout(() => {
+      const activeInput = document.activeElement as HTMLInputElement;
+      activeInput?.select?.();
+    }, 0);
   }, [data.cells]);
 
   // Handle key down in cell
