@@ -16,7 +16,9 @@ import {
   ArrowUpDown,
   Loader2,
   Download,
-  Trash2
+  Trash2,
+  Check,
+  X
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -943,6 +945,46 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
         )}>
           {selectedCell || ""}
         </span>
+        
+        {/* Confirm/Cancel buttons for formula mode */}
+        {isInFormulaMode && (
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 bg-green-500/20 hover:bg-green-500/30 text-green-600"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                if (selectedCell) {
+                  updateCell(selectedCell, editValue);
+                  setEditingCell(null);
+                  setFormulaSourceCell(null);
+                }
+              }}
+              title="Confirm formula (Enter)"
+            >
+              <Check className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 bg-red-500/20 hover:bg-red-500/30 text-red-600"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                if (selectedCell) {
+                  const originalValue = data.cells[selectedCell]?.formula || data.cells[selectedCell]?.value || "";
+                  setEditValue(originalValue);
+                  setEditingCell(null);
+                  setFormulaSourceCell(null);
+                }
+              }}
+              title="Cancel (Escape)"
+            >
+              <X className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        )}
+        
         {isInFormulaMode && (
           <span className="text-[10px] text-primary bg-primary/20 px-1.5 py-0.5 rounded shrink-0">
             Click cells to add references
@@ -955,6 +997,9 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
             onChange={(e) => setEditValue(e.target.value)}
             onKeyDown={(e) => selectedCell && handleKeyDown(e, selectedCell)}
             onBlur={() => {
+              // In formula mode, don't auto-save on blur - require explicit confirm
+              if (isInFormulaMode) return;
+              
               if (editingCell && selectedCell) {
                 updateCell(selectedCell, editValue);
                 setEditingCell(null);
