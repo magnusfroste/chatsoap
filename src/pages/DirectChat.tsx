@@ -15,6 +15,8 @@ import { ArrowLeft, Send, Bot, Loader2, Mic, Phone, Video, FolderOpen } from "lu
 import { ChatActionsMenu } from "@/components/ChatActionsMenu";
 import { MessageBubble, ReplyPreview } from "@/components/MessageBubble";
 import { CallUI } from "@/components/CallUI";
+import { InlineCallBar } from "@/components/InlineCallBar";
+import { FloatingVideoCall } from "@/components/FloatingVideoCall";
 import { EmojiPicker } from "@/components/EmojiPicker";
 import { FileUploadButton, FilePreview, UploadedFile } from "@/components/FileUploadButton";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -596,8 +598,8 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
 
   return (
     <TooltipProvider>
-      {/* Call UI Overlay */}
-      {callState.status !== "idle" && (
+      {/* Incoming call - still use full overlay */}
+      {callState.status === "ringing" && callState.isIncoming && (
         <CallUI
           status={callState.status}
           callType={callState.callType}
@@ -611,6 +613,27 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
           isScreenSharing={isScreenSharing}
           onAccept={acceptCall}
           onDecline={declineCall}
+          onEnd={endCall}
+          onToggleAudio={toggleAudio}
+          onToggleVideo={toggleVideo}
+          onToggleScreenShare={toggleScreenShare}
+        />
+      )}
+
+      {/* Active video call - floating panel */}
+      {callState.status !== "idle" && 
+       !(callState.status === "ringing" && callState.isIncoming) && 
+       (callState.callType === "video" || videoEnabled) && (
+        <FloatingVideoCall
+          status={callState.status}
+          callType={callState.callType}
+          remoteUserName={callState.remoteUserName}
+          localStream={localStream}
+          remoteStream={remoteStream}
+          screenStream={screenStream}
+          audioEnabled={audioEnabled}
+          videoEnabled={videoEnabled}
+          isScreenSharing={isScreenSharing}
           onEnd={endCall}
           onToggleAudio={toggleAudio}
           onToggleVideo={toggleVideo}
@@ -676,16 +699,33 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
                 </p>
               </div>
 
-              {/* Action icons - Call buttons (hidden for AI chat) */}
+              {/* Action icons - Call buttons or inline call bar */}
               <div className="flex items-center gap-1">
-                {conversation?.type !== "ai_chat" && (
+                {/* Inline call bar for audio calls (not video, not incoming) */}
+                {callState.status !== "idle" && 
+                 !(callState.status === "ringing" && callState.isIncoming) && 
+                 callState.callType === "audio" && 
+                 !videoEnabled && (
+                  <InlineCallBar
+                    status={callState.status}
+                    callType={callState.callType}
+                    remoteUserName={callState.remoteUserName}
+                    remoteStream={remoteStream}
+                    audioEnabled={audioEnabled}
+                    onEnd={endCall}
+                    onToggleAudio={toggleAudio}
+                    onExpandToVideo={toggleVideo}
+                  />
+                )}
+
+                {/* Call buttons - only show when not in a call */}
+                {conversation?.type !== "ai_chat" && callState.status === "idle" && (
                   <>
                     <Button 
                       variant="ghost" 
                       size="icon" 
                       className="text-muted-foreground hover:text-foreground"
                       onClick={() => startCall("video")}
-                      disabled={callState.status !== "idle"}
                     >
                       <Video className="w-5 h-5" />
                     </Button>
@@ -694,7 +734,6 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
                       size="icon" 
                       className="text-muted-foreground hover:text-foreground"
                       onClick={() => startCall("audio")}
-                      disabled={callState.status !== "idle"}
                     >
                       <Phone className="w-5 h-5" />
                     </Button>
