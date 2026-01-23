@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -21,11 +22,20 @@ import {
   PenLine,
   Palette,
   GraduationCap,
+  Loader2,
   LucideIcon
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { toast } from "sonner";
 
-// Simulated registry data - in production this would come from the modular prompt system
+interface ToolSettings {
+  [key: string]: boolean;
+}
+
+interface PersonaSettings {
+  [key: string]: boolean;
+}
+
 interface RegisteredTool {
   id: string;
   name: string;
@@ -33,7 +43,6 @@ interface RegisteredTool {
   promptInstructions: string;
   icon: string;
   isBuiltIn: boolean;
-  isAvailable: boolean;
 }
 
 interface RegisteredPersona {
@@ -71,7 +80,6 @@ const registeredTools: RegisteredTool[] = [
     promptInstructions: "Use ONLY when the user explicitly asks to analyze, describe, or explain attached images.",
     icon: "ScanEye",
     isBuiltIn: true,
-    isAvailable: true,
   },
   {
     id: "web_search",
@@ -80,7 +88,6 @@ const registeredTools: RegisteredTool[] = [
     promptInstructions: "Use when you need current/recent information that might be outdated in your training data.",
     icon: "Search",
     isBuiltIn: true,
-    isAvailable: true, // Would check FIRECRAWL_API_KEY in production
   },
   {
     id: "generate_image",
@@ -89,7 +96,6 @@ const registeredTools: RegisteredTool[] = [
     promptInstructions: "Use when the user asks you to create, draw, generate, or visualize an image.",
     icon: "ImagePlus",
     isBuiltIn: true,
-    isAvailable: true,
   },
   {
     id: "code_execution",
@@ -98,7 +104,6 @@ const registeredTools: RegisteredTool[] = [
     promptInstructions: "Use when the user asks you to run or execute code and show the result.",
     icon: "Play",
     isBuiltIn: true,
-    isAvailable: true,
   },
   {
     id: "send_code_to_sandbox",
@@ -107,7 +112,6 @@ const registeredTools: RegisteredTool[] = [
     promptInstructions: 'Use when the user asks you to "write a function", "create code", or wants to collaborate on code.',
     icon: "Code2",
     isBuiltIn: true,
-    isAvailable: true,
   },
   {
     id: "generate_slides",
@@ -116,7 +120,6 @@ const registeredTools: RegisteredTool[] = [
     promptInstructions: "Use when the user asks to create a presentation, slideshow, pitch deck, or slides.",
     icon: "Presentation",
     isBuiltIn: true,
-    isAvailable: true,
   },
   {
     id: "navigate_browser",
@@ -125,7 +128,6 @@ const registeredTools: RegisteredTool[] = [
     promptInstructions: 'Use when the user asks you to "go to", "open", "visit", or "navigate to" a website.',
     icon: "Globe",
     isBuiltIn: true,
-    isAvailable: true,
   },
 ];
 
@@ -178,40 +180,72 @@ const registeredPersonas: RegisteredPersona[] = [
   },
 ];
 
-function ToolCard({ tool }: { tool: RegisteredTool }) {
+const defaultToolSettings: ToolSettings = {
+  analyze_images: true,
+  web_search: true,
+  send_code_to_sandbox: true,
+  code_execution: false,
+  generate_image: false,
+  generate_slides: true,
+  navigate_browser: true,
+};
+
+const defaultPersonaSettings: PersonaSettings = {
+  general: true,
+  code: true,
+  writer: true,
+  creative: true,
+  learning: true,
+};
+
+function ToolCard({ 
+  tool, 
+  enabled, 
+  onToggle, 
+  saving 
+}: { 
+  tool: RegisteredTool; 
+  enabled: boolean;
+  onToggle: (enabled: boolean) => void;
+  saving: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
   const Icon = iconMap[tool.icon] || Wrench;
 
   return (
     <Collapsible open={expanded} onOpenChange={setExpanded}>
       <div className="p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-md ${tool.isAvailable ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className={`p-2 rounded-md shrink-0 ${enabled ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
               <Icon className="w-4 h-4" />
             </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-medium">{tool.name}</span>
                 {tool.isBuiltIn && (
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                     Built-in
                   </Badge>
                 )}
-                {!tool.isAvailable && (
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-amber-500 border-amber-500/50">
-                    Unavailable
-                  </Badge>
-                )}
               </div>
-              <p className="text-xs text-muted-foreground">{tool.description}</p>
+              <p className="text-xs text-muted-foreground truncate">{tool.description}</p>
             </div>
           </div>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
-          </CollapsibleTrigger>
+          <div className="flex items-center gap-1 shrink-0">
+            {saving && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+            <Switch
+              checked={enabled}
+              onCheckedChange={onToggle}
+              disabled={saving}
+              className="data-[state=checked]:bg-primary"
+            />
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7">
+                {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              </Button>
+            </CollapsibleTrigger>
+          </div>
         </div>
         
         <CollapsibleContent className="mt-3 pt-3 border-t border-border/50">
@@ -235,20 +269,30 @@ function ToolCard({ tool }: { tool: RegisteredTool }) {
   );
 }
 
-function PersonaCard({ persona }: { persona: RegisteredPersona }) {
+function PersonaCard({ 
+  persona, 
+  enabled,
+  onToggle,
+  saving
+}: { 
+  persona: RegisteredPersona; 
+  enabled: boolean;
+  onToggle: (enabled: boolean) => void;
+  saving: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
   const Icon = iconMap[persona.icon] || Bot;
 
   return (
     <Collapsible open={expanded} onOpenChange={setExpanded}>
       <div className="p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-md bg-gradient-to-br ${persona.gradient} text-white`}>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className={`p-2 rounded-md shrink-0 bg-gradient-to-br ${persona.gradient} ${enabled ? "opacity-100" : "opacity-40"} text-white`}>
               <Icon className="w-4 h-4" />
             </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-medium">{persona.name}</span>
                 {persona.isBuiltIn && (
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
@@ -256,14 +300,23 @@ function PersonaCard({ persona }: { persona: RegisteredPersona }) {
                   </Badge>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground">{persona.description}</p>
+              <p className="text-xs text-muted-foreground truncate">{persona.description}</p>
             </div>
           </div>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
-          </CollapsibleTrigger>
+          <div className="flex items-center gap-1 shrink-0">
+            {saving && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+            <Switch
+              checked={enabled}
+              onCheckedChange={onToggle}
+              disabled={saving}
+              className="data-[state=checked]:bg-primary"
+            />
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7">
+                {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              </Button>
+            </CollapsibleTrigger>
+          </div>
         </div>
         
         <CollapsibleContent className="mt-3 pt-3 border-t border-border/50">
@@ -294,6 +347,116 @@ function PersonaCard({ persona }: { persona: RegisteredPersona }) {
 }
 
 export function PluginRegistryCard() {
+  const [toolSettings, setToolSettings] = useState<ToolSettings>(defaultToolSettings);
+  const [personaSettings, setPersonaSettings] = useState<PersonaSettings>(defaultPersonaSettings);
+  const [loading, setLoading] = useState(true);
+  const [savingTool, setSavingTool] = useState<string | null>(null);
+  const [savingPersona, setSavingPersona] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const [toolsResult, personasResult] = await Promise.all([
+        supabase.from("app_settings").select("value").eq("key", "ai_tools_enabled").single(),
+        supabase.from("app_settings").select("value").eq("key", "ai_personas_enabled").single(),
+      ]);
+
+      if (toolsResult.data?.value && typeof toolsResult.data.value === "object") {
+        setToolSettings({ ...defaultToolSettings, ...(toolsResult.data.value as ToolSettings) });
+      }
+      
+      if (personasResult.data?.value && typeof personasResult.data.value === "object") {
+        setPersonaSettings({ ...defaultPersonaSettings, ...(personasResult.data.value as PersonaSettings) });
+      }
+    } catch {
+      // Use defaults
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleTool = async (toolId: string, enabled: boolean) => {
+    const newSettings = { ...toolSettings, [toolId]: enabled };
+    setToolSettings(newSettings);
+    setSavingTool(toolId);
+
+    try {
+      const { data: existing } = await supabase
+        .from("app_settings")
+        .select("id")
+        .eq("key", "ai_tools_enabled")
+        .single();
+
+      if (existing) {
+        await supabase
+          .from("app_settings")
+          .update({ value: newSettings, updated_at: new Date().toISOString() })
+          .eq("key", "ai_tools_enabled");
+      } else {
+        await supabase
+          .from("app_settings")
+          .insert({ key: "ai_tools_enabled", value: newSettings });
+      }
+
+      const tool = registeredTools.find(t => t.id === toolId);
+      toast.success(`${tool?.name || toolId} ${enabled ? "enabled" : "disabled"}`);
+    } catch {
+      setToolSettings(toolSettings);
+      toast.error("Failed to save setting");
+    } finally {
+      setSavingTool(null);
+    }
+  };
+
+  const togglePersona = async (personaId: string, enabled: boolean) => {
+    const newSettings = { ...personaSettings, [personaId]: enabled };
+    setPersonaSettings(newSettings);
+    setSavingPersona(personaId);
+
+    try {
+      const { data: existing } = await supabase
+        .from("app_settings")
+        .select("id")
+        .eq("key", "ai_personas_enabled")
+        .single();
+
+      if (existing) {
+        await supabase
+          .from("app_settings")
+          .update({ value: newSettings, updated_at: new Date().toISOString() })
+          .eq("key", "ai_personas_enabled");
+      } else {
+        await supabase
+          .from("app_settings")
+          .insert({ key: "ai_personas_enabled", value: newSettings });
+      }
+
+      const persona = registeredPersonas.find(p => p.id === personaId);
+      toast.success(`${persona?.name || personaId} ${enabled ? "enabled" : "disabled"}`);
+    } catch {
+      setPersonaSettings(personaSettings);
+      toast.error("Failed to save setting");
+    } finally {
+      setSavingPersona(null);
+    }
+  };
+
+  const enabledToolsCount = Object.values(toolSettings).filter(Boolean).length;
+  const enabledPersonasCount = Object.values(personaSettings).filter(Boolean).length;
+
+  if (loading) {
+    return (
+      <Card className="glass-card border-border/50">
+        <CardContent className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="glass-card border-border/50">
       <CardHeader>
@@ -302,7 +465,7 @@ export function PluginRegistryCard() {
           Plugin Registry
         </CardTitle>
         <CardDescription>
-          View registered tools and personas from the modular prompt system. Third-party plugins will appear here.
+          Enable or disable tools and personas. Third-party plugins will appear here when registered.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -310,36 +473,46 @@ export function PluginRegistryCard() {
           <TabsList className="grid w-full grid-cols-2 mb-4">
             <TabsTrigger value="tools" className="flex items-center gap-2">
               <Wrench className="w-4 h-4" />
-              Tools ({registeredTools.length})
+              Tools ({enabledToolsCount}/{registeredTools.length})
             </TabsTrigger>
             <TabsTrigger value="personas" className="flex items-center gap-2">
               <Bot className="w-4 h-4" />
-              Personas ({registeredPersonas.length})
+              Personas ({enabledPersonasCount}/{registeredPersonas.length})
             </TabsTrigger>
           </TabsList>
           
           <TabsContent value="tools" className="space-y-2 mt-0">
             {registeredTools.map((tool) => (
-              <ToolCard key={tool.id} tool={tool} />
+              <ToolCard 
+                key={tool.id} 
+                tool={tool} 
+                enabled={toolSettings[tool.id] ?? false}
+                onToggle={(enabled) => toggleTool(tool.id, enabled)}
+                saving={savingTool === tool.id}
+              />
             ))}
             
             <div className="pt-3 border-t border-border/50 mt-4">
               <p className="text-xs text-muted-foreground">
-                <strong>Developer note:</strong> Register custom tools via <code className="text-[10px] bg-muted px-1 rounded">registerTool()</code> in edge functions. 
-                See <code className="text-[10px] bg-muted px-1 rounded">docs/examples/</code> for examples.
+                <strong>Note:</strong> Disabled tools won't be available to the AI. Some tools require API keys (e.g., Web Search needs Firecrawl).
               </p>
             </div>
           </TabsContent>
           
           <TabsContent value="personas" className="space-y-2 mt-0">
             {registeredPersonas.map((persona) => (
-              <PersonaCard key={persona.id} persona={persona} />
+              <PersonaCard 
+                key={persona.id} 
+                persona={persona}
+                enabled={personaSettings[persona.id] ?? true}
+                onToggle={(enabled) => togglePersona(persona.id, enabled)}
+                saving={savingPersona === persona.id}
+              />
             ))}
             
             <div className="pt-3 border-t border-border/50 mt-4">
               <p className="text-xs text-muted-foreground">
-                <strong>Developer note:</strong> Register custom personas via <code className="text-[10px] bg-muted px-1 rounded">registerPersona()</code> in edge functions. 
-                Users can also create custom personas in chat settings.
+                <strong>Note:</strong> Disabled personas won't appear in the persona switcher. Users can still create custom personas.
               </p>
             </div>
           </TabsContent>
