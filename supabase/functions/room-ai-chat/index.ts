@@ -2,6 +2,15 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getLLMConfig, validateLLMConfig, type LLMConfig } from "../_shared/llm-config.ts";
 
+// Import modular prompt system
+import {
+  buildSystemPrompt,
+  getAllTools,
+  getPersona,
+  type PromptBuilderConfig,
+  type AttachmentInfo,
+} from "../_shared/prompt-system/index.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -36,6 +45,7 @@ interface ToolSettings {
   code_execution: boolean;
   send_code_to_sandbox: boolean;
   generate_slides: boolean;
+  navigate_browser: boolean;
 }
 
 const defaultToolSettings: ToolSettings = {
@@ -43,172 +53,10 @@ const defaultToolSettings: ToolSettings = {
   web_search: true,
   generate_image: false,
   code_execution: false,
-  send_code_to_sandbox: true, // Always enabled for Claude-like artifact experience
-  generate_slides: true, // Enabled by default for presentation generation
+  send_code_to_sandbox: true,
+  generate_slides: true,
+  navigate_browser: true,
 };
-
-// All available tool definitions
-const allTools = {
-  analyze_images: {
-    type: "function",
-    function: {
-      name: "analyze_images",
-      description: "Analyze images that the user has attached to the conversation. Use this tool ONLY when the user explicitly asks to analyze, describe, or explain images. Do not call this tool if the user hasn't asked about the images.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: {
-            type: "string",
-            description: "What the user wants to know about the images",
-          },
-        },
-        required: ["query"],
-      },
-    },
-  },
-  web_search: {
-    type: "function",
-    function: {
-      name: "web_search",
-      description: "Search the web for current information when your knowledge is insufficient or outdated. Use this for: current events, recent news, live data, prices, statistics, or any factual information that might have changed since your training.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: {
-            type: "string",
-            description: "The search query to find information on the web",
-          },
-        },
-        required: ["query"],
-      },
-    },
-  },
-  generate_image: {
-    type: "function",
-    function: {
-      name: "generate_image",
-      description: "Generate an image based on a text description. Use this when the user asks you to create, draw, generate, or make an image or picture of something.",
-      parameters: {
-        type: "object",
-        properties: {
-          prompt: {
-            type: "string",
-            description: "Detailed description of the image to generate. Be specific about style, colors, composition, and content.",
-          },
-          style: {
-            type: "string",
-            enum: ["realistic", "artistic", "cartoon", "sketch", "3d"],
-            description: "The visual style for the generated image",
-          },
-        },
-        required: ["prompt"],
-      },
-    },
-  },
-  code_execution: {
-    type: "function",
-    function: {
-      name: "code_execution",
-      description: "Execute code in a sandboxed environment. Use this when the user asks you to run, execute, or test code. Supports JavaScript/TypeScript.",
-      parameters: {
-        type: "object",
-        properties: {
-          code: {
-            type: "string",
-            description: "The code to execute",
-          },
-          language: {
-            type: "string",
-            enum: ["javascript", "typescript"],
-            description: "The programming language",
-          },
-        },
-        required: ["code", "language"],
-      },
-    },
-  },
-  send_code_to_sandbox: {
-    type: "function",
-    function: {
-      name: "send_code_to_sandbox",
-      description: "Send code to the collaborative sandbox for the user to view, edit, and run. ALWAYS use this tool when generating code examples, snippets, or complete programs. This opens the sandbox automatically so users can see and interact with the code immediately - like Claude Artifacts.",
-      parameters: {
-        type: "object",
-        properties: {
-          code: {
-            type: "string",
-            description: "The code to send to the sandbox",
-          },
-          language: {
-            type: "string",
-            enum: ["javascript", "typescript"],
-            description: "The programming language",
-          },
-          auto_run: {
-            type: "boolean",
-            description: "Whether to automatically run the code after sending (default: false)",
-          },
-        },
-        required: ["code", "language"],
-      },
-    },
-  },
-  generate_slides: {
-    type: "function",
-    function: {
-      name: "generate_slides",
-      description: "Generate a presentation with slides. Use this when the user asks to create a presentation, slideshow, pitch deck, or slides about any topic. The slides will appear in the Slides canvas app.",
-      parameters: {
-        type: "object",
-        properties: {
-          title: {
-            type: "string",
-            description: "The presentation title",
-          },
-          slides: {
-            type: "array",
-            description: "Array of slides to generate",
-            items: {
-              type: "object",
-              properties: {
-                id: {
-                  type: "string",
-                  description: "Unique slide ID (e.g., 'slide-1')",
-                },
-                title: {
-                  type: "string",
-                  description: "Slide title",
-                },
-                content: {
-                  type: "string",
-                  description: "Slide content. Use '- ' prefix for bullet points. Use '\\n\\n' for two-column splits.",
-                },
-                notes: {
-                  type: "string",
-                  description: "Speaker notes (optional)",
-                },
-                layout: {
-                  type: "string",
-                  enum: ["title", "title-content", "two-column", "bullets", "quote"],
-                  description: "Slide layout type",
-                },
-              },
-              required: ["id", "title", "content", "layout"],
-            },
-          },
-          theme: {
-            type: "string",
-            enum: ["dark", "light", "minimal", "bold"],
-            description: "Presentation theme (default: dark)",
-          },
-        },
-        required: ["title", "slides"],
-      },
-    },
-  },
-};
-
-// getLLMConfig is now imported from _shared/llm-config.ts
 
 async function getToolSettings(): Promise<ToolSettings> {
   try {
@@ -231,7 +79,29 @@ async function getToolSettings(): Promise<ToolSettings> {
   return defaultToolSettings;
 }
 
-// Parse document (PDF, DOCX, etc.) using the parse-document edge function
+// ============================================
+// FILE HANDLING UTILITIES
+// ============================================
+
+function isParseableDocument(mimeType: string): boolean {
+  const parseableMimeTypes = [
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/rtf",
+  ];
+  return parseableMimeTypes.includes(mimeType);
+}
+
+function isImageFile(mimeType: string): boolean {
+  return mimeType.startsWith("image/") && 
+    ["image/jpeg", "image/png", "image/gif", "image/webp"].includes(mimeType);
+}
+
 async function parseDocumentContent(file: CAGFile): Promise<string> {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -299,25 +169,6 @@ async function parseDocumentContent(file: CAGFile): Promise<string> {
     console.error(`Error parsing document ${file.name}:`, error);
     return `[Document attached: ${file.name}] - Error during extraction.`;
   }
-}
-
-function isParseableDocument(mimeType: string): boolean {
-  const parseableMimeTypes = [
-    "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "application/vnd.ms-powerpoint",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    "application/rtf",
-  ];
-  return parseableMimeTypes.includes(mimeType);
-}
-
-function isImageFile(mimeType: string): boolean {
-  return mimeType.startsWith("image/") && 
-    ["image/jpeg", "image/png", "image/gif", "image/webp"].includes(mimeType);
 }
 
 async function fetchFileContent(file: CAGFile): Promise<string | null> {
@@ -451,7 +302,10 @@ async function buildCAGContext(cagFiles: CAGFile[], cagNotes: CAGNote[]): Promis
   return parts.join("\n") + "\nThe user has shared these items for context. Reference them when relevant to their questions.\n";
 }
 
-// Tool execution functions
+// ============================================
+// TOOL EXECUTION
+// ============================================
+
 async function executeWebSearch(query: string): Promise<string> {
   const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
   
@@ -583,8 +437,6 @@ async function executeImageAnalysis(
 }
 
 async function executeImageGeneration(prompt: string, style?: string): Promise<string> {
-  // For now, return a message that this is not yet implemented
-  // In a real implementation, this would call DALL-E, Stable Diffusion, etc.
   console.log(`Image generation requested: "${prompt}", style: ${style || "default"}`);
   
   return `🎨 **Image Generation Request**
@@ -609,8 +461,6 @@ async function executeCode(code: string, language: string): Promise<string> {
       return `❌ Language "${language}" is not supported. Only JavaScript and TypeScript are available.`;
     }
 
-    // Simple sandboxed execution using Function constructor
-    // This is basic - a production system would use a proper sandbox like Deno isolates
     const wrappedCode = `
       (function() {
         const logs = [];
@@ -679,12 +529,10 @@ async function processToolCalls(
           result = await executeCode(args.code, args.language);
           break;
         case "send_code_to_sandbox":
-          // This is a client-side action - we return an instruction for the frontend
           const autoRun = args.auto_run || false;
           result = `__CODE_SANDBOX__:${JSON.stringify({ code: args.code, language: args.language, autoRun })}`;
           break;
         case "generate_slides":
-          // This is a client-side action - we return an instruction for the frontend to open slides
           result = `__SLIDES_UPDATE__:${JSON.stringify({ 
             slides: args.slides, 
             title: args.title, 
@@ -692,7 +540,6 @@ async function processToolCalls(
           })}`;
           break;
         case "navigate_browser":
-          // This is a client-side action - we just return the instruction
           result = `__BROWSER_NAVIGATE__:${args.url}`;
           break;
         default:
@@ -709,6 +556,38 @@ async function processToolCalls(
 
   return results;
 }
+
+// ============================================
+// BUILD TOOL DEFINITIONS FROM REGISTRY
+// ============================================
+
+function buildToolDefinitions(toolSettings: ToolSettings, hasImages: boolean): any[] {
+  const tools: any[] = [];
+  
+  // Get all registered tools from the modular system
+  const registeredTools = getAllTools();
+  
+  for (const tool of registeredTools) {
+    const toolId = tool.id;
+    
+    // Check if tool is enabled in settings
+    if (!(toolSettings as any)[toolId]) continue;
+    
+    // Special case: analyze_images requires images
+    if (toolId === "analyze_images" && !hasImages) continue;
+    
+    // Special case: web_search requires Firecrawl API key
+    if (toolId === "web_search" && !Deno.env.get("FIRECRAWL_API_KEY")) continue;
+    
+    tools.push(tool.definition);
+  }
+  
+  return tools;
+}
+
+// ============================================
+// MAIN HANDLER
+// ============================================
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -729,161 +608,64 @@ serve(async (req) => {
 
     console.log("Tool settings:", JSON.stringify(toolSettings));
 
+    // Build CAG context
     const cagContext = await buildCAGContext(cagFiles || [], cagNotes || []);
     const imageFiles = getImageFiles(cagFiles || []);
 
+    // Convert files to AttachmentInfo for the prompt system
+    const attachments: AttachmentInfo[] = (cagFiles || []).map((f: CAGFile) => ({
+      name: f.name,
+      type: f.mimeType,
+      url: f.url,
+    }));
+
+    // Build system prompt using modular system
+    // Convert ToolSettings to Record<string, boolean>
+    const toolSettingsRecord: Record<string, boolean> = {
+      analyze_images: toolSettings.analyze_images,
+      web_search: toolSettings.web_search,
+      generate_image: toolSettings.generate_image,
+      code_execution: toolSettings.code_execution,
+      send_code_to_sandbox: toolSettings.send_code_to_sandbox,
+      generate_slides: toolSettings.generate_slides,
+      navigate_browser: toolSettings.navigate_browser,
+    };
+
+    const promptConfig: PromptBuilderConfig = {
+      persona: persona || "general",
+      customSystemPrompt,
+      toolSettings: toolSettingsRecord,
+      cagContext,
+      context: {
+        roomId,
+        attachments,
+      },
+    };
+
+    const promptResult = await buildSystemPrompt(promptConfig, {
+      formatStyle: "conversational",
+    });
+
+    console.log("Using LLM:", llmConfig.model, "at", llmConfig.endpoint);
+    console.log("Persona:", promptResult.metadata.persona);
+    console.log("Enabled tools from registry:", promptResult.metadata.enabledTools.join(", ") || "none");
+    console.log("CAG files:", cagFiles?.length || 0, "images:", imageFiles.length);
+
+    // Build conversation messages
     const conversationMessages = messageHistory.map((msg: any) => ({
       role: msg.is_ai ? "assistant" : "user",
       content: msg.is_ai ? msg.content : `[${msg.display_name || "User"}]: ${msg.content}`,
     }));
 
-    console.log("Using LLM:", llmConfig.model, "at", llmConfig.endpoint);
-    console.log("Sending", conversationMessages.length, "messages, persona:", persona);
-    console.log("CAG files:", cagFiles?.length || 0, "images available for tool:", imageFiles.length);
-
-    const personaPrompts: Record<string, string> = {
-      general: `You are a helpful AI assistant in Messem - an exclusive collaboration platform for the tech elite.
-
-You participate in a room where multiple users can ask questions and discuss together with you.
-Messages from users are shown with their name in brackets, e.g. "[Anna]: Hello!"
-Always respond in the same language the user writes in.
-
-You have access to tools when enabled by admin:
-- analyze_images: Use ONLY when the user explicitly asks to analyze, describe, or explain attached images
-- web_search: Use when you need current/recent information that might be outdated in your training data
-- generate_image: Use when the user asks you to create, draw, or generate an image
-- code_execution: Use when the user asks you to run or execute code directly and show the result
-- send_code_to_sandbox: Use when the user asks you to "write a function", "create code", "show me code", or wants to collaborate on code. This sends the code to the shared Code Sandbox canvas where everyone can see, edit, and run it together. ALWAYS use this for coding requests!
-- generate_slides: Use when the user asks to create a presentation, slideshow, pitch deck, or slides. Generate well-structured slides with clear titles and bullet points.
-- navigate_browser: Use when the user asks you to "go to", "open", "visit", or "navigate to" a website
-
-IMPORTANT: 
-- When a user asks you to write, create, or show code/functions, ALWAYS use send_code_to_sandbox!
-- When a user asks for a presentation or slides, ALWAYS use generate_slides!
-
-Be:
-- Concise but informative
-- Technically knowledgeable
-- Friendly and collaborative
-- Creative when appropriate
-
-If someone asks something you don't know, use web_search to find current information.
-If someone asks you to open or go to a website, use navigate_browser.
-If someone asks you to write code or a function, use send_code_to_sandbox.
-If someone asks you to create a presentation or slides, use generate_slides.`,
-
-      code: `You are an expert code assistant with deep knowledge in programming and software development.
-
-You have access to tools when enabled:
-- analyze_images: Use when user asks about images (screenshots, diagrams, code images)
-- web_search: Use to find documentation, latest API info, or solve technical problems
-- code_execution: Use to run code and show output in chat
-- send_code_to_sandbox: Use when user asks you to write, create, or share code. This sends code to the collaborative Code Sandbox canvas where everyone can view, edit, and run it together. ALWAYS use this for coding requests!
-- navigate_browser: Use when user asks to "go to", "open", "visit" a website
-
-IMPORTANT: When asked to write code, functions, or algorithms, ALWAYS use send_code_to_sandbox to share it in the collaborative sandbox!
-
-You help users with:
-- Writing, reviewing, and improving code
-- Debugging bugs and solving technical problems
-- Explaining concepts and design patterns
-- Suggesting best practices and optimizations
-
-Always respond in the same language the user writes in.
-Use send_code_to_sandbox for all code you write so users can collaborate on it.`,
-
-      writer: `You are a skilled writing assistant who helps with everything from creative writing to professional communication.
-
-You have access to tools when enabled:
-- analyze_images: Use when user asks about images for writing context
-- web_search: Use to research topics, find facts, or verify information
-- generate_image: Use to create illustrations for writing
-- navigate_browser: Use when user asks to "go to", "open", "visit" a website
-
-You help users with:
-- Formulating and improving texts
-- Proofreading and providing feedback on structure
-- Adapting tone and style for different audiences
-- Writing emails, reports, articles, and other content
-
-Always respond in the same language the user writes in.`,
-
-      creative: `You are a creative brainstorming partner full of ideas and inspiration!
-
-You have access to tools when enabled:
-- analyze_images: Use when user asks about images for creative inspiration
-- web_search: Use to find inspiration, trends, or reference material
-- generate_image: Use to visualize creative concepts
-- navigate_browser: Use when user asks to "go to", "open", "visit" a website
-
-You help users with:
-- Generating innovative ideas and concepts
-- Thinking outside the box and challenging assumptions
-- Developing concepts through "what if" scenarios
-
-Always respond in the same language the user writes in.
-Be enthusiastic, open, and playful in your approach!`,
-
-      learning: `You are a pedagogical mentor who adapts explanations to the user's level.
-
-You have access to tools when enabled:
-- analyze_images: Use when user asks about images for learning (diagrams, charts, etc.)
-- web_search: Use to find educational resources, examples, or verify facts
-- code_execution: Use to demonstrate code examples
-- send_code_to_sandbox: Use when teaching code - send examples to the collaborative sandbox so users can experiment! ALWAYS use this when explaining programming concepts.
-- navigate_browser: Use when user asks to "go to", "open", "visit" a website
-
-IMPORTANT: When teaching code, ALWAYS use send_code_to_sandbox so students can run and modify examples!
-
-You help users with:
-- Explaining complex topics in an understandable way
-- Breaking down large concepts into smaller parts
-- Giving examples and analogies that make abstract concrete
-
-Always respond in the same language the user writes in.
-Start with the basics and build understanding gradually.`,
-    };
-
-    let systemPrompt = customSystemPrompt || personaPrompts[persona] || personaPrompts.general;
-    
-    if (cagContext) {
-      systemPrompt = `${systemPrompt}\n\n${cagContext}`;
-    }
-
-    if (imageFiles.length > 0) {
-      const imageNames = imageFiles.map(f => f.name).join(", ");
-      systemPrompt += `\n\nNote: The user has attached ${imageFiles.length} image(s): ${imageNames}. Use the analyze_images tool ONLY if the user explicitly asks to analyze or describe these images.`;
-    }
-
     const messages: any[] = [
-      { role: "system", content: systemPrompt },
+      { role: "system", content: promptResult.systemPrompt },
       ...conversationMessages,
     ];
 
-    // Build available tools based on settings and requirements
-    const firecrawlAvailable = !!Deno.env.get("FIRECRAWL_API_KEY");
-    const availableTools: any[] = [];
-
-    if (toolSettings.analyze_images && imageFiles.length > 0) {
-      availableTools.push(allTools.analyze_images);
-    }
-    if (toolSettings.web_search && firecrawlAvailable) {
-      availableTools.push(allTools.web_search);
-    }
-    if (toolSettings.generate_image) {
-      availableTools.push(allTools.generate_image);
-    }
-    if (toolSettings.code_execution) {
-      availableTools.push(allTools.code_execution);
-    }
-    if (toolSettings.send_code_to_sandbox) {
-      availableTools.push(allTools.send_code_to_sandbox);
-    }
-    if (toolSettings.generate_slides) {
-      availableTools.push(allTools.generate_slides);
-    }
-
-    console.log("Available tools:", availableTools.map(t => t.function.name).join(", ") || "none");
+    // Build available tools from registry
+    const availableTools = buildToolDefinitions(toolSettings, imageFiles.length > 0);
+    
+    console.log("Available tools:", availableTools.map((t: any) => t.function.name).join(", ") || "none");
 
     // First LLM call - may include tool calls
     const firstResponse = await fetch(llmConfig.endpoint, {
@@ -934,7 +716,7 @@ Start with the basics and build understanding gradually.`,
         llmConfig
       );
 
-      // Extract client-side command tokens from tool results to prepend to stream
+      // Extract client-side command tokens
       const clientCommandTokens: string[] = [];
       for (const result of toolResults) {
         if (result.content.startsWith("__SLIDES_UPDATE__:") || 
@@ -978,19 +760,15 @@ Start with the basics and build understanding gradually.`,
 
       console.log("Streaming final response after tool use, injecting", clientCommandTokens.length, "command tokens");
 
-      // If we have client command tokens, prepend them to the stream
       if (clientCommandTokens.length > 0) {
         const encoder = new TextEncoder();
         const commandPrefix = clientCommandTokens.join("\n") + "\n\n";
         
-        // Create a new stream that prepends our tokens
         const transformedStream = new ReadableStream({
           async start(controller) {
-            // First, send the command tokens as SSE data
             const prefixEvent = `data: ${JSON.stringify({ choices: [{ delta: { content: commandPrefix } }] })}\n\n`;
             controller.enqueue(encoder.encode(prefixEvent));
             
-            // Then pipe through the rest of the response
             const reader = secondResponse.body!.getReader();
             try {
               while (true) {
