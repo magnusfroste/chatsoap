@@ -254,6 +254,8 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
   const [selectedCell, setSelectedCell] = useState<string | null>(null);
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [formulaMode, setFormulaMode] = useState(false); // Track if we're building a formula
+  const [formulaSourceCell, setFormulaSourceCell] = useState<string | null>(null); // The cell where formula is being entered
   const [selection, setSelection] = useState<{ start: string; end: string } | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -497,18 +499,32 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
   }, [saveData]);
 
   // Handle cell click
-  // Handle cell click - immediately enable editing
+  // Check if currently in formula mode (editing value starts with =)
+  const isInFormulaMode = editValue.startsWith("=") && editingCell !== null;
+
+  // Handle cell click - either add to formula or select cell
   const handleCellClick = useCallback((cellId: string) => {
+    // If in formula mode, append cell reference instead of navigating
+    if (isInFormulaMode && formulaSourceCell && cellId !== formulaSourceCell) {
+      setEditValue(prev => prev + cellId);
+      // Keep focus on the formula bar
+      setTimeout(() => inputRef.current?.focus(), 0);
+      return;
+    }
+    
+    // Normal cell selection
     setSelectedCell(cellId);
     setEditingCell(cellId);
+    setFormulaSourceCell(cellId);
     const cell = data.cells[cellId];
     setEditValue(cell?.formula || cell?.value || "");
-  }, [data.cells]);
+  }, [data.cells, isInFormulaMode, formulaSourceCell]);
 
   // Handle cell double-click - select all text
   const handleCellDoubleClick = useCallback((cellId: string) => {
     setSelectedCell(cellId);
     setEditingCell(cellId);
+    setFormulaSourceCell(cellId);
     const cell = data.cells[cellId];
     setEditValue(cell?.formula || cell?.value || "");
     setTimeout(() => {
@@ -520,16 +536,19 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
   // Handle key down in cell
   const handleKeyDown = useCallback((e: React.KeyboardEvent, cellId: string) => {
     const ref = parseCellRef(cellId);
+    const isFormula = editValue.startsWith("=");
     
     if (e.key === "Enter") {
       if (editingCell) {
         updateCell(cellId, editValue);
         setEditingCell(null);
+        setFormulaSourceCell(null);
         // Move to next row
         if (ref && ref.row < data.rows - 1) {
           const nextCellId = getCellId(ref.col, ref.row + 1);
           setSelectedCell(nextCellId);
           setEditingCell(nextCellId);
+          setFormulaSourceCell(nextCellId);
           setEditValue(data.cells[nextCellId]?.formula || data.cells[nextCellId]?.value || "");
         }
       } else {
@@ -537,6 +556,7 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
       }
     } else if (e.key === "Escape") {
       setEditingCell(null);
+      setFormulaSourceCell(null);
       setSelectedCell(cellId);
     } else if (e.key === "Tab") {
       e.preventDefault();
@@ -549,21 +569,46 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
           const nextCellId = getCellId(nextCol, ref.row);
           setSelectedCell(nextCellId);
           setEditingCell(nextCellId);
+          setFormulaSourceCell(nextCellId);
           setEditValue(data.cells[nextCellId]?.formula || data.cells[nextCellId]?.value || "");
         }
       }
     } else if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight") {
-      // Only navigate if not actively typing (empty cell or cursor at start/end)
+      // In formula mode, arrow keys add cell references
+      if (isFormula && formulaSourceCell === cellId) {
+        // Check if cursor is at end of input (ready to add cell ref)
+        const input = e.target as HTMLInputElement;
+        const atEnd = input.selectionEnd === editValue.length;
+        const lastChar = editValue.slice(-1);
+        const readyForRef = atEnd && (lastChar === "=" || lastChar === "+" || lastChar === "-" || lastChar === "*" || lastChar === "/" || lastChar === "(" || lastChar === ":" || lastChar === ",");
+        
+        if (readyForRef && ref) {
+          e.preventDefault();
+          let targetCol = ref.col;
+          let targetRow = ref.row;
+          
+          if (e.key === "ArrowUp" && ref.row > 0) targetRow--;
+          if (e.key === "ArrowDown" && ref.row < data.rows - 1) targetRow++;
+          if (e.key === "ArrowLeft" && ref.col > 0) targetCol--;
+          if (e.key === "ArrowRight" && ref.col < data.columns - 1) targetCol++;
+          
+          const targetCellId = getCellId(targetCol, targetRow);
+          setEditValue(prev => prev + targetCellId);
+          return;
+        }
+      }
+      
+      // Normal navigation when not in formula mode or cursor not ready
       const input = e.target as HTMLInputElement;
       const atStart = input.selectionStart === 0;
       const atEnd = input.selectionEnd === editValue.length;
       
       // Allow arrow navigation when cell is empty or at boundaries
-      const shouldNavigate = editValue === "" || 
+      const shouldNavigate = !isFormula && (editValue === "" || 
         (e.key === "ArrowLeft" && atStart) || 
         (e.key === "ArrowRight" && atEnd) ||
         e.key === "ArrowUp" || 
-        e.key === "ArrowDown";
+        e.key === "ArrowDown");
       
       if (shouldNavigate && ref) {
         e.preventDefault();
@@ -583,11 +628,12 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
           const nextCellId = getCellId(nextCol, nextRow);
           setSelectedCell(nextCellId);
           setEditingCell(nextCellId);
+          setFormulaSourceCell(nextCellId);
           setEditValue(data.cells[nextCellId]?.formula || data.cells[nextCellId]?.value || "");
         }
       }
     }
-  }, [editingCell, editValue, updateCell, data.rows, data.columns, data.cells, handleCellDoubleClick]);
+  }, [editingCell, editValue, updateCell, data.rows, data.columns, data.cells, handleCellDoubleClick, formulaSourceCell]);
 
   // Computed values for display
   const computedValues = useMemo(() => {
@@ -689,10 +735,21 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
       </div>
 
       {/* Formula bar */}
-      <div className="flex items-center gap-2 p-2 border-b border-border bg-muted/20">
-        <span className="text-xs font-mono text-muted-foreground w-8">
+      <div className={cn(
+        "flex items-center gap-2 p-2 border-b border-border",
+        isInFormulaMode ? "bg-primary/10" : "bg-muted/20"
+      )}>
+        <span className={cn(
+          "text-xs font-mono w-8",
+          isInFormulaMode ? "text-primary font-semibold" : "text-muted-foreground"
+        )}>
           {selectedCell || ""}
         </span>
+        {isInFormulaMode && (
+          <span className="text-[10px] text-primary bg-primary/20 px-1.5 py-0.5 rounded">
+            Click cells to add references
+          </span>
+        )}
         <Input
           ref={inputRef}
           value={editingCell ? editValue : (selectedCellData?.formula || selectedCellData?.value || "")}
@@ -702,9 +759,13 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
             if (editingCell && selectedCell) {
               updateCell(selectedCell, editValue);
               setEditingCell(null);
+              setFormulaSourceCell(null);
             }
           }}
-          className="h-7 text-xs font-mono"
+          className={cn(
+            "h-7 text-xs font-mono flex-1",
+            isInFormulaMode && "ring-1 ring-primary"
+          )}
           placeholder={selectedCell ? "Enter value or formula (=SUM, =AVERAGE, etc.)" : "Select a cell"}
           disabled={!selectedCell}
         />
