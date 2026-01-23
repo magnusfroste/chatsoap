@@ -257,6 +257,12 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
   const [formulaMode, setFormulaMode] = useState(false); // Track if we're building a formula
   const [formulaSourceCell, setFormulaSourceCell] = useState<string | null>(null); // The cell where formula is being entered
   const [selection, setSelection] = useState<{ start: string; end: string } | null>(null);
+  
+  // Drag selection state for range picking in formula mode
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState<string | null>(null);
+  const [dragEnd, setDragEnd] = useState<string | null>(null);
+  
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -502,8 +508,78 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
   // Check if currently in formula mode (editing value starts with =)
   const isInFormulaMode = editValue.startsWith("=") && editingCell !== null;
 
+  // Get range reference string from two cell IDs
+  const getRangeRef = useCallback((startCell: string, endCell: string): string => {
+    const start = parseCellRef(startCell);
+    const end = parseCellRef(endCell);
+    if (!start || !end) return startCell;
+    
+    // Normalize to top-left:bottom-right
+    const minCol = Math.min(start.col, end.col);
+    const maxCol = Math.max(start.col, end.col);
+    const minRow = Math.min(start.row, end.row);
+    const maxRow = Math.max(start.row, end.row);
+    
+    const topLeft = getCellId(minCol, minRow);
+    const bottomRight = getCellId(maxCol, maxRow);
+    
+    // If same cell, return single reference
+    if (topLeft === bottomRight) return topLeft;
+    return `${topLeft}:${bottomRight}`;
+  }, []);
+
+  // Check if a cell is in the drag selection range
+  const isCellInDragRange = useCallback((cellId: string): boolean => {
+    if (!isDragging || !dragStart || !dragEnd) return false;
+    
+    const cell = parseCellRef(cellId);
+    const start = parseCellRef(dragStart);
+    const end = parseCellRef(dragEnd);
+    if (!cell || !start || !end) return false;
+    
+    const minCol = Math.min(start.col, end.col);
+    const maxCol = Math.max(start.col, end.col);
+    const minRow = Math.min(start.row, end.row);
+    const maxRow = Math.max(start.row, end.row);
+    
+    return cell.col >= minCol && cell.col <= maxCol && cell.row >= minRow && cell.row <= maxRow;
+  }, [isDragging, dragStart, dragEnd]);
+
+  // Handle mouse down on cell - start drag or prevent blur
+  const handleCellMouseDown = useCallback((cellId: string, e: React.MouseEvent) => {
+    if (isInFormulaMode && formulaSourceCell && cellId !== formulaSourceCell) {
+      e.preventDefault(); // Prevent blur from firing
+      // Start drag selection
+      setIsDragging(true);
+      setDragStart(cellId);
+      setDragEnd(cellId);
+    }
+  }, [isInFormulaMode, formulaSourceCell]);
+
+  // Handle mouse enter on cell during drag
+  const handleCellMouseEnter = useCallback((cellId: string) => {
+    if (isDragging && isInFormulaMode) {
+      setDragEnd(cellId);
+    }
+  }, [isDragging, isInFormulaMode]);
+
+  // Handle mouse up - end drag and insert range
+  const handleCellMouseUp = useCallback(() => {
+    if (isDragging && dragStart && dragEnd && isInFormulaMode) {
+      const rangeRef = getRangeRef(dragStart, dragEnd);
+      setEditValue(prev => prev + rangeRef);
+      setTimeout(() => inputRef.current?.focus(), 0);
+    }
+    setIsDragging(false);
+    setDragStart(null);
+    setDragEnd(null);
+  }, [isDragging, dragStart, dragEnd, isInFormulaMode, getRangeRef]);
+
   // Handle cell click - either add to formula or select cell
   const handleCellClick = useCallback((cellId: string, e?: React.MouseEvent) => {
+    // If was dragging, don't process click (mouseUp handles it)
+    if (isDragging) return;
+    
     // If in formula mode, append cell reference instead of navigating
     if (isInFormulaMode && formulaSourceCell && cellId !== formulaSourceCell) {
       e?.preventDefault();
@@ -519,14 +595,7 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
     setFormulaSourceCell(cellId);
     const cell = data.cells[cellId];
     setEditValue(cell?.formula || cell?.value || "");
-  }, [data.cells, isInFormulaMode, formulaSourceCell]);
-
-  // Handle mouse down on cell - prevent blur when in formula mode
-  const handleCellMouseDown = useCallback((cellId: string, e: React.MouseEvent) => {
-    if (isInFormulaMode && formulaSourceCell && cellId !== formulaSourceCell) {
-      e.preventDefault(); // Prevent blur from firing
-    }
-  }, [isInFormulaMode, formulaSourceCell]);
+  }, [data.cells, isInFormulaMode, formulaSourceCell, isDragging]);
 
   // Handle cell double-click - select all text
   const handleCellDoubleClick = useCallback((cellId: string) => {
@@ -808,23 +877,27 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
                     const isSelected = selectedCell === cellId;
                     const isEditing = editingCell === cellId;
                     const displayValue = computedValues[cellId] ?? "";
+                    const isInDragRange = isCellInDragRange(cellId);
                     
                       return (
                         <td
                           key={colIndex}
                           className={cn(
-                            "w-20 h-6 border border-border p-0 relative cursor-cell",
+                            "w-20 h-6 border border-border p-0 relative cursor-cell select-none",
                             isSelected && "ring-2 ring-primary ring-inset",
                             isInFormulaMode && formulaSourceCell && cellId !== formulaSourceCell && "hover:bg-primary/10",
+                            isInDragRange && "bg-primary/20 ring-1 ring-primary/50",
                             cell?.format?.bold && "font-bold",
                             cell?.format?.italic && "italic"
                           )}
                           style={{
                             textAlign: cell?.format?.align || "left",
-                            backgroundColor: cell?.format?.bgColor,
+                            backgroundColor: isInDragRange ? undefined : cell?.format?.bgColor,
                             color: cell?.format?.textColor,
                           }}
                           onMouseDown={(e) => handleCellMouseDown(cellId, e)}
+                          onMouseEnter={() => handleCellMouseEnter(cellId)}
+                          onMouseUp={handleCellMouseUp}
                           onClick={(e) => handleCellClick(cellId, e)}
                           onDoubleClick={() => handleCellDoubleClick(cellId)}
                         >
