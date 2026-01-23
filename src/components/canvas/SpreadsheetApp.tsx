@@ -48,6 +48,61 @@ interface SpreadsheetAppProps {
 const DEFAULT_COLS = 10;
 const DEFAULT_ROWS = 20;
 
+// Color palette for cell references in formulas
+const REF_COLORS = [
+  { bg: "rgba(59, 130, 246, 0.2)", border: "rgb(59, 130, 246)", text: "#3b82f6" },   // blue
+  { bg: "rgba(16, 185, 129, 0.2)", border: "rgb(16, 185, 129)", text: "#10b981" },   // green
+  { bg: "rgba(249, 115, 22, 0.2)", border: "rgb(249, 115, 22)", text: "#f97316" },   // orange
+  { bg: "rgba(139, 92, 246, 0.2)", border: "rgb(139, 92, 246)", text: "#8b5cf6" },   // purple
+  { bg: "rgba(236, 72, 153, 0.2)", border: "rgb(236, 72, 153)", text: "#ec4899" },   // pink
+  { bg: "rgba(234, 179, 8, 0.2)", border: "rgb(234, 179, 8)", text: "#eab308" },     // yellow
+  { bg: "rgba(6, 182, 212, 0.2)", border: "rgb(6, 182, 212)", text: "#06b6d4" },     // cyan
+  { bg: "rgba(239, 68, 68, 0.2)", border: "rgb(239, 68, 68)", text: "#ef4444" },     // red
+];
+
+// Extract all cell references from a formula (single cells and ranges)
+const extractCellRefs = (formula: string): { ref: string; start: number; end: number; cells: string[] }[] => {
+  const refs: { ref: string; start: number; end: number; cells: string[] }[] = [];
+  // Match ranges like A1:B5 or single cells like A1
+  const regex = /([A-Z]+\d+)(?::([A-Z]+\d+))?/gi;
+  let match;
+  
+  while ((match = regex.exec(formula)) !== null) {
+    const fullRef = match[0];
+    const startCell = match[1].toUpperCase();
+    const endCell = match[2]?.toUpperCase();
+    
+    const cells: string[] = [];
+    if (endCell) {
+      // It's a range - expand to all cells
+      const start = parseCellRef(startCell);
+      const end = parseCellRef(endCell);
+      if (start && end) {
+        const minCol = Math.min(start.col, end.col);
+        const maxCol = Math.max(start.col, end.col);
+        const minRow = Math.min(start.row, end.row);
+        const maxRow = Math.max(start.row, end.row);
+        for (let r = minRow; r <= maxRow; r++) {
+          for (let c = minCol; c <= maxCol; c++) {
+            cells.push(getCellId(c, r));
+          }
+        }
+      }
+    } else {
+      cells.push(startCell);
+    }
+    
+    refs.push({
+      ref: fullRef,
+      start: match.index,
+      end: match.index + fullRef.length,
+      cells
+    });
+  }
+  
+  return refs;
+};
+
 // Convert column index to letter (0 = A, 1 = B, etc.)
 const colToLetter = (col: number): string => {
   let letter = "";
@@ -721,6 +776,72 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
     return values;
   }, [data.cells]);
 
+  // Extract cell references from current formula for color coding
+  const formulaRefs = useMemo(() => {
+    if (!isInFormulaMode || !editValue.startsWith("=")) return [];
+    return extractCellRefs(editValue);
+  }, [isInFormulaMode, editValue]);
+
+  // Map cell ID to its color index
+  const cellColorMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    formulaRefs.forEach((ref, index) => {
+      const colorIndex = index % REF_COLORS.length;
+      ref.cells.forEach(cellId => {
+        if (!map[cellId]) {
+          map[cellId] = colorIndex;
+        }
+      });
+    });
+    return map;
+  }, [formulaRefs]);
+
+  // Render formula with colored references
+  const renderColoredFormula = useMemo(() => {
+    if (!isInFormulaMode || !editValue.startsWith("=") || formulaRefs.length === 0) {
+      return null;
+    }
+    
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    
+    formulaRefs.forEach((ref, index) => {
+      const colorIndex = index % REF_COLORS.length;
+      const color = REF_COLORS[colorIndex];
+      
+      // Add text before this reference
+      if (ref.start > lastIndex) {
+        parts.push(
+          <span key={`text-${index}`}>
+            {editValue.slice(lastIndex, ref.start)}
+          </span>
+        );
+      }
+      
+      // Add colored reference
+      parts.push(
+        <span
+          key={`ref-${index}`}
+          className="px-0.5 rounded font-semibold"
+          style={{ backgroundColor: color.bg, color: color.text }}
+        >
+          {editValue.slice(ref.start, ref.end)}
+        </span>
+      );
+      
+      lastIndex = ref.end;
+    });
+    
+    // Add remaining text
+    if (lastIndex < editValue.length) {
+      parts.push(
+        <span key="text-end">{editValue.slice(lastIndex)}</span>
+      );
+    }
+    
+    return parts;
+  }, [isInFormulaMode, editValue, formulaRefs]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -817,35 +938,44 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
         isInFormulaMode ? "bg-primary/10" : "bg-muted/20"
       )}>
         <span className={cn(
-          "text-xs font-mono w-8",
+          "text-xs font-mono w-8 shrink-0",
           isInFormulaMode ? "text-primary font-semibold" : "text-muted-foreground"
         )}>
           {selectedCell || ""}
         </span>
         {isInFormulaMode && (
-          <span className="text-[10px] text-primary bg-primary/20 px-1.5 py-0.5 rounded">
+          <span className="text-[10px] text-primary bg-primary/20 px-1.5 py-0.5 rounded shrink-0">
             Click cells to add references
           </span>
         )}
-        <Input
-          ref={inputRef}
-          value={editingCell ? editValue : (selectedCellData?.formula || selectedCellData?.value || "")}
-          onChange={(e) => setEditValue(e.target.value)}
-          onKeyDown={(e) => selectedCell && handleKeyDown(e, selectedCell)}
-          onBlur={() => {
-            if (editingCell && selectedCell) {
-              updateCell(selectedCell, editValue);
-              setEditingCell(null);
-              setFormulaSourceCell(null);
-            }
-          }}
-          className={cn(
-            "h-7 text-xs font-mono flex-1",
-            isInFormulaMode && "ring-1 ring-primary"
+        <div className="relative flex-1">
+          <Input
+            ref={inputRef}
+            value={editingCell ? editValue : (selectedCellData?.formula || selectedCellData?.value || "")}
+            onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={(e) => selectedCell && handleKeyDown(e, selectedCell)}
+            onBlur={() => {
+              if (editingCell && selectedCell) {
+                updateCell(selectedCell, editValue);
+                setEditingCell(null);
+                setFormulaSourceCell(null);
+              }
+            }}
+            className={cn(
+              "h-7 text-xs font-mono w-full",
+              isInFormulaMode && "ring-1 ring-primary",
+              renderColoredFormula && "text-transparent caret-foreground"
+            )}
+            placeholder={selectedCell ? "Enter value or formula (=SUM, =AVERAGE, etc.)" : "Select a cell"}
+            disabled={!selectedCell}
+          />
+          {/* Colored formula overlay */}
+          {renderColoredFormula && (
+            <div className="absolute inset-0 flex items-center px-3 text-xs font-mono pointer-events-none overflow-hidden">
+              {renderColoredFormula}
+            </div>
           )}
-          placeholder={selectedCell ? "Enter value or formula (=SUM, =AVERAGE, etc.)" : "Select a cell"}
-          disabled={!selectedCell}
-        />
+        </div>
       </div>
 
       {/* Spreadsheet grid */}
@@ -878,21 +1008,24 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
                     const isEditing = editingCell === cellId;
                     const displayValue = computedValues[cellId] ?? "";
                     const isInDragRange = isCellInDragRange(cellId);
+                    const refColorIndex = cellColorMap[cellId];
+                    const refColor = refColorIndex !== undefined ? REF_COLORS[refColorIndex] : null;
                     
                       return (
                         <td
                           key={colIndex}
                           className={cn(
-                            "w-20 h-6 border border-border p-0 relative cursor-cell select-none",
+                            "w-20 h-6 border-2 p-0 relative cursor-cell select-none",
                             isSelected && "ring-2 ring-primary ring-inset",
-                            isInFormulaMode && formulaSourceCell && cellId !== formulaSourceCell && "hover:bg-primary/10",
-                            isInDragRange && "bg-primary/20 ring-1 ring-primary/50",
+                            isInFormulaMode && formulaSourceCell && cellId !== formulaSourceCell && !refColor && "hover:bg-primary/10",
+                            isInDragRange && "bg-primary/20",
                             cell?.format?.bold && "font-bold",
                             cell?.format?.italic && "italic"
                           )}
                           style={{
                             textAlign: cell?.format?.align || "left",
-                            backgroundColor: isInDragRange ? undefined : cell?.format?.bgColor,
+                            backgroundColor: refColor ? refColor.bg : (isInDragRange ? undefined : cell?.format?.bgColor),
+                            borderColor: refColor ? refColor.border : "hsl(var(--border))",
                             color: cell?.format?.textColor,
                           }}
                           onMouseDown={(e) => handleCellMouseDown(cellId, e)}
