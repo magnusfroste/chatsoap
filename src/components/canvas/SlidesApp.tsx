@@ -585,38 +585,12 @@ export default function SlidesApp({ conversationId, userId }: SlidesAppProps) {
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Slide thumbnails */}
-        <div className="w-24 border-r border-border/50 bg-muted/20">
-          <ScrollArea className="h-full p-2">
-            <div className="space-y-2">
-              {slides.map((slide, index) => (
-                <SlidePreview
-                  key={slide.id}
-                  slide={slide}
-                  theme={theme}
-                  isActive={index === currentSlide}
-                  onClick={() => setCurrentSlide(index)}
-                  index={index}
-                />
-              ))}
-              {slides.length === 0 && (
-                <div className="text-center py-8">
-                  <FileText className="w-8 h-8 mx-auto text-muted-foreground/50 mb-2" />
-                  <p className="text-xs text-muted-foreground">
-                    Ask AI to create a presentation
-                  </p>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-        </div>
-
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Main slide area */}
-        <div className="flex-1 p-6 flex flex-col">
+        <div className="flex-1 p-4 flex flex-col min-h-0">
           {currentSlideData ? (
             <>
-              <div className="flex-1 flex items-center justify-center">
+              <div className="flex-1 flex items-center justify-center min-h-0">
                 <div className="w-full max-w-4xl aspect-video">
                   <SlideEditor
                     slide={currentSlideData}
@@ -626,8 +600,8 @@ export default function SlidesApp({ conversationId, userId }: SlidesAppProps) {
                 </div>
               </div>
 
-              {/* Bottom controls */}
-              <div className="flex items-center justify-between pt-4">
+              {/* Slide controls */}
+              <div className="flex items-center justify-between pt-3">
                 <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
@@ -711,6 +685,34 @@ export default function SlidesApp({ conversationId, userId }: SlidesAppProps) {
             </div>
           )}
         </div>
+
+        {/* Horizontal slide thumbnails - bottom strip */}
+        {slides.length > 0 && (
+          <div className="border-t border-border/50 bg-muted/20 p-2 shrink-0">
+            <ScrollArea className="w-full">
+              <div className="flex gap-2 pb-1">
+                {slides.slice(0, 5).map((slide, index) => (
+                  <div key={slide.id} className="shrink-0 w-24">
+                    <SlidePreview
+                      slide={slide}
+                      theme={theme}
+                      isActive={index === currentSlide}
+                      onClick={() => setCurrentSlide(index)}
+                      index={index}
+                    />
+                  </div>
+                ))}
+                {slides.length > 5 && (
+                  <div className="shrink-0 w-24 flex items-center justify-center">
+                    <span className="text-xs text-muted-foreground">
+                      +{slides.length - 5} more
+                    </span>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        )}
       </div>
     </div>
   );
