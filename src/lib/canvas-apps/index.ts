@@ -18,5 +18,6 @@ export type {
 export { 
   canvasEventBus, 
   emitBrowserNavigate, 
-  emitOpenApp 
+  emitOpenApp,
+  emitCreateNote,
 } from "./events";
