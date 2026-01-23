@@ -355,6 +355,34 @@ export function PluginRegistryCard() {
 
   useEffect(() => {
     fetchSettings();
+
+    // Subscribe to realtime changes for plugin settings
+    const channel = supabase
+      .channel('plugin-settings-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'app_settings',
+        },
+        (payload) => {
+          if (payload.new && typeof payload.new === 'object' && 'key' in payload.new && 'value' in payload.new) {
+            const { key, value } = payload.new as { key: string; value: unknown };
+            
+            if (key === 'ai_tools_enabled' && value && typeof value === 'object') {
+              setToolSettings({ ...defaultToolSettings, ...(value as ToolSettings) });
+            } else if (key === 'ai_personas_enabled' && value && typeof value === 'object') {
+              setPersonaSettings({ ...defaultPersonaSettings, ...(value as PersonaSettings) });
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchSettings = async () => {
