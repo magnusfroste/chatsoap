@@ -624,23 +624,27 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
   const justFinishedDragging = useRef(false);
 
   // Focus formula input and place cursor at end
-  const focusFormulaInput = useCallback(() => {
-    requestAnimationFrame(() => {
+  const focusFormulaInput = useCallback((newValue?: string) => {
+    // Use setTimeout with 0 to ensure this runs after React state updates
+    setTimeout(() => {
       if (inputRef.current) {
         inputRef.current.focus();
-        // Place cursor at end
-        const len = inputRef.current.value.length;
+        // Place cursor at end - use the passed value length or current input value length
+        const len = newValue !== undefined ? newValue.length : inputRef.current.value.length;
         inputRef.current.setSelectionRange(len, len);
       }
-    });
+    }, 0);
   }, []);
 
   // Handle mouse up - end drag and insert range
   const handleCellMouseUp = useCallback(() => {
     if (isDragging && dragStart && dragEnd && isInFormulaMode) {
       const rangeRef = getRangeRef(dragStart, dragEnd);
-      setEditValue(prev => prev + rangeRef);
-      focusFormulaInput();
+      setEditValue(prev => {
+        const newValue = prev + rangeRef;
+        focusFormulaInput(newValue);
+        return newValue;
+      });
       justFinishedDragging.current = true;
       // Reset the flag after a short delay
       setTimeout(() => { justFinishedDragging.current = false; }, 50);
@@ -658,9 +662,11 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
     // If in formula mode, append cell reference instead of navigating
     if (isInFormulaMode && formulaSourceCell && cellId !== formulaSourceCell) {
       e?.preventDefault();
-      setEditValue(prev => prev + cellId);
-      // Keep focus on the formula bar and place cursor at end
-      focusFormulaInput();
+      setEditValue(prev => {
+        const newValue = prev + cellId;
+        focusFormulaInput(newValue);
+        return newValue;
+      });
       return;
     }
     
