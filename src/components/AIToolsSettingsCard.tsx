@@ -3,17 +3,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Wrench, Search, ScanEye, Loader2 } from "lucide-react";
+import { Wrench, Search, ScanEye, Loader2, Code2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface ToolSettings {
   analyze_images: boolean;
   web_search: boolean;
+  send_code_to_sandbox: boolean;
 }
 
 const defaultSettings: ToolSettings = {
   analyze_images: true,
   web_search: true,
+  send_code_to_sandbox: true,
 };
 
 const toolInfo = {
@@ -26,6 +28,11 @@ const toolInfo = {
     name: "Web Search",
     description: "Search the web via Firecrawl when AI knowledge is insufficient",
     icon: Search,
+  },
+  send_code_to_sandbox: {
+    name: "Code to Sandbox",
+    description: "Auto-send generated code to collaborative sandbox (Claude-like artifacts)",
+    icon: Code2,
   },
 };
 
