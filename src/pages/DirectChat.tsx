@@ -491,11 +491,27 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
             }
 
             // Check for spreadsheet update command from AI tools
-            const spreadsheetMatch = fullText.match(/__SPREADSHEET_UPDATE__:({.+})/s);
-            if (spreadsheetMatch) {
+            const spreadsheetMarker = "__SPREADSHEET_UPDATE__:";
+            const spreadsheetIndex = fullText.indexOf(spreadsheetMarker);
+            if (spreadsheetIndex !== -1) {
               try {
-                const { updates, description } = JSON.parse(spreadsheetMatch[1]);
-                displayText = displayText.replace(/__SPREADSHEET_UPDATE__:{.+}/s, "").trim();
+                const jsonStart = spreadsheetIndex + spreadsheetMarker.length;
+                // Find the matching closing brace
+                let braceCount = 0;
+                let jsonEnd = jsonStart;
+                for (let i = jsonStart; i < fullText.length; i++) {
+                  if (fullText[i] === "{") braceCount++;
+                  else if (fullText[i] === "}") {
+                    braceCount--;
+                    if (braceCount === 0) {
+                      jsonEnd = i + 1;
+                      break;
+                    }
+                  }
+                }
+                const jsonStr = fullText.slice(jsonStart, jsonEnd);
+                const { updates, description } = JSON.parse(jsonStr);
+                displayText = displayText.replace(spreadsheetMarker + jsonStr, "").trim();
                 if (!displayText && description) {
                   displayText = `📊 ${description}`;
                 }
