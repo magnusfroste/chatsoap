@@ -288,6 +288,7 @@ export const MessageBubble = ({
           onReactionAdded={() => setShowReactionPicker(false)}
           onReply={onReply ? handleReply : undefined}
           onSaveToNotes={canSaveToNotes ? handleSaveToNotes : undefined}
+          messageContent={message.content}
         >
           <div className="cursor-pointer">
             {bubbleContent}
