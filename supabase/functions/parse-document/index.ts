@@ -1,70 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getLLMConfig, validateLLMConfig } from "../_shared/llm-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-interface LLMConfig {
-  endpoint: string;
-  apiKey: string;
-  model: string;
-}
-
-async function getLLMConfig(): Promise<LLMConfig> {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-  const { data: settings } = await supabase
-    .from("app_settings")
-    .select("key, value")
-    .in("key", ["llm_provider", "llm_openai_model", "llm_gemini_model", "llm_custom_config"]);
-
-  let provider = "lovable";
-  let openaiModel = "gpt-4o";
-  let geminiModel = "gemini-2.5-flash";
-  let customConfig = { url: "", model: "" };
-
-  if (settings) {
-    for (const s of settings) {
-      if (s.key === "llm_provider" && typeof s.value === "string") provider = s.value;
-      if (s.key === "llm_openai_model" && typeof s.value === "string") openaiModel = s.value;
-      if (s.key === "llm_gemini_model" && typeof s.value === "string") geminiModel = s.value;
-      if (s.key === "llm_custom_config" && s.value && typeof s.value === "object") {
-        customConfig = s.value as { url: string; model: string };
-      }
-    }
-  }
-
-  switch (provider) {
-    case "openai":
-      return {
-        endpoint: "https://api.openai.com/v1/chat/completions",
-        apiKey: Deno.env.get("OPENAI_API_KEY") || "",
-        model: openaiModel,
-      };
-    case "gemini":
-      return {
-        endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-        apiKey: Deno.env.get("GEMINI_API_KEY") || "",
-        model: geminiModel,
-      };
-    case "custom":
-      return {
-        endpoint: customConfig.url,
-        apiKey: Deno.env.get("CUSTOM_LLM_API_KEY") || "",
-        model: customConfig.model,
-      };
-    default: // lovable
-      return {
-        endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions",
-        apiKey: Deno.env.get("LOVABLE_API_KEY") || "",
-        model: "google/gemini-2.5-flash",
-      };
-  }
-}
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -84,7 +24,9 @@ serve(async (req) => {
 
     const llmConfig = await getLLMConfig();
     
-    if (!llmConfig.apiKey) {
+    try {
+      validateLLMConfig(llmConfig);
+    } catch {
       console.error("API key not configured for the selected provider");
       return new Response(
         JSON.stringify({ error: "AI service not configured" }),
