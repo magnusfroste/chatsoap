@@ -623,12 +623,24 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
   // Track if we just finished dragging to prevent click from also adding ref
   const justFinishedDragging = useRef(false);
 
+  // Focus formula input and place cursor at end
+  const focusFormulaInput = useCallback(() => {
+    requestAnimationFrame(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        // Place cursor at end
+        const len = inputRef.current.value.length;
+        inputRef.current.setSelectionRange(len, len);
+      }
+    });
+  }, []);
+
   // Handle mouse up - end drag and insert range
   const handleCellMouseUp = useCallback(() => {
     if (isDragging && dragStart && dragEnd && isInFormulaMode) {
       const rangeRef = getRangeRef(dragStart, dragEnd);
       setEditValue(prev => prev + rangeRef);
-      setTimeout(() => inputRef.current?.focus(), 0);
+      focusFormulaInput();
       justFinishedDragging.current = true;
       // Reset the flag after a short delay
       setTimeout(() => { justFinishedDragging.current = false; }, 50);
@@ -636,7 +648,7 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
     setIsDragging(false);
     setDragStart(null);
     setDragEnd(null);
-  }, [isDragging, dragStart, dragEnd, isInFormulaMode, getRangeRef]);
+  }, [isDragging, dragStart, dragEnd, isInFormulaMode, getRangeRef, focusFormulaInput]);
 
   // Handle cell click - either add to formula or select cell
   const handleCellClick = useCallback((cellId: string, e?: React.MouseEvent) => {
@@ -647,8 +659,8 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
     if (isInFormulaMode && formulaSourceCell && cellId !== formulaSourceCell) {
       e?.preventDefault();
       setEditValue(prev => prev + cellId);
-      // Keep focus on the formula bar
-      setTimeout(() => inputRef.current?.focus(), 0);
+      // Keep focus on the formula bar and place cursor at end
+      focusFormulaInput();
       return;
     }
     
@@ -658,7 +670,7 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
     setFormulaSourceCell(cellId);
     const cell = data.cells[cellId];
     setEditValue(cell?.formula || cell?.value || "");
-  }, [data.cells, isInFormulaMode, formulaSourceCell]);
+  }, [data.cells, isInFormulaMode, formulaSourceCell, focusFormulaInput]);
 
   // Handle cell double-click - select all text
   const handleCellDoubleClick = useCallback((cellId: string) => {
