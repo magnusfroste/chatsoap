@@ -519,35 +519,75 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
 
   // Handle key down in cell
   const handleKeyDown = useCallback((e: React.KeyboardEvent, cellId: string) => {
+    const ref = parseCellRef(cellId);
+    
     if (e.key === "Enter") {
       if (editingCell) {
         updateCell(cellId, editValue);
         setEditingCell(null);
         // Move to next row
-        const ref = parseCellRef(cellId);
         if (ref && ref.row < data.rows - 1) {
-          setSelectedCell(getCellId(ref.col, ref.row + 1));
+          const nextCellId = getCellId(ref.col, ref.row + 1);
+          setSelectedCell(nextCellId);
+          setEditingCell(nextCellId);
+          setEditValue(data.cells[nextCellId]?.formula || data.cells[nextCellId]?.value || "");
         }
       } else {
         handleCellDoubleClick(cellId);
       }
     } else if (e.key === "Escape") {
       setEditingCell(null);
+      setSelectedCell(cellId);
     } else if (e.key === "Tab") {
       e.preventDefault();
       if (editingCell) {
         updateCell(cellId, editValue);
-        setEditingCell(null);
       }
-      const ref = parseCellRef(cellId);
       if (ref) {
         const nextCol = e.shiftKey ? ref.col - 1 : ref.col + 1;
         if (nextCol >= 0 && nextCol < data.columns) {
-          setSelectedCell(getCellId(nextCol, ref.row));
+          const nextCellId = getCellId(nextCol, ref.row);
+          setSelectedCell(nextCellId);
+          setEditingCell(nextCellId);
+          setEditValue(data.cells[nextCellId]?.formula || data.cells[nextCellId]?.value || "");
+        }
+      }
+    } else if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      // Only navigate if not actively typing (empty cell or cursor at start/end)
+      const input = e.target as HTMLInputElement;
+      const atStart = input.selectionStart === 0;
+      const atEnd = input.selectionEnd === editValue.length;
+      
+      // Allow arrow navigation when cell is empty or at boundaries
+      const shouldNavigate = editValue === "" || 
+        (e.key === "ArrowLeft" && atStart) || 
+        (e.key === "ArrowRight" && atEnd) ||
+        e.key === "ArrowUp" || 
+        e.key === "ArrowDown";
+      
+      if (shouldNavigate && ref) {
+        e.preventDefault();
+        if (editingCell) {
+          updateCell(cellId, editValue);
+        }
+        
+        let nextCol = ref.col;
+        let nextRow = ref.row;
+        
+        if (e.key === "ArrowUp" && ref.row > 0) nextRow--;
+        if (e.key === "ArrowDown" && ref.row < data.rows - 1) nextRow++;
+        if (e.key === "ArrowLeft" && ref.col > 0) nextCol--;
+        if (e.key === "ArrowRight" && ref.col < data.columns - 1) nextCol++;
+        
+        if (nextCol !== ref.col || nextRow !== ref.row) {
+          const nextCellId = getCellId(nextCol, nextRow);
+          setSelectedCell(nextCellId);
+          setEditingCell(nextCellId);
+          setEditValue(data.cells[nextCellId]?.formula || data.cells[nextCellId]?.value || "");
         }
       }
     }
-  }, [editingCell, editValue, updateCell, data.rows, data.columns, handleCellDoubleClick]);
+  }, [editingCell, editValue, updateCell, data.rows, data.columns, data.cells, handleCellDoubleClick]);
 
   // Computed values for display
   const computedValues = useMemo(() => {
