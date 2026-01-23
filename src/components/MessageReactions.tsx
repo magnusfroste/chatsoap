@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { FileText, Reply } from "lucide-react";
+import { FileText, Reply, Copy } from "lucide-react";
+import { toast } from "sonner";
 import {
   Popover,
   PopoverContent,
@@ -150,6 +151,7 @@ interface ReactionPickerProps {
   onReactionAdded?: () => void;
   onReply?: () => void;
   onSaveToNotes?: () => void;
+  messageContent?: string;
 }
 
 export const ReactionPicker = ({ 
@@ -159,7 +161,8 @@ export const ReactionPicker = ({
   children,
   onReactionAdded,
   onReply,
-  onSaveToNotes
+  onSaveToNotes,
+  messageContent
 }: ReactionPickerProps) => {
   const [open, setOpen] = useState(false);
 
@@ -206,6 +209,14 @@ export const ReactionPicker = ({
     onSaveToNotes?.();
   };
 
+  const handleCopy = async () => {
+    if (messageContent) {
+      await navigator.clipboard.writeText(messageContent);
+      toast.success("Kopierat");
+    }
+    setOpen(false);
+  };
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -229,6 +240,15 @@ export const ReactionPicker = ({
             ))}
           </div>
           <div className="flex flex-col gap-0.5 border-t border-border pt-2">
+            {messageContent && (
+              <button
+                onClick={handleCopy}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+              >
+                <Copy className="w-4 h-4" />
+                Kopiera
+              </button>
+            )}
             {onReply && (
               <button
                 onClick={handleReply}
