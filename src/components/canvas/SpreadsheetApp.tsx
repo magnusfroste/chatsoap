@@ -263,7 +263,66 @@ const evaluateFormula = (
     return getCellValue(cellId, cells, new Set(visited).add(cellId));
   }
   
-  // Simple arithmetic (e.g., =A1+B1)
+  // General arithmetic expression (e.g., =A1+B1+C1*D1)
+  // Supports multiple cell references with +, -, *, /
+  const generalArithMatch = formula.match(/^=([A-Z]+\d+(?:[+\-*/][A-Z]+\d+)+)$/i);
+  if (generalArithMatch) {
+    const expression = generalArithMatch[1].toUpperCase();
+    
+    // Parse tokens: split by operators while keeping operators
+    const tokens: string[] = [];
+    let current = "";
+    for (const char of expression) {
+      if (["+", "-", "*", "/"].includes(char)) {
+        if (current) tokens.push(current);
+        tokens.push(char);
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+    if (current) tokens.push(current);
+    
+    // First pass: handle * and / (higher precedence)
+    const intermediate: (number | string)[] = [];
+    let i = 0;
+    while (i < tokens.length) {
+      const token = tokens[i];
+      if (token === "*" || token === "/") {
+        const prevValue = intermediate.pop();
+        const nextValue = getCellValue(tokens[i + 1], cells, new Set(visited));
+        const prev = parseFloat(String(prevValue));
+        const next = parseFloat(String(nextValue));
+        if (isNaN(prev) || isNaN(next)) return "#VALUE!";
+        if (token === "/" && next === 0) return "#DIV/0!";
+        intermediate.push(token === "*" ? prev * next : prev / next);
+        i += 2;
+      } else if (token === "+" || token === "-") {
+        intermediate.push(token);
+        i++;
+      } else {
+        // Cell reference
+        const value = getCellValue(token, cells, new Set(visited));
+        const num = parseFloat(String(value));
+        if (isNaN(num)) return "#VALUE!";
+        intermediate.push(num);
+        i++;
+      }
+    }
+    
+    // Second pass: handle + and - (left to right)
+    let result = intermediate[0] as number;
+    for (let j = 1; j < intermediate.length; j += 2) {
+      const op = intermediate[j] as string;
+      const val = intermediate[j + 1] as number;
+      if (op === "+") result += val;
+      else if (op === "-") result -= val;
+    }
+    
+    return result;
+  }
+  
+  // Simple arithmetic with two cells (fallback)
   const arithMatch = formula.match(/^=([A-Z]+\d+)([+\-*/])([A-Z]+\d+)$/i);
   if (arithMatch) {
     const val1 = parseFloat(String(getCellValue(arithMatch[1].toUpperCase(), cells, new Set(visited))));
