@@ -620,12 +620,18 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
     }
   }, [isDragging, isInFormulaMode]);
 
+  // Track if we just finished dragging to prevent click from also adding ref
+  const justFinishedDragging = useRef(false);
+
   // Handle mouse up - end drag and insert range
   const handleCellMouseUp = useCallback(() => {
     if (isDragging && dragStart && dragEnd && isInFormulaMode) {
       const rangeRef = getRangeRef(dragStart, dragEnd);
       setEditValue(prev => prev + rangeRef);
       setTimeout(() => inputRef.current?.focus(), 0);
+      justFinishedDragging.current = true;
+      // Reset the flag after a short delay
+      setTimeout(() => { justFinishedDragging.current = false; }, 50);
     }
     setIsDragging(false);
     setDragStart(null);
@@ -634,8 +640,8 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
 
   // Handle cell click - either add to formula or select cell
   const handleCellClick = useCallback((cellId: string, e?: React.MouseEvent) => {
-    // If was dragging, don't process click (mouseUp handles it)
-    if (isDragging) return;
+    // If just finished dragging, don't process click (mouseUp already handled it)
+    if (justFinishedDragging.current) return;
     
     // If in formula mode, append cell reference instead of navigating
     if (isInFormulaMode && formulaSourceCell && cellId !== formulaSourceCell) {
@@ -652,7 +658,7 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
     setFormulaSourceCell(cellId);
     const cell = data.cells[cellId];
     setEditValue(cell?.formula || cell?.value || "");
-  }, [data.cells, isInFormulaMode, formulaSourceCell, isDragging]);
+  }, [data.cells, isInFormulaMode, formulaSourceCell]);
 
   // Handle cell double-click - select all text
   const handleCellDoubleClick = useCallback((cellId: string) => {
