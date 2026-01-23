@@ -20,7 +20,9 @@ import {
   Check,
   X,
   Copy,
-  ClipboardPaste
+  ClipboardPaste,
+  Undo2,
+  Redo2
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -434,6 +436,11 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
   const [dragStart, setDragStart] = useState<string | null>(null);
   const [dragEnd, setDragEnd] = useState<string | null>(null);
   
+  // Undo/Redo history
+  const [undoStack, setUndoStack] = useState<SpreadsheetData[]>([]);
+  const [redoStack, setRedoStack] = useState<SpreadsheetData[]>([]);
+  const MAX_HISTORY = 50;
+  
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -563,9 +570,54 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
     }, 500);
   }, [saveData]);
 
-  // Update cell
+  // Push current state to undo stack before making changes
+  const pushToUndoStack = useCallback((currentData: SpreadsheetData) => {
+    setUndoStack(prev => {
+      const newStack = [...prev, JSON.parse(JSON.stringify(currentData))];
+      // Limit stack size
+      if (newStack.length > MAX_HISTORY) {
+        return newStack.slice(-MAX_HISTORY);
+      }
+      return newStack;
+    });
+    // Clear redo stack when new action is performed
+    setRedoStack([]);
+  }, [MAX_HISTORY]);
+
+  // Undo function
+  const undo = useCallback(() => {
+    if (undoStack.length === 0) return;
+    
+    const previousState = undoStack[undoStack.length - 1];
+    const newUndoStack = undoStack.slice(0, -1);
+    
+    // Save current state to redo stack
+    setRedoStack(prev => [...prev, JSON.parse(JSON.stringify(data))]);
+    setUndoStack(newUndoStack);
+    setData(previousState);
+    debouncedSave(previousState);
+  }, [undoStack, data, debouncedSave]);
+
+  // Redo function
+  const redo = useCallback(() => {
+    if (redoStack.length === 0) return;
+    
+    const nextState = redoStack[redoStack.length - 1];
+    const newRedoStack = redoStack.slice(0, -1);
+    
+    // Save current state to undo stack
+    setUndoStack(prev => [...prev, JSON.parse(JSON.stringify(data))]);
+    setRedoStack(newRedoStack);
+    setData(nextState);
+    debouncedSave(nextState);
+  }, [redoStack, data, debouncedSave]);
+
+  // Update cell with history
   const updateCell = useCallback((cellId: string, value: string) => {
     setData((prev) => {
+      // Push to undo stack before change
+      pushToUndoStack(prev);
+      
       const isFormula = value.startsWith("=");
       const newCells = {
         ...prev.cells,
@@ -579,13 +631,14 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
       debouncedSave(newData);
       return newData;
     });
-  }, [debouncedSave]);
+  }, [debouncedSave, pushToUndoStack]);
 
-  // Toggle format
+  // Toggle format with history
   const toggleFormat = useCallback((format: "bold" | "italic") => {
     if (!selectedCell) return;
     
     setData((prev) => {
+      pushToUndoStack(prev);
       const cell = prev.cells[selectedCell] || { value: "" };
       const newCells = {
         ...prev.cells,
@@ -601,13 +654,14 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
       debouncedSave(newData);
       return newData;
     });
-  }, [selectedCell, debouncedSave]);
+  }, [selectedCell, debouncedSave, pushToUndoStack]);
 
-  // Set alignment
+  // Set alignment with history
   const setAlignment = useCallback((align: "left" | "center" | "right") => {
     if (!selectedCell) return;
     
     setData((prev) => {
+      pushToUndoStack(prev);
       const cell = prev.cells[selectedCell] || { value: "" };
       const newCells = {
         ...prev.cells,
@@ -623,24 +677,26 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
       debouncedSave(newData);
       return newData;
     });
-  }, [selectedCell, debouncedSave]);
+  }, [selectedCell, debouncedSave, pushToUndoStack]);
 
-  // Add/remove rows/columns
+  // Add/remove rows/columns with history
   const addRow = useCallback(() => {
     setData((prev) => {
+      pushToUndoStack(prev);
       const newData = { ...prev, rows: prev.rows + 1 };
       debouncedSave(newData);
       return newData;
     });
-  }, [debouncedSave]);
+  }, [debouncedSave, pushToUndoStack]);
 
   const addColumn = useCallback(() => {
     setData((prev) => {
+      pushToUndoStack(prev);
       const newData = { ...prev, columns: prev.columns + 1 };
       debouncedSave(newData);
       return newData;
     });
-  }, [debouncedSave]);
+  }, [debouncedSave, pushToUndoStack]);
 
   // Export to CSV
   const exportCSV = useCallback(() => {
@@ -666,14 +722,15 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
     toast.success("Exported to CSV");
   }, [data]);
 
-  // Clear all data
+  // Clear all data with history
   const clearAll = useCallback(() => {
     if (!confirm("Clear all data?")) return;
+    pushToUndoStack(data);
     const newData = { cells: {}, columns: DEFAULT_COLS, rows: DEFAULT_ROWS };
     setData(newData);
     saveData(newData);
     toast.success("Spreadsheet cleared");
-  }, [saveData]);
+  }, [saveData, data, pushToUndoStack]);
 
   // Handle cell click
   // Check if currently in formula mode (editing value starts with =)
@@ -923,9 +980,11 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
     });
   }, [selectedCell, data.cells]);
 
-  // Paste cell
+  // Paste cell with history
   const pasteCell = useCallback(() => {
     if (!selectedCell || !copiedCell) return;
+    
+    pushToUndoStack(data);
     
     const newCells = { ...data.cells };
     
@@ -947,15 +1006,37 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
     if (editingCell === selectedCell) {
       setEditValue(copiedCell.data?.formula || copiedCell.data?.value || "");
     }
-  }, [selectedCell, copiedCell, data, saveData, editingCell]);
+  }, [selectedCell, copiedCell, data, saveData, editingCell, pushToUndoStack]);
 
-  // Global keyboard handler for copy/paste
+  // Global keyboard handler for copy/paste/undo/redo
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       // Only handle when not typing in an input (except our formula bar)
       const target = e.target as HTMLElement;
       const isInInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA";
       const isFormulaBar = target === inputRef.current;
+      
+      // Undo - Ctrl+Z
+      if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+        if (!isInInput || isFormulaBar) {
+          if (!isInFormulaMode) {
+            e.preventDefault();
+            undo();
+            return;
+          }
+        }
+      }
+      
+      // Redo - Ctrl+Y or Ctrl+Shift+Z
+      if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) {
+        if (!isInInput || isFormulaBar) {
+          if (!isInFormulaMode) {
+            e.preventDefault();
+            redo();
+            return;
+          }
+        }
+      }
       
       // For copy, we can intercept even in formula bar
       if ((e.ctrlKey || e.metaKey) && e.key === "c" && selectedCell && !isInFormulaMode) {
@@ -977,7 +1058,7 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
     
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [selectedCell, copiedCell, copyCell, pasteCell, isInFormulaMode]);
+  }, [selectedCell, copiedCell, copyCell, pasteCell, isInFormulaMode, undo, redo]);
 
   // Computed values for display
   const computedValues = useMemo(() => {
@@ -1073,6 +1154,29 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
           <span className="text-sm font-medium">Spreadsheet</span>
           {saving && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground ml-1" />}
         </div>
+        
+        <div className="h-4 w-px bg-border mx-1" />
+        
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-7 w-7" 
+          onClick={undo} 
+          disabled={undoStack.length === 0}
+          title="Undo (Ctrl+Z)"
+        >
+          <Undo2 className="w-3.5 h-3.5" />
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-7 w-7" 
+          onClick={redo} 
+          disabled={redoStack.length === 0}
+          title="Redo (Ctrl+Y)"
+        >
+          <Redo2 className="w-3.5 h-3.5" />
+        </Button>
         
         <div className="h-4 w-px bg-border mx-1" />
         
