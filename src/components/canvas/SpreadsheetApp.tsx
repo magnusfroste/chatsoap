@@ -48,7 +48,7 @@ interface SpreadsheetData {
 }
 
 interface SpreadsheetAppProps {
-  roomId: string;
+  conversationId?: string;
   initialData?: SpreadsheetData;
 }
 
@@ -409,7 +409,7 @@ const getCellValue = (
   return cell.value || "";
 };
 
-export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
+export function SpreadsheetApp({ conversationId, initialData }: SpreadsheetAppProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -447,13 +447,18 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
 
   // Fetch spreadsheet data
   useEffect(() => {
+    if (!conversationId) {
+      setLoading(false);
+      return;
+    }
+    
     const fetchData = async () => {
       try {
         // Use type assertion since table was just created and types not yet regenerated
         const { data: spreadsheet, error } = await (supabase
           .from("room_spreadsheets" as any)
           .select("*")
-          .eq("room_id", roomId)
+          .eq("room_id", conversationId)
           .single() as any);
 
         if (error && error.code !== "PGRST116") throw error;
@@ -474,19 +479,21 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
     };
 
     fetchData();
-  }, [roomId]);
+  }, [conversationId]);
 
   // Subscribe to realtime changes
   useEffect(() => {
+    if (!conversationId) return;
+    
     const channel = supabase
-      .channel(`spreadsheet-${roomId}`)
+      .channel(`spreadsheet-${conversationId}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "room_spreadsheets",
-          filter: `room_id=eq.${roomId}`,
+          filter: `room_id=eq.${conversationId}`,
         },
         (payload) => {
           if (payload.new && "data" in payload.new && payload.new.updated_by !== user?.id) {
@@ -504,12 +511,12 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [roomId, user?.id]);
+  }, [conversationId, user?.id]);
 
 
   // Save data with debounce
   const saveData = useCallback(async (newData: SpreadsheetData) => {
-    if (!user) return;
+    if (!user || !conversationId) return;
     
     setSaving(true);
     try {
@@ -517,7 +524,7 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
       const { data: existing } = await (supabase
         .from("room_spreadsheets" as any)
         .select("id")
-        .eq("room_id", roomId)
+        .eq("room_id", conversationId)
         .single() as any);
 
       // Cast cells to plain JSON-compatible object
@@ -544,12 +551,12 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
             updated_at: new Date().toISOString(),
             updated_by: user.id,
           })
-          .eq("room_id", roomId) as any);
+          .eq("room_id", conversationId) as any);
       } else {
         await (supabase
           .from("room_spreadsheets" as any)
           .insert([{
-            room_id: roomId,
+            room_id: conversationId,
             data: jsonData,
             updated_by: user.id,
           }]) as any);
@@ -560,7 +567,7 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
     } finally {
       setSaving(false);
     }
-  }, [roomId, user]);
+  }, [conversationId, user]);
 
   // Debounced save
   const debouncedSave = useCallback((newData: SpreadsheetData) => {
