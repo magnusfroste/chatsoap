@@ -22,7 +22,8 @@ import { ChatMessageSearch } from "@/components/ChatMessageSearch";
 import { PersonaSwitcher, AI_PERSONAS } from "@/components/PersonaSwitcher";
 import { CAGContextBadge } from "@/components/CAGContextBadge";
 import { CAGFile, CAGNote } from "@/hooks/useCAGContext";
-import { emitBrowserNavigate, emitOpenApp } from "@/lib/canvas-apps";
+import { emitBrowserNavigate, emitOpenApp, emitCreateNote } from "@/lib/canvas-apps";
+import { toast } from "@/hooks/use-toast";
 
 interface ReplyToMessage {
   id: string;
@@ -569,13 +570,20 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
   };
 
   const handleSaveToNotes = async (content: string, messageId: string) => {
-    // Handled by WorkspaceCanvas now
-    console.log("Save to notes:", content.slice(0, 50), messageId);
+    const title = content.slice(0, 50) + (content.length > 50 ? "..." : "");
+    emitCreateNote(content, title);
+    toast({
+      title: "Sparat till anteckningar",
+      description: "Meddelandet har sparats som en ny anteckning.",
+    });
   };
 
   const handleSaveDocumentToNotes = async (title: string, content: string) => {
-    // Handled by WorkspaceCanvas now
-    console.log("Save document to notes:", title);
+    emitCreateNote(content, title);
+    toast({
+      title: "Sparat till anteckningar",
+      description: "Dokumentet har sparats som en ny anteckning.",
+    });
   };
 
   if (authLoading || loading) {
