@@ -171,12 +171,18 @@ async function getLLMConfig(): Promise<LLMConfig> {
         apiKey: Deno.env.get("GEMINI_API_KEY") || "",
         model: geminiModel,
       };
-    case "custom":
+    case "custom": {
+      // Auto-append /v1/chat/completions if missing
+      let endpoint = customConfig.url;
+      if (endpoint && !endpoint.includes("/chat/completions")) {
+        endpoint = endpoint.replace(/\/$/, "") + "/v1/chat/completions";
+      }
       return {
-        endpoint: customConfig.url,
+        endpoint,
         apiKey: Deno.env.get("CUSTOM_LLM_API_KEY") || "",
         model: customConfig.model,
       };
+    }
     default: // lovable
       return {
         endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions",
