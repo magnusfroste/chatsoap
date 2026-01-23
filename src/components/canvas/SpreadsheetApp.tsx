@@ -1,0 +1,754 @@
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { 
+  Table2, 
+  Plus, 
+  Minus, 
+  Bold, 
+  Italic, 
+  AlignLeft, 
+  AlignCenter, 
+  AlignRight,
+  ArrowUpDown,
+  Loader2,
+  Download,
+  Trash2
+} from "lucide-react";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import type { Json } from "@/integrations/supabase/types";
+
+interface CellData {
+  value: string;
+  formula?: string;
+  format?: {
+    bold?: boolean;
+    italic?: boolean;
+    align?: "left" | "center" | "right";
+    bgColor?: string;
+    textColor?: string;
+  };
+}
+
+interface SpreadsheetData {
+  cells: Record<string, CellData>;
+  columns: number;
+  rows: number;
+}
+
+interface SpreadsheetAppProps {
+  roomId: string;
+  initialData?: SpreadsheetData;
+}
+
+const DEFAULT_COLS = 10;
+const DEFAULT_ROWS = 20;
+
+// Convert column index to letter (0 = A, 1 = B, etc.)
+const colToLetter = (col: number): string => {
+  let letter = "";
+  let temp = col;
+  while (temp >= 0) {
+    letter = String.fromCharCode((temp % 26) + 65) + letter;
+    temp = Math.floor(temp / 26) - 1;
+  }
+  return letter;
+};
+
+// Convert letter to column index
+const letterToCol = (letter: string): number => {
+  let col = 0;
+  for (let i = 0; i < letter.length; i++) {
+    col = col * 26 + (letter.charCodeAt(i) - 64);
+  }
+  return col - 1;
+};
+
+// Parse cell reference (e.g., "A1" -> { col: 0, row: 0 })
+const parseCellRef = (ref: string): { col: number; row: number } | null => {
+  const match = ref.match(/^([A-Z]+)(\d+)$/i);
+  if (!match) return null;
+  return {
+    col: letterToCol(match[1].toUpperCase()),
+    row: parseInt(match[2], 10) - 1,
+  };
+};
+
+// Get cell ID from col/row
+const getCellId = (col: number, row: number): string => `${colToLetter(col)}${row + 1}`;
+
+// Evaluate formula
+const evaluateFormula = (
+  formula: string, 
+  cells: Record<string, CellData>,
+  visited: Set<string> = new Set()
+): number | string => {
+  const upper = formula.toUpperCase().trim();
+  
+  // Check for circular reference
+  const currentCellMatch = formula.match(/=.*?([A-Z]+\d+)/gi);
+  if (currentCellMatch) {
+    for (const ref of currentCellMatch) {
+      const cleanRef = ref.replace("=", "").trim().toUpperCase();
+      if (visited.has(cleanRef)) {
+        return "#CIRCULAR!";
+      }
+    }
+  }
+  
+  // SUM function
+  const sumMatch = upper.match(/^=SUM\(([A-Z]+\d+):([A-Z]+\d+)\)$/);
+  if (sumMatch) {
+    const start = parseCellRef(sumMatch[1]);
+    const end = parseCellRef(sumMatch[2]);
+    if (!start || !end) return "#REF!";
+    
+    let sum = 0;
+    for (let r = start.row; r <= end.row; r++) {
+      for (let c = start.col; c <= end.col; c++) {
+        const cellId = getCellId(c, r);
+        const cellValue = getCellValue(cellId, cells, new Set(visited));
+        const num = parseFloat(String(cellValue));
+        if (!isNaN(num)) sum += num;
+      }
+    }
+    return sum;
+  }
+  
+  // AVERAGE function
+  const avgMatch = upper.match(/^=AVERAGE\(([A-Z]+\d+):([A-Z]+\d+)\)$/);
+  if (avgMatch) {
+    const start = parseCellRef(avgMatch[1]);
+    const end = parseCellRef(avgMatch[2]);
+    if (!start || !end) return "#REF!";
+    
+    let sum = 0;
+    let count = 0;
+    for (let r = start.row; r <= end.row; r++) {
+      for (let c = start.col; c <= end.col; c++) {
+        const cellId = getCellId(c, r);
+        const cellValue = getCellValue(cellId, cells, new Set(visited));
+        const num = parseFloat(String(cellValue));
+        if (!isNaN(num)) {
+          sum += num;
+          count++;
+        }
+      }
+    }
+    return count > 0 ? sum / count : 0;
+  }
+  
+  // COUNT function
+  const countMatch = upper.match(/^=COUNT\(([A-Z]+\d+):([A-Z]+\d+)\)$/);
+  if (countMatch) {
+    const start = parseCellRef(countMatch[1]);
+    const end = parseCellRef(countMatch[2]);
+    if (!start || !end) return "#REF!";
+    
+    let count = 0;
+    for (let r = start.row; r <= end.row; r++) {
+      for (let c = start.col; c <= end.col; c++) {
+        const cellId = getCellId(c, r);
+        const cellValue = getCellValue(cellId, cells, new Set(visited));
+        const num = parseFloat(String(cellValue));
+        if (!isNaN(num)) count++;
+      }
+    }
+    return count;
+  }
+  
+  // MIN function
+  const minMatch = upper.match(/^=MIN\(([A-Z]+\d+):([A-Z]+\d+)\)$/);
+  if (minMatch) {
+    const start = parseCellRef(minMatch[1]);
+    const end = parseCellRef(minMatch[2]);
+    if (!start || !end) return "#REF!";
+    
+    let min = Infinity;
+    for (let r = start.row; r <= end.row; r++) {
+      for (let c = start.col; c <= end.col; c++) {
+        const cellId = getCellId(c, r);
+        const cellValue = getCellValue(cellId, cells, new Set(visited));
+        const num = parseFloat(String(cellValue));
+        if (!isNaN(num) && num < min) min = num;
+      }
+    }
+    return min === Infinity ? 0 : min;
+  }
+  
+  // MAX function
+  const maxMatch = upper.match(/^=MAX\(([A-Z]+\d+):([A-Z]+\d+)\)$/);
+  if (maxMatch) {
+    const start = parseCellRef(maxMatch[1]);
+    const end = parseCellRef(maxMatch[2]);
+    if (!start || !end) return "#REF!";
+    
+    let max = -Infinity;
+    for (let r = start.row; r <= end.row; r++) {
+      for (let c = start.col; c <= end.col; c++) {
+        const cellId = getCellId(c, r);
+        const cellValue = getCellValue(cellId, cells, new Set(visited));
+        const num = parseFloat(String(cellValue));
+        if (!isNaN(num) && num > max) max = num;
+      }
+    }
+    return max === -Infinity ? 0 : max;
+  }
+  
+  // Simple cell reference (e.g., =A1)
+  const refMatch = upper.match(/^=([A-Z]+\d+)$/);
+  if (refMatch) {
+    const cellId = refMatch[1];
+    return getCellValue(cellId, cells, new Set(visited).add(cellId));
+  }
+  
+  // Simple arithmetic (e.g., =A1+B1)
+  const arithMatch = formula.match(/^=([A-Z]+\d+)([+\-*/])([A-Z]+\d+)$/i);
+  if (arithMatch) {
+    const val1 = parseFloat(String(getCellValue(arithMatch[1].toUpperCase(), cells, new Set(visited))));
+    const val2 = parseFloat(String(getCellValue(arithMatch[3].toUpperCase(), cells, new Set(visited))));
+    if (isNaN(val1) || isNaN(val2)) return "#VALUE!";
+    
+    switch (arithMatch[2]) {
+      case "+": return val1 + val2;
+      case "-": return val1 - val2;
+      case "*": return val1 * val2;
+      case "/": return val2 === 0 ? "#DIV/0!" : val1 / val2;
+    }
+  }
+  
+  return "#ERROR!";
+};
+
+// Get computed cell value
+const getCellValue = (
+  cellId: string, 
+  cells: Record<string, CellData>,
+  visited: Set<string> = new Set()
+): string | number => {
+  const cell = cells[cellId];
+  if (!cell) return "";
+  
+  if (cell.formula) {
+    visited.add(cellId);
+    return evaluateFormula(cell.formula, cells, visited);
+  }
+  
+  return cell.value || "";
+};
+
+export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [data, setData] = useState<SpreadsheetData>({
+    cells: {},
+    columns: DEFAULT_COLS,
+    rows: DEFAULT_ROWS,
+    ...initialData,
+  });
+  const [selectedCell, setSelectedCell] = useState<string | null>(null);
+  const [editingCell, setEditingCell] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [selection, setSelection] = useState<{ start: string; end: string } | null>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch spreadsheet data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Use type assertion since table was just created and types not yet regenerated
+        const { data: spreadsheet, error } = await (supabase
+          .from("room_spreadsheets" as any)
+          .select("*")
+          .eq("room_id", roomId)
+          .single() as any);
+
+        if (error && error.code !== "PGRST116") throw error;
+
+        if (spreadsheet?.data) {
+          const spreadsheetData = spreadsheet.data as SpreadsheetData;
+          setData({
+            cells: spreadsheetData.cells || {},
+            columns: spreadsheetData.columns || DEFAULT_COLS,
+            rows: spreadsheetData.rows || DEFAULT_ROWS,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching spreadsheet:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [roomId]);
+
+  // Subscribe to realtime changes
+  useEffect(() => {
+    const channel = supabase
+      .channel(`spreadsheet-${roomId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "room_spreadsheets",
+          filter: `room_id=eq.${roomId}`,
+        },
+        (payload) => {
+          if (payload.new && "data" in payload.new && payload.new.updated_by !== user?.id) {
+            const newData = payload.new.data as unknown as SpreadsheetData;
+            setData({
+              cells: newData.cells || {},
+              columns: newData.columns || DEFAULT_COLS,
+              rows: newData.rows || DEFAULT_ROWS,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [roomId, user?.id]);
+
+  // Save data with debounce
+  const saveData = useCallback(async (newData: SpreadsheetData) => {
+    if (!user) return;
+    
+    setSaving(true);
+    try {
+      // Use type assertion since table was just created and types not yet regenerated
+      const { data: existing } = await (supabase
+        .from("room_spreadsheets" as any)
+        .select("id")
+        .eq("room_id", roomId)
+        .single() as any);
+
+      // Cast cells to plain JSON-compatible object
+      const cellsAsJson: Record<string, Record<string, unknown>> = {};
+      Object.entries(newData.cells).forEach(([key, cell]) => {
+        cellsAsJson[key] = {
+          value: cell.value,
+          formula: cell.formula,
+          format: cell.format,
+        };
+      });
+
+      const jsonData = {
+        cells: cellsAsJson,
+        columns: newData.columns,
+        rows: newData.rows,
+      };
+
+      if (existing) {
+        await (supabase
+          .from("room_spreadsheets" as any)
+          .update({
+            data: jsonData,
+            updated_at: new Date().toISOString(),
+            updated_by: user.id,
+          })
+          .eq("room_id", roomId) as any);
+      } else {
+        await (supabase
+          .from("room_spreadsheets" as any)
+          .insert([{
+            room_id: roomId,
+            data: jsonData,
+            updated_by: user.id,
+          }]) as any);
+      }
+    } catch (error) {
+      console.error("Error saving spreadsheet:", error);
+      toast.error("Failed to save spreadsheet");
+    } finally {
+      setSaving(false);
+    }
+  }, [roomId, user]);
+
+  // Debounced save
+  const debouncedSave = useCallback((newData: SpreadsheetData) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = setTimeout(() => {
+      saveData(newData);
+    }, 500);
+  }, [saveData]);
+
+  // Update cell
+  const updateCell = useCallback((cellId: string, value: string) => {
+    setData((prev) => {
+      const isFormula = value.startsWith("=");
+      const newCells = {
+        ...prev.cells,
+        [cellId]: {
+          ...prev.cells[cellId],
+          value: isFormula ? "" : value,
+          formula: isFormula ? value : undefined,
+        },
+      };
+      const newData = { ...prev, cells: newCells };
+      debouncedSave(newData);
+      return newData;
+    });
+  }, [debouncedSave]);
+
+  // Toggle format
+  const toggleFormat = useCallback((format: "bold" | "italic") => {
+    if (!selectedCell) return;
+    
+    setData((prev) => {
+      const cell = prev.cells[selectedCell] || { value: "" };
+      const newCells = {
+        ...prev.cells,
+        [selectedCell]: {
+          ...cell,
+          format: {
+            ...cell.format,
+            [format]: !cell.format?.[format],
+          },
+        },
+      };
+      const newData = { ...prev, cells: newCells };
+      debouncedSave(newData);
+      return newData;
+    });
+  }, [selectedCell, debouncedSave]);
+
+  // Set alignment
+  const setAlignment = useCallback((align: "left" | "center" | "right") => {
+    if (!selectedCell) return;
+    
+    setData((prev) => {
+      const cell = prev.cells[selectedCell] || { value: "" };
+      const newCells = {
+        ...prev.cells,
+        [selectedCell]: {
+          ...cell,
+          format: {
+            ...cell.format,
+            align,
+          },
+        },
+      };
+      const newData = { ...prev, cells: newCells };
+      debouncedSave(newData);
+      return newData;
+    });
+  }, [selectedCell, debouncedSave]);
+
+  // Add/remove rows/columns
+  const addRow = useCallback(() => {
+    setData((prev) => {
+      const newData = { ...prev, rows: prev.rows + 1 };
+      debouncedSave(newData);
+      return newData;
+    });
+  }, [debouncedSave]);
+
+  const addColumn = useCallback(() => {
+    setData((prev) => {
+      const newData = { ...prev, columns: prev.columns + 1 };
+      debouncedSave(newData);
+      return newData;
+    });
+  }, [debouncedSave]);
+
+  // Export to CSV
+  const exportCSV = useCallback(() => {
+    const rows: string[][] = [];
+    for (let r = 0; r < data.rows; r++) {
+      const row: string[] = [];
+      for (let c = 0; c < data.columns; c++) {
+        const cellId = getCellId(c, r);
+        const value = String(getCellValue(cellId, data.cells));
+        row.push(value.includes(",") ? `"${value}"` : value);
+      }
+      rows.push(row);
+    }
+    
+    const csv = rows.map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "spreadsheet.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Exported to CSV");
+  }, [data]);
+
+  // Clear all data
+  const clearAll = useCallback(() => {
+    if (!confirm("Clear all data?")) return;
+    const newData = { cells: {}, columns: DEFAULT_COLS, rows: DEFAULT_ROWS };
+    setData(newData);
+    saveData(newData);
+    toast.success("Spreadsheet cleared");
+  }, [saveData]);
+
+  // Handle cell click
+  const handleCellClick = useCallback((cellId: string) => {
+    setSelectedCell(cellId);
+    setEditingCell(null);
+  }, []);
+
+  // Handle cell double-click
+  const handleCellDoubleClick = useCallback((cellId: string) => {
+    setSelectedCell(cellId);
+    setEditingCell(cellId);
+    const cell = data.cells[cellId];
+    setEditValue(cell?.formula || cell?.value || "");
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }, [data.cells]);
+
+  // Handle key down in cell
+  const handleKeyDown = useCallback((e: React.KeyboardEvent, cellId: string) => {
+    if (e.key === "Enter") {
+      if (editingCell) {
+        updateCell(cellId, editValue);
+        setEditingCell(null);
+        // Move to next row
+        const ref = parseCellRef(cellId);
+        if (ref && ref.row < data.rows - 1) {
+          setSelectedCell(getCellId(ref.col, ref.row + 1));
+        }
+      } else {
+        handleCellDoubleClick(cellId);
+      }
+    } else if (e.key === "Escape") {
+      setEditingCell(null);
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      if (editingCell) {
+        updateCell(cellId, editValue);
+        setEditingCell(null);
+      }
+      const ref = parseCellRef(cellId);
+      if (ref) {
+        const nextCol = e.shiftKey ? ref.col - 1 : ref.col + 1;
+        if (nextCol >= 0 && nextCol < data.columns) {
+          setSelectedCell(getCellId(nextCol, ref.row));
+        }
+      }
+    }
+  }, [editingCell, editValue, updateCell, data.rows, data.columns, handleCellDoubleClick]);
+
+  // Computed values for display
+  const computedValues = useMemo(() => {
+    const values: Record<string, string | number> = {};
+    Object.keys(data.cells).forEach((cellId) => {
+      values[cellId] = getCellValue(cellId, data.cells);
+    });
+    return values;
+  }, [data.cells]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const selectedCellData = selectedCell ? data.cells[selectedCell] : null;
+
+  return (
+    <div className="flex flex-col h-full bg-background">
+      {/* Toolbar */}
+      <div className="flex items-center gap-1 p-2 border-b border-border bg-muted/30 flex-wrap">
+        <div className="flex items-center gap-1 mr-2">
+          <Table2 className="w-4 h-4 text-primary" />
+          <span className="text-sm font-medium">Spreadsheet</span>
+          {saving && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground ml-1" />}
+        </div>
+        
+        <div className="h-4 w-px bg-border mx-1" />
+        
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => toggleFormat("bold")}
+          disabled={!selectedCell}
+        >
+          <Bold className={cn("w-3.5 h-3.5", selectedCellData?.format?.bold && "text-primary")} />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => toggleFormat("italic")}
+          disabled={!selectedCell}
+        >
+          <Italic className={cn("w-3.5 h-3.5", selectedCellData?.format?.italic && "text-primary")} />
+        </Button>
+        
+        <div className="h-4 w-px bg-border mx-1" />
+        
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => setAlignment("left")}
+          disabled={!selectedCell}
+        >
+          <AlignLeft className={cn("w-3.5 h-3.5", selectedCellData?.format?.align === "left" && "text-primary")} />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => setAlignment("center")}
+          disabled={!selectedCell}
+        >
+          <AlignCenter className={cn("w-3.5 h-3.5", selectedCellData?.format?.align === "center" && "text-primary")} />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => setAlignment("right")}
+          disabled={!selectedCell}
+        >
+          <AlignRight className={cn("w-3.5 h-3.5", selectedCellData?.format?.align === "right" && "text-primary")} />
+        </Button>
+        
+        <div className="h-4 w-px bg-border mx-1" />
+        
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={addRow} title="Add row">
+          <Plus className="w-3.5 h-3.5" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={addColumn} title="Add column">
+          <ArrowUpDown className="w-3.5 h-3.5 rotate-90" />
+        </Button>
+        
+        <div className="flex-1" />
+        
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={exportCSV} title="Export CSV">
+          <Download className="w-3.5 h-3.5" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={clearAll} title="Clear all">
+          <Trash2 className="w-3.5 h-3.5" />
+        </Button>
+      </div>
+
+      {/* Formula bar */}
+      <div className="flex items-center gap-2 p-2 border-b border-border bg-muted/20">
+        <span className="text-xs font-mono text-muted-foreground w-8">
+          {selectedCell || ""}
+        </span>
+        <Input
+          ref={inputRef}
+          value={editingCell ? editValue : (selectedCellData?.formula || selectedCellData?.value || "")}
+          onChange={(e) => setEditValue(e.target.value)}
+          onKeyDown={(e) => selectedCell && handleKeyDown(e, selectedCell)}
+          onBlur={() => {
+            if (editingCell && selectedCell) {
+              updateCell(selectedCell, editValue);
+              setEditingCell(null);
+            }
+          }}
+          className="h-7 text-xs font-mono"
+          placeholder={selectedCell ? "Enter value or formula (=SUM, =AVERAGE, etc.)" : "Select a cell"}
+          disabled={!selectedCell}
+        />
+      </div>
+
+      {/* Spreadsheet grid */}
+      <ScrollArea className="flex-1">
+        <div className="inline-block min-w-full">
+          <table className="border-collapse text-xs">
+            <thead>
+              <tr>
+                <th className="sticky top-0 left-0 z-20 w-10 h-6 bg-muted border border-border text-muted-foreground font-normal" />
+                {Array.from({ length: data.columns }, (_, i) => (
+                  <th
+                    key={i}
+                    className="sticky top-0 z-10 w-20 h-6 bg-muted border border-border text-muted-foreground font-normal"
+                  >
+                    {colToLetter(i)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: data.rows }, (_, rowIndex) => (
+                <tr key={rowIndex}>
+                  <td className="sticky left-0 z-10 w-10 h-6 bg-muted border border-border text-muted-foreground text-center">
+                    {rowIndex + 1}
+                  </td>
+                  {Array.from({ length: data.columns }, (_, colIndex) => {
+                    const cellId = getCellId(colIndex, rowIndex);
+                    const cell = data.cells[cellId];
+                    const isSelected = selectedCell === cellId;
+                    const isEditing = editingCell === cellId;
+                    const displayValue = computedValues[cellId] ?? "";
+                    
+                    return (
+                      <td
+                        key={colIndex}
+                        className={cn(
+                          "w-20 h-6 border border-border p-0 relative",
+                          isSelected && "ring-2 ring-primary ring-inset",
+                          cell?.format?.bold && "font-bold",
+                          cell?.format?.italic && "italic"
+                        )}
+                        style={{
+                          textAlign: cell?.format?.align || "left",
+                          backgroundColor: cell?.format?.bgColor,
+                          color: cell?.format?.textColor,
+                        }}
+                        onClick={() => handleCellClick(cellId)}
+                        onDoubleClick={() => handleCellDoubleClick(cellId)}
+                      >
+                        {isEditing ? (
+                          <input
+                            className="absolute inset-0 w-full h-full px-1 text-xs bg-background border-0 outline-none"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => handleKeyDown(e, cellId)}
+                            onBlur={() => {
+                              updateCell(cellId, editValue);
+                              setEditingCell(null);
+                            }}
+                            autoFocus
+                          />
+                        ) : (
+                          <span className="block px-1 truncate">
+                            {String(displayValue)}
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </ScrollArea>
+
+      {/* Status bar */}
+      <div className="flex items-center justify-between px-2 py-1 border-t border-border bg-muted/20 text-xs text-muted-foreground">
+        <span>
+          {data.rows} rows × {data.columns} columns
+        </span>
+        <span>
+          Formulas: SUM, AVERAGE, COUNT, MIN, MAX
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export default SpreadsheetApp;
