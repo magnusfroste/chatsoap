@@ -39,6 +39,8 @@ import {
   FileDown,
   Upload,
   Plus,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -721,6 +723,49 @@ const FileManagerApp = ({
   const docCount = files.filter(f => f.type === "pdf" || f.type === "document").length;
   const noteCount = files.filter(f => f.type === "note").length;
 
+  // Select all / deselect all handlers
+  const handleSelectAll = () => {
+    filteredFiles.forEach((file) => {
+      if (file.source === "note" && file.noteId) {
+        const isSelected = isNoteInCAG?.(file.noteId);
+        if (!isSelected && onToggleCAGNote) {
+          onToggleCAGNote(toCAGNote(file));
+        }
+      } else if (file.source === "attachment") {
+        const isSelected = isFileInCAG?.(file.id);
+        if (!isSelected && onToggleCAGFile) {
+          onToggleCAGFile(toCAGFile(file));
+        }
+      }
+    });
+    toast.success(`${filteredFiles.length} items added to context`);
+  };
+
+  const handleDeselectAll = () => {
+    filteredFiles.forEach((file) => {
+      if (file.source === "note" && file.noteId) {
+        const isSelected = isNoteInCAG?.(file.noteId);
+        if (isSelected && onToggleCAGNote) {
+          onToggleCAGNote(toCAGNote(file));
+        }
+      } else if (file.source === "attachment") {
+        const isSelected = isFileInCAG?.(file.id);
+        if (isSelected && onToggleCAGFile) {
+          onToggleCAGFile(toCAGFile(file));
+        }
+      }
+    });
+    toast.success("All items removed from context");
+  };
+
+  // Check if all filtered files are selected
+  const allSelected = filteredFiles.length > 0 && filteredFiles.every((file) => {
+    if (file.source === "note" && file.noteId) {
+      return isNoteInCAG?.(file.noteId);
+    }
+    return isFileInCAG?.(file.id);
+  });
+
   return (
     <div 
       className="h-full flex flex-col relative min-w-0 overflow-hidden"
@@ -867,13 +912,37 @@ const FileManagerApp = ({
           </Badge>
         </div>
 
-        {/* CAG info banner */}
-        {(onToggleCAGFile || onToggleCAGNote) && (
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/10">
-            <Sparkles className="w-4 h-4 text-primary flex-shrink-0" />
-            <p className="text-xs text-muted-foreground">
-              Select files or notes to include in AI context
-            </p>
+        {/* CAG actions bar */}
+        {(onToggleCAGFile || onToggleCAGNote) && filteredFiles.length > 0 && (
+          <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-primary/5 border border-primary/10">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary flex-shrink-0" />
+              <p className="text-xs text-muted-foreground">
+                {totalInContext > 0 ? `${totalInContext} in context` : "Select for AI context"}
+              </p>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSelectAll}
+                disabled={allSelected}
+                className="h-7 text-xs gap-1 px-2"
+              >
+                <CheckSquare className="w-3.5 h-3.5" />
+                All
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleDeselectAll}
+                disabled={totalInContext === 0}
+                className="h-7 text-xs gap-1 px-2"
+              >
+                <Square className="w-3.5 h-3.5" />
+                None
+              </Button>
+            </div>
           </div>
         )}
       </div>
