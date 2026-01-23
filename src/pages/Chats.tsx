@@ -11,7 +11,9 @@ import { IncomingCallOverlay } from "@/components/IncomingCallOverlay";
 import { WorkspaceCanvas, CanvasApp } from "@/components/WorkspaceCanvas";
 import { canvasEventBus } from "@/lib/canvas-apps";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { Loader2 } from "lucide-react";
+import { Loader2, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Lazy load GroupChat
 const GroupChat = lazy(() => import("./GroupChat"));
@@ -25,14 +27,22 @@ const Chats = () => {
     const saved = localStorage.getItem('sidebar-collapsed');
     return saved === 'true';
   });
-  const [isCanvasVisible, setIsCanvasVisible] = useState(() => {
-    const saved = localStorage.getItem('canvas-visible');
-    return saved !== 'false'; // Default to visible
+  const [isCanvasCollapsed, setIsCanvasCollapsed] = useState(() => {
+    const saved = localStorage.getItem('canvas-collapsed');
+    return saved === 'true';
   });
   const [canvasActiveTab, setCanvasActiveTab] = useState<CanvasApp>(() => {
     const saved = localStorage.getItem('workspace-canvas-app');
     return (saved as CanvasApp) || "notes";
   });
+
+  const toggleCanvasCollapse = useCallback(() => {
+    setIsCanvasCollapsed(prev => {
+      const newValue = !prev;
+      localStorage.setItem('canvas-collapsed', String(newValue));
+      return newValue;
+    });
+  }, []);
   
   // Global incoming call listener
   const { incomingCall, acceptCall, declineCall } = useIncomingCallListener(user?.id);
@@ -146,34 +156,63 @@ const Chats = () => {
       </div>
 
       {/* Desktop: Middle Chat + Right Canvas with Resizable Panels */}
-      <div className="flex-1 hidden md:flex">
+      <div className="flex-1 hidden md:flex relative">
         <ResizablePanelGroup direction="horizontal" className="min-w-0">
           {/* Middle - Chat Area */}
-          <ResizablePanel defaultSize={45} minSize={30} className="min-w-0">
-            <div className="h-full flex flex-col min-w-0 overflow-hidden">
+          <ResizablePanel 
+            defaultSize={isCanvasCollapsed ? 100 : 45} 
+            minSize={30} 
+            className="min-w-0"
+          >
+            <div className="h-full flex flex-col min-w-0 overflow-hidden relative">
               {renderChatContent()}
+              
+              {/* Canvas Toggle Button - positioned at top-right of chat */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={toggleCanvasCollapse}
+                    className="absolute top-3 right-3 h-8 w-8 bg-background/80 backdrop-blur-sm border border-border shadow-sm hover:bg-muted z-10"
+                  >
+                    {isCanvasCollapsed ? (
+                      <PanelRightOpen className="h-4 w-4" />
+                    ) : (
+                      <PanelRightClose className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left">
+                  {isCanvasCollapsed ? "Show workspace" : "Hide workspace"}
+                </TooltipContent>
+              </Tooltip>
             </div>
           </ResizablePanel>
 
-          <ResizableHandle withHandle />
+          {!isCanvasCollapsed && (
+            <>
+              <ResizableHandle withHandle />
 
-          {/* Right - Canvas/Workspace */}
-          <ResizablePanel defaultSize={55} minSize={35} className="min-w-0">
-            <WorkspaceCanvas 
-              conversationId={activeConversationId}
-              conversationType={conversationType as "direct" | "group" | "ai_chat" | undefined}
-              cagContext={{
-                selectedFiles: cagContext.selectedFiles,
-                toggleFile: cagContext.toggleFile,
-                isFileSelected: cagContext.isFileSelected,
-                selectedNotes: cagContext.selectedNotes,
-                toggleNote: cagContext.toggleNote,
-                isNoteSelected: cagContext.isNoteSelected,
-              }}
-              activeTab={canvasActiveTab}
-              onTabChange={handleCanvasTabChange}
-            />
-          </ResizablePanel>
+              {/* Right - Canvas/Workspace */}
+              <ResizablePanel defaultSize={55} minSize={35} className="min-w-0">
+                <WorkspaceCanvas 
+                  conversationId={activeConversationId}
+                  conversationType={conversationType as "direct" | "group" | "ai_chat" | undefined}
+                  cagContext={{
+                    selectedFiles: cagContext.selectedFiles,
+                    toggleFile: cagContext.toggleFile,
+                    isFileSelected: cagContext.isFileSelected,
+                    selectedNotes: cagContext.selectedNotes,
+                    toggleNote: cagContext.toggleNote,
+                    isNoteSelected: cagContext.isNoteSelected,
+                  }}
+                  activeTab={canvasActiveTab}
+                  onTabChange={handleCanvasTabChange}
+                />
+              </ResizablePanel>
+            </>
+          )}
         </ResizablePanelGroup>
       </div>
 
