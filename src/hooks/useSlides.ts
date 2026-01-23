@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { emitOpenApp } from "@/lib/canvas-apps/events";
 
 export interface Slide {
   id: string;
@@ -15,6 +16,8 @@ export interface SlidesState {
   currentSlide: number;
   theme: "dark" | "light" | "minimal" | "bold";
   title: string;
+  presentingUserId: string | null;
+  presentingStartedAt: string | null;
 }
 
 const defaultState: SlidesState = {
@@ -22,6 +25,8 @@ const defaultState: SlidesState = {
   currentSlide: 0,
   theme: "dark",
   title: "Untitled Presentation",
+  presentingUserId: null,
+  presentingStartedAt: null,
 };
 
 export function useSlides(roomId: string | undefined) {
@@ -57,6 +62,8 @@ export function useSlides(roomId: string | undefined) {
           currentSlide: data.current_slide ?? 0,
           theme: (data.theme as SlidesState["theme"]) ?? "dark",
           title: data.title ?? "Untitled Presentation",
+          presentingUserId: (data as { presenting_user_id?: string }).presenting_user_id ?? null,
+          presentingStartedAt: (data as { presenting_started_at?: string }).presenting_started_at ?? null,
         });
       }
     } catch (err) {
@@ -80,29 +87,29 @@ export function useSlides(roomId: string | undefined) {
           .eq("room_id", roomId)
           .maybeSingle();
 
-        const slidesJson = JSON.parse(JSON.stringify(newState.slides));
+        const slidesJson = JSON.parse(JSON.stringify(newState.slides)) as unknown as import("@/integrations/supabase/types").Json;
 
         if (existing) {
           await supabase
             .from("room_slides")
             .update({
-              slides: slidesJson,
+              slides: slidesJson as any,
               current_slide: newState.currentSlide,
               theme: newState.theme,
               title: newState.title,
               updated_by: user.id,
               updated_at: new Date().toISOString(),
-            })
+            } as any)
             .eq("room_id", roomId);
         } else {
           await supabase.from("room_slides").insert({
             room_id: roomId,
-            slides: slidesJson,
+            slides: slidesJson as any,
             current_slide: newState.currentSlide,
             theme: newState.theme,
             title: newState.title,
             updated_by: user.id,
-          });
+          } as any);
         }
       } catch (err) {
         console.error("Error saving slides:", err);
@@ -248,6 +255,60 @@ export function useSlides(roomId: string | undefined) {
     [debouncedSave]
   );
 
+  // Start presenting - broadcast to all users
+  const startPresenting = useCallback(async () => {
+    if (!roomId || !user) return;
+    
+    try {
+      await supabase
+        .from("room_slides")
+        .update({
+          presenting_user_id: user.id,
+          presenting_started_at: new Date().toISOString(),
+          updated_by: user.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("room_id", roomId);
+        
+      setState(prev => ({
+        ...prev,
+        presentingUserId: user.id,
+        presentingStartedAt: new Date().toISOString(),
+      }));
+    } catch (err) {
+      console.error("Error starting presentation:", err);
+    }
+  }, [roomId, user]);
+
+  // Stop presenting
+  const stopPresenting = useCallback(async () => {
+    if (!roomId || !user) return;
+    
+    try {
+      await supabase
+        .from("room_slides")
+        .update({
+          presenting_user_id: null,
+          presenting_started_at: null,
+          updated_by: user.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("room_id", roomId);
+        
+      setState(prev => ({
+        ...prev,
+        presentingUserId: null,
+        presentingStartedAt: null,
+      }));
+    } catch (err) {
+      console.error("Error stopping presentation:", err);
+    }
+  }, [roomId, user]);
+
+  // Check if current user is the presenter
+  const isPresenter = state.presentingUserId === user?.id;
+  const isAudienceMember = state.presentingUserId !== null && state.presentingUserId !== user?.id;
+
   // Load on mount
   useEffect(() => {
     loadSlides();
@@ -268,16 +329,30 @@ export function useSlides(roomId: string | undefined) {
           filter: `room_id=eq.${roomId}`,
         },
         (payload) => {
-          const updatedBy = (payload.new as { updated_by: string }).updated_by;
-          // Only sync if change was made by another user
+          const data = payload.new as {
+            slides: unknown;
+            current_slide: number;
+            theme: string;
+            title: string;
+            updated_by: string;
+            presenting_user_id: string | null;
+            presenting_started_at: string | null;
+          };
+          const updatedBy = data.updated_by;
+          
+          // Always sync presenter state from other users
+          // Only sync content if change was made by another user
           if (updatedBy !== user?.id) {
             isSyncing.current = true;
-            const data = payload.new as {
-              slides: unknown;
-              current_slide: number;
-              theme: string;
-              title: string;
-            };
+            
+            // Auto-open slides app when someone else starts presenting
+            const wasPresenting = state.presentingUserId;
+            const nowPresenting = data.presenting_user_id;
+            if (!wasPresenting && nowPresenting && nowPresenting !== user?.id) {
+              console.log("Someone started presenting, opening slides app");
+              emitOpenApp("slides");
+            }
+            
             setState({
               slides: Array.isArray(data.slides)
                 ? (data.slides as Slide[])
@@ -285,8 +360,17 @@ export function useSlides(roomId: string | undefined) {
               currentSlide: data.current_slide ?? 0,
               theme: (data.theme as SlidesState["theme"]) ?? "dark",
               title: data.title ?? "Untitled Presentation",
+              presentingUserId: data.presenting_user_id,
+              presentingStartedAt: data.presenting_started_at,
             });
             isSyncing.current = false;
+          } else {
+            // Still update presenter state even if we made the change (for confirmation)
+            setState(prev => ({
+              ...prev,
+              presentingUserId: data.presenting_user_id,
+              presentingStartedAt: data.presenting_started_at,
+            }));
           }
         }
       )
@@ -310,6 +394,8 @@ export function useSlides(roomId: string | undefined) {
     ...state,
     isLoading,
     isSaving,
+    isPresenter,
+    isAudienceMember,
     addSlide,
     updateSlide,
     deleteSlide,
@@ -318,5 +404,7 @@ export function useSlides(roomId: string | undefined) {
     setTheme,
     setTitle,
     setSlides,
+    startPresenting,
+    stopPresenting,
   };
 }
