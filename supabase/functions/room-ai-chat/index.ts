@@ -34,6 +34,7 @@ interface ToolSettings {
   web_search: boolean;
   generate_image: boolean;
   code_execution: boolean;
+  send_code_to_sandbox: boolean;
 }
 
 const defaultToolSettings: ToolSettings = {
@@ -41,6 +42,7 @@ const defaultToolSettings: ToolSettings = {
   web_search: true,
   generate_image: false,
   code_execution: false,
+  send_code_to_sandbox: true, // Always enabled for Claude-like artifact experience
 };
 
 // All available tool definitions
@@ -123,8 +125,32 @@ const allTools = {
       },
     },
   },
-  // NOTE: send_code_to_sandbox and navigate_browser are now handled by frontend artifact detection
-  // This removes tool calling overhead and gives users control via artifact buttons in chat
+  send_code_to_sandbox: {
+    type: "function",
+    function: {
+      name: "send_code_to_sandbox",
+      description: "Send code to the collaborative sandbox for the user to view, edit, and run. ALWAYS use this tool when generating code examples, snippets, or complete programs. This opens the sandbox automatically so users can see and interact with the code immediately - like Claude Artifacts.",
+      parameters: {
+        type: "object",
+        properties: {
+          code: {
+            type: "string",
+            description: "The code to send to the sandbox",
+          },
+          language: {
+            type: "string",
+            enum: ["javascript", "typescript"],
+            description: "The programming language",
+          },
+          auto_run: {
+            type: "boolean",
+            description: "Whether to automatically run the code after sending (default: false)",
+          },
+        },
+        required: ["code", "language"],
+      },
+    },
+  },
 };
 
 // getLLMConfig is now imported from _shared/llm-config.ts
@@ -783,7 +809,9 @@ Start with the basics and build understanding gradually.`,
     if (toolSettings.code_execution) {
       availableTools.push(allTools.code_execution);
     }
-    // NOTE: send_code_to_sandbox and navigate_browser removed - now handled by frontend artifact detection
+    if (toolSettings.send_code_to_sandbox) {
+      availableTools.push(allTools.send_code_to_sandbox);
+    }
 
     console.log("Available tools:", availableTools.map(t => t.function.name).join(", ") || "none");
 
