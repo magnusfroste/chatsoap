@@ -934,6 +934,16 @@ Start with the basics and build understanding gradually.`,
         llmConfig
       );
 
+      // Extract client-side command tokens from tool results to prepend to stream
+      const clientCommandTokens: string[] = [];
+      for (const result of toolResults) {
+        if (result.content.startsWith("__SLIDES_UPDATE__:") || 
+            result.content.startsWith("__CODE_SANDBOX__:") ||
+            result.content.startsWith("__BROWSER_NAVIGATE__:")) {
+          clientCommandTokens.push(result.content);
+        }
+      }
+
       const messagesWithTools = [
         ...messages,
         {
@@ -966,7 +976,40 @@ Start with the basics and build understanding gradually.`,
         );
       }
 
-      console.log("Streaming final response after tool use");
+      console.log("Streaming final response after tool use, injecting", clientCommandTokens.length, "command tokens");
+
+      // If we have client command tokens, prepend them to the stream
+      if (clientCommandTokens.length > 0) {
+        const encoder = new TextEncoder();
+        const commandPrefix = clientCommandTokens.join("\n") + "\n\n";
+        
+        // Create a new stream that prepends our tokens
+        const transformedStream = new ReadableStream({
+          async start(controller) {
+            // First, send the command tokens as SSE data
+            const prefixEvent = `data: ${JSON.stringify({ choices: [{ delta: { content: commandPrefix } }] })}\n\n`;
+            controller.enqueue(encoder.encode(prefixEvent));
+            
+            // Then pipe through the rest of the response
+            const reader = secondResponse.body!.getReader();
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                controller.enqueue(value);
+              }
+            } finally {
+              reader.releaseLock();
+              controller.close();
+            }
+          }
+        });
+
+        return new Response(transformedStream, {
+          headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+        });
+      }
+
       return new Response(secondResponse.body, {
         headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
       });
