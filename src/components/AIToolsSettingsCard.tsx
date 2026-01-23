@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Wrench, Search, ScanEye, Loader2, Code2, Play } from "lucide-react";
+import { Wrench, Search, ScanEye, Loader2, Code2, Play, ImagePlus } from "lucide-react";
 import { toast } from "sonner";
 
 interface ToolSettings {
@@ -11,6 +11,7 @@ interface ToolSettings {
   web_search: boolean;
   send_code_to_sandbox: boolean;
   code_execution: boolean;
+  generate_image: boolean;
 }
 
 const defaultSettings: ToolSettings = {
@@ -18,6 +19,7 @@ const defaultSettings: ToolSettings = {
   web_search: true,
   send_code_to_sandbox: true,
   code_execution: false,
+  generate_image: false,
 };
 
 const toolInfo = {
@@ -40,6 +42,11 @@ const toolInfo = {
     name: "Code Execution",
     description: "Let AI run code directly and show output in chat responses",
     icon: Play,
+  },
+  generate_image: {
+    name: "Image Generation",
+    description: "Let AI generate images from text descriptions",
+    icon: ImagePlus,
   },
 };
 
