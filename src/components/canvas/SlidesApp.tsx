@@ -24,6 +24,9 @@ import {
   X,
   Edit3,
   Check,
+  Radio,
+  Users,
+  StopCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -339,6 +342,69 @@ function PresenterMode({
   );
 }
 
+// Audience view component - follows presenter's slides
+function AudienceMode({
+  slides,
+  currentSlide,
+  theme,
+  title,
+}: {
+  slides: Slide[];
+  currentSlide: number;
+  theme: SlidesState["theme"];
+  title: string;
+}) {
+  const slide = slides[currentSlide];
+  const styles = themeStyles[theme];
+
+  if (!slide) return null;
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Live indicator */}
+      <div className="flex items-center justify-between p-3 border-b border-border/50 bg-gradient-to-r from-green-500/10 to-transparent">
+        <div className="flex items-center gap-2">
+          <Radio className="w-4 h-4 text-green-500 animate-pulse" />
+          <span className="text-sm font-medium">Live Presentation</span>
+          <span className="text-xs text-muted-foreground">• {title}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Users className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">
+            Slide {currentSlide + 1} / {slides.length}
+          </span>
+        </div>
+      </div>
+
+      {/* Slide content */}
+      <div className={cn("flex-1", styles.bg, styles.text)}>
+        <div className="h-full flex items-center justify-center p-8">
+          <div className="max-w-5xl w-full">
+            {slide.layout === "title" && (
+              <h1 className="text-5xl font-bold text-center">{slide.title}</h1>
+            )}
+            
+            {slide.layout !== "title" && (
+              <>
+                <h2 className={cn("text-4xl font-bold mb-6", styles.accent)}>
+                  {slide.title}
+                </h2>
+                <div className="text-xl leading-relaxed whitespace-pre-wrap">
+                  {slide.content?.split("\n").map((line, i) => (
+                    <p key={i} className={cn("mb-2", line.startsWith("-") && "pl-6 before:content-['•'] before:mr-3")}>
+                      {line.startsWith("-") ? line.slice(1).trim() : line}
+                    </p>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SlidesApp({ conversationId, userId }: SlidesAppProps) {
   const {
     slides,
@@ -347,6 +413,9 @@ export default function SlidesApp({ conversationId, userId }: SlidesAppProps) {
     title,
     isLoading,
     isSaving,
+    isPresenter,
+    isAudienceMember,
+    presentingUserId,
     addSlide,
     updateSlide,
     deleteSlide,
@@ -354,9 +423,11 @@ export default function SlidesApp({ conversationId, userId }: SlidesAppProps) {
     setTheme,
     setTitle,
     setSlides,
+    startPresenting,
+    stopPresenting,
   } = useSlides(conversationId);
 
-  const [isPresenting, setIsPresenting] = useState(false);
+  const [localPresenterView, setLocalPresenterView] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
 
   // Listen for slides:update events from AI
@@ -398,14 +469,30 @@ export default function SlidesApp({ conversationId, userId }: SlidesAppProps) {
     );
   }
 
-  if (isPresenting && slides.length > 0) {
+  // Show presenter fullscreen mode
+  if (localPresenterView && slides.length > 0 && isPresenter) {
     return (
       <PresenterMode
         slides={slides}
         currentSlide={currentSlide}
         theme={theme}
         onNavigate={setCurrentSlide}
-        onClose={() => setIsPresenting(false)}
+        onClose={() => {
+          setLocalPresenterView(false);
+          stopPresenting();
+        }}
+      />
+    );
+  }
+
+  // Audience view - fullscreen following presenter
+  if (isAudienceMember && slides.length > 0) {
+    return (
+      <AudienceMode
+        slides={slides}
+        currentSlide={currentSlide}
+        theme={theme}
+        title={title}
       />
     );
   }
@@ -469,14 +556,32 @@ export default function SlidesApp({ conversationId, userId }: SlidesAppProps) {
             <Plus className="w-4 h-4 mr-1" /> Add Slide
           </Button>
 
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => setIsPresenting(true)}
-            disabled={slides.length === 0}
-          >
-            <Play className="w-4 h-4 mr-1" /> Present
-          </Button>
+          {isPresenter ? (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => stopPresenting()}
+            >
+              <StopCircle className="w-4 h-4 mr-1" /> Stop Presenting
+            </Button>
+          ) : presentingUserId ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Radio className="w-4 h-4 text-green-500 animate-pulse" />
+              Someone is presenting
+            </div>
+          ) : (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={async () => {
+                await startPresenting();
+                setLocalPresenterView(true);
+              }}
+              disabled={slides.length === 0}
+            >
+              <Play className="w-4 h-4 mr-1" /> Present Live
+            </Button>
+          )}
         </div>
       </div>
 
@@ -580,7 +685,11 @@ export default function SlidesApp({ conversationId, userId }: SlidesAppProps) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setIsPresenting(true)}
+                    onClick={async () => {
+                      await startPresenting();
+                      setLocalPresenterView(true);
+                    }}
+                    disabled={!!presentingUserId}
                   >
                     <Maximize2 className="w-4 h-4" />
                   </Button>

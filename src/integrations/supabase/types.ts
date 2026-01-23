@@ -647,6 +647,8 @@ export type Database = {
           created_at: string
           current_slide: number
           id: string
+          presenting_started_at: string | null
+          presenting_user_id: string | null
           room_id: string
           slides: Json
           theme: string
@@ -658,6 +660,8 @@ export type Database = {
           created_at?: string
           current_slide?: number
           id?: string
+          presenting_started_at?: string | null
+          presenting_user_id?: string | null
           room_id: string
           slides?: Json
           theme?: string
@@ -669,6 +673,8 @@ export type Database = {
           created_at?: string
           current_slide?: number
           id?: string
+          presenting_started_at?: string | null
+          presenting_user_id?: string | null
           room_id?: string
           slides?: Json
           theme?: string

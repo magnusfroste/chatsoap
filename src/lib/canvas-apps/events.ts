@@ -35,12 +35,18 @@ type SlidesUpdatePayload = {
   theme?: "dark" | "light" | "minimal" | "bold";
 };
 
+type PresentationStartPayload = {
+  conversationId: string;
+  presenterId: string;
+};
+
 type CanvasEventPayload = {
   "browser:navigate": BrowserNavigatePayload;
   "browser:preview": BrowserPreviewPayload;
   "code:send": CodeSandboxPayload;
   "notes:create": NotesCreatePayload;
   "slides:update": SlidesUpdatePayload;
+  "slides:presenting": PresentationStartPayload;
   "app:open": { appId: string; params?: Record<string, unknown> };
 };
 
@@ -113,4 +119,8 @@ export function emitSlidesUpdate(
   theme?: SlidesUpdatePayload["theme"]
 ) {
   canvasEventBus.emit("slides:update", { slides, title, theme });
+}
+
+export function emitPresentationStart(conversationId: string, presenterId: string) {
+  canvasEventBus.emit("slides:presenting", { conversationId, presenterId });
 }
