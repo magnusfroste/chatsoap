@@ -18,7 +18,9 @@ import {
   Download,
   Trash2,
   Check,
-  X
+  X,
+  Copy,
+  ClipboardPaste
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -420,6 +422,12 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
   const [formulaMode, setFormulaMode] = useState(false); // Track if we're building a formula
   const [formulaSourceCell, setFormulaSourceCell] = useState<string | null>(null); // The cell where formula is being entered
   const [selection, setSelection] = useState<{ start: string; end: string } | null>(null);
+  
+  // Copy/paste state
+  const [copiedCell, setCopiedCell] = useState<{
+    cellId: string;
+    data: CellData | null;
+  } | null>(null);
   
   // Drag selection state for range picking in formula mode
   const [isDragging, setIsDragging] = useState(false);
@@ -899,6 +907,78 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
     }
   }, [editingCell, editValue, updateCell, data.rows, data.columns, data.cells, handleCellDoubleClick, formulaSourceCell]);
 
+  // Copy cell
+  const copyCell = useCallback(() => {
+    if (!selectedCell) return;
+    const cellData = data.cells[selectedCell] || null;
+    setCopiedCell({
+      cellId: selectedCell,
+      data: cellData ? { ...cellData } : null
+    });
+    
+    // Also copy to system clipboard
+    const displayValue = cellData?.formula || cellData?.value || "";
+    navigator.clipboard.writeText(String(displayValue)).catch(() => {
+      // Ignore clipboard errors
+    });
+  }, [selectedCell, data.cells]);
+
+  // Paste cell
+  const pasteCell = useCallback(() => {
+    if (!selectedCell || !copiedCell) return;
+    
+    const newCells = { ...data.cells };
+    
+    if (copiedCell.data) {
+      // Paste cell data (preserving format)
+      newCells[selectedCell] = {
+        ...copiedCell.data,
+      };
+    } else {
+      // Clear the cell if copied cell was empty
+      delete newCells[selectedCell];
+    }
+    
+    const newData = { ...data, cells: newCells };
+    setData(newData);
+    saveData(newData);
+    
+    // Update edit value if we're editing
+    if (editingCell === selectedCell) {
+      setEditValue(copiedCell.data?.formula || copiedCell.data?.value || "");
+    }
+  }, [selectedCell, copiedCell, data, saveData, editingCell]);
+
+  // Global keyboard handler for copy/paste
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Only handle when not typing in an input (except our formula bar)
+      const target = e.target as HTMLElement;
+      const isInInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA";
+      const isFormulaBar = target === inputRef.current;
+      
+      // For copy, we can intercept even in formula bar
+      if ((e.ctrlKey || e.metaKey) && e.key === "c" && selectedCell && !isInFormulaMode) {
+        e.preventDefault();
+        copyCell();
+        return;
+      }
+      
+      // For paste, only when not actively typing in formula mode
+      if ((e.ctrlKey || e.metaKey) && e.key === "v" && selectedCell && copiedCell) {
+        if (!isInInput || isFormulaBar) {
+          if (!isInFormulaMode) {
+            e.preventDefault();
+            pasteCell();
+          }
+        }
+      }
+    };
+    
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [selectedCell, copiedCell, copyCell, pasteCell, isInFormulaMode]);
+
   // Computed values for display
   const computedValues = useMemo(() => {
     const values: Record<string, string | number> = {};
@@ -1054,6 +1134,29 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
           <ArrowUpDown className="w-3.5 h-3.5 rotate-90" />
         </Button>
         
+        <div className="h-4 w-px bg-border mx-1" />
+        
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-7 w-7" 
+          onClick={copyCell} 
+          disabled={!selectedCell}
+          title="Copy (Ctrl+C)"
+        >
+          <Copy className={cn("w-3.5 h-3.5", copiedCell && "text-primary")} />
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-7 w-7" 
+          onClick={pasteCell} 
+          disabled={!selectedCell || !copiedCell}
+          title="Paste (Ctrl+V)"
+        >
+          <ClipboardPaste className="w-3.5 h-3.5" />
+        </Button>
+        
         <div className="flex-1" />
         
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={exportCSV} title="Export CSV">
@@ -1185,6 +1288,7 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
                     const isInDragRange = isCellInDragRange(cellId);
                     const refColorIndex = cellColorMap[cellId];
                     const refColor = refColorIndex !== undefined ? REF_COLORS[refColorIndex] : null;
+                    const isCopied = copiedCell?.cellId === cellId;
                     
                       return (
                         <td
@@ -1195,12 +1299,13 @@ export function SpreadsheetApp({ roomId, initialData }: SpreadsheetAppProps) {
                             isInFormulaMode && formulaSourceCell && cellId !== formulaSourceCell && !refColor && "hover:bg-primary/10",
                             isInDragRange && "bg-primary/20",
                             cell?.format?.bold && "font-bold",
-                            cell?.format?.italic && "italic"
+                            cell?.format?.italic && "italic",
+                            isCopied && "border-dashed border-primary"
                           )}
                           style={{
                             textAlign: cell?.format?.align || "left",
                             backgroundColor: refColor ? refColor.bg : (isInDragRange ? undefined : cell?.format?.bgColor),
-                            borderColor: refColor ? refColor.border : "hsl(var(--border))",
+                            borderColor: isCopied ? undefined : (refColor ? refColor.border : "hsl(var(--border))"),
                             color: cell?.format?.textColor,
                           }}
                           onMouseDown={(e) => handleCellMouseDown(cellId, e)}
