@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useCollaborativeCanvas } from "@/hooks/useCollaborativeCanvas";
 import { Button } from "@/components/ui/button";
 import { 
@@ -33,6 +33,7 @@ export const CollaborativeCanvas = ({ roomId, userId }: CollaborativeCanvasProps
   const [isDrawing, setIsDrawing] = useState(true);
   const [activeColor, setActiveColor] = useState(COLORS[0]);
   const [activeSize, setActiveSize] = useState(BRUSH_SIZES[0]);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const {
     canvasRef,
@@ -43,7 +44,7 @@ export const CollaborativeCanvas = ({ roomId, userId }: CollaborativeCanvasProps
     clearCanvas,
     deleteSelected,
     addText,
-  } = useCollaborativeCanvas(roomId, userId);
+  } = useCollaborativeCanvas(roomId, userId, containerRef);
 
   const handleToolChange = (drawing: boolean) => {
     setIsDrawing(drawing);
@@ -178,10 +179,11 @@ export const CollaborativeCanvas = ({ roomId, userId }: CollaborativeCanvasProps
       </div>
 
       {/* Canvas */}
-      <div className="flex-1 overflow-auto p-4 bg-background/50">
-        <div className="rounded-lg border border-border/50 overflow-hidden shadow-xl inline-block">
-          <canvas ref={canvasRef} />
-        </div>
+      <div 
+        ref={containerRef} 
+        className="flex-1 w-full h-full overflow-hidden bg-[#1a1a2e]"
+      >
+        <canvas ref={canvasRef} />
       </div>
     </div>
   );
