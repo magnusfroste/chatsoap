@@ -7,7 +7,9 @@ import {
   Trash2, 
   Eraser,
   Loader2,
-  Type
+  Type,
+  Undo2,
+  Redo2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -44,6 +46,10 @@ export const CollaborativeCanvas = ({ roomId, userId }: CollaborativeCanvasProps
     clearCanvas,
     deleteSelected,
     addText,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
   } = useCollaborativeCanvas(roomId, userId, containerRef);
 
   const handleToolChange = (drawing: boolean) => {
@@ -151,6 +157,32 @@ export const CollaborativeCanvas = ({ roomId, userId }: CollaborativeCanvasProps
               />
             </button>
           ))}
+        </div>
+
+        <div className="w-px h-6 bg-border/50" />
+
+        {/* Undo/Redo */}
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground disabled:opacity-30"
+            onClick={undo}
+            disabled={!canUndo}
+            title="Undo (Ctrl+Z)"
+          >
+            <Undo2 className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground disabled:opacity-30"
+            onClick={redo}
+            disabled={!canRedo}
+            title="Redo (Ctrl+Y)"
+          >
+            <Redo2 className="w-4 h-4" />
+          </Button>
         </div>
 
         <div className="w-px h-6 bg-border/50" />
