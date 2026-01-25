@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, useCallback, RefObject } from "react";
 import { Canvas as FabricCanvas, PencilBrush, IText } from "fabric";
 import { supabase } from "@/integrations/supabase/client";
 
+const MAX_HISTORY = 50;
+
 export const useCollaborativeCanvas = (
   roomId: string | undefined, 
   userId: string | undefined,
@@ -12,6 +14,74 @@ export const useCollaborativeCanvas = (
   const [isLoading, setIsLoading] = useState(true);
   const isSyncing = useRef(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  
+  // Undo/Redo history
+  const historyRef = useRef<string[]>([]);
+  const historyIndexRef = useRef(-1);
+  const isUndoRedoRef = useRef(false);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  // Save state to history
+  const saveToHistory = useCallback(() => {
+    if (!fabricRef.current || isUndoRedoRef.current) return;
+    
+    const json = JSON.stringify(fabricRef.current.toJSON());
+    
+    // Remove any future states if we're not at the end
+    if (historyIndexRef.current < historyRef.current.length - 1) {
+      historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
+    }
+    
+    // Add new state
+    historyRef.current.push(json);
+    
+    // Limit history size
+    if (historyRef.current.length > MAX_HISTORY) {
+      historyRef.current.shift();
+    } else {
+      historyIndexRef.current++;
+    }
+    
+    setCanUndo(historyIndexRef.current > 0);
+    setCanRedo(false);
+  }, []);
+
+  // Undo
+  const undo = useCallback(async () => {
+    if (!fabricRef.current || historyIndexRef.current <= 0) return;
+    
+    isUndoRedoRef.current = true;
+    historyIndexRef.current--;
+    
+    const state = historyRef.current[historyIndexRef.current];
+    await fabricRef.current.loadFromJSON(JSON.parse(state));
+    fabricRef.current.renderAll();
+    
+    setCanUndo(historyIndexRef.current > 0);
+    setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
+    
+    isUndoRedoRef.current = false;
+    debouncedSave();
+  }, []);
+
+  // Redo
+  const redo = useCallback(async () => {
+    if (!fabricRef.current || historyIndexRef.current >= historyRef.current.length - 1) return;
+    
+    isUndoRedoRef.current = true;
+    historyIndexRef.current++;
+    
+    const state = historyRef.current[historyIndexRef.current];
+    await fabricRef.current.loadFromJSON(JSON.parse(state));
+    fabricRef.current.renderAll();
+    
+    setCanUndo(historyIndexRef.current > 0);
+    setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
+    
+    isUndoRedoRef.current = false;
+    debouncedSave();
+  }, []);
 
   // Save canvas to database
   const saveCanvas = useCallback(async () => {
@@ -111,7 +181,8 @@ export const useCollaborativeCanvas = (
 
     // Set up event listeners for changes
     const handleChange = () => {
-      if (!isSyncing.current) {
+      if (!isSyncing.current && !isUndoRedoRef.current) {
+        saveToHistory();
         debouncedSave();
       }
     };
@@ -120,6 +191,17 @@ export const useCollaborativeCanvas = (
     canvas.on("object:modified", handleChange);
     canvas.on("object:removed", handleChange);
     canvas.on("path:created", handleChange);
+    
+    // Save initial state to history
+    setTimeout(() => {
+      if (fabricRef.current) {
+        const json = JSON.stringify(fabricRef.current.toJSON());
+        historyRef.current = [json];
+        historyIndexRef.current = 0;
+        setCanUndo(false);
+        setCanRedo(false);
+      }
+    }, 100);
 
     return () => {
       if (debounceTimer.current) {
@@ -128,7 +210,7 @@ export const useCollaborativeCanvas = (
       canvas.dispose();
       fabricRef.current = null;
     };
-  }, [roomId, loadCanvas, debouncedSave, containerRef]);
+  }, [roomId, loadCanvas, debouncedSave, containerRef, saveToHistory]);
 
   // Handle resize
   useEffect(() => {
@@ -145,6 +227,28 @@ export const useCollaborativeCanvas = (
     resizeObserver.observe(containerRef.current);
     return () => resizeObserver.disconnect();
   }, [containerRef]);
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check if we're inside a text input
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+      
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        redo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo]);
 
   // Subscribe to realtime updates
   useEffect(() => {
@@ -247,5 +351,9 @@ export const useCollaborativeCanvas = (
     clearCanvas,
     deleteSelected,
     addText,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
   };
 };
