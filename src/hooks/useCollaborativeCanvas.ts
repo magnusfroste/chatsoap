@@ -1,8 +1,12 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, RefObject } from "react";
 import { Canvas as FabricCanvas, PencilBrush, IText } from "fabric";
 import { supabase } from "@/integrations/supabase/client";
 
-export const useCollaborativeCanvas = (roomId: string | undefined, userId: string | undefined) => {
+export const useCollaborativeCanvas = (
+  roomId: string | undefined, 
+  userId: string | undefined,
+  containerRef: RefObject<HTMLDivElement>
+) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<FabricCanvas | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -83,11 +87,13 @@ export const useCollaborativeCanvas = (roomId: string | undefined, userId: strin
 
   // Initialize canvas
   useEffect(() => {
-    if (!canvasRef.current || !roomId) return;
+    if (!canvasRef.current || !roomId || !containerRef.current) return;
 
+    // Get initial dimensions from container
+    const rect = containerRef.current.getBoundingClientRect();
     const canvas = new FabricCanvas(canvasRef.current, {
-      width: 800,
-      height: 500,
+      width: rect.width || 800,
+      height: rect.height || 500,
       backgroundColor: "#1a1a2e",
       isDrawingMode: true,
     });
@@ -122,7 +128,23 @@ export const useCollaborativeCanvas = (roomId: string | undefined, userId: strin
       canvas.dispose();
       fabricRef.current = null;
     };
-  }, [roomId, loadCanvas, debouncedSave]);
+  }, [roomId, loadCanvas, debouncedSave, containerRef]);
+
+  // Handle resize
+  useEffect(() => {
+    if (!containerRef.current || !fabricRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect;
+      if (fabricRef.current && width > 0 && height > 0) {
+        fabricRef.current.setDimensions({ width, height });
+        fabricRef.current.renderAll();
+      }
+    });
+
+    resizeObserver.observe(containerRef.current);
+    return () => resizeObserver.disconnect();
+  }, [containerRef]);
 
   // Subscribe to realtime updates
   useEffect(() => {
