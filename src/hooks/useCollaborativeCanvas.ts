@@ -1,6 +1,19 @@
 import { useEffect, useRef, useState, useCallback, RefObject } from "react";
-import { Canvas as FabricCanvas, PencilBrush, IText } from "fabric";
+import { Canvas as FabricCanvas, PencilBrush, IText, Rect, Circle, Line, FabricObject } from "fabric";
 import { supabase } from "@/integrations/supabase/client";
+
+export interface WhiteboardShape {
+  type: "rectangle" | "circle" | "arrow" | "sticky" | "text";
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  radius?: number;
+  text?: string;
+  color?: string;
+  endX?: number;
+  endY?: number;
+}
 
 const MAX_HISTORY = 50;
 
@@ -342,6 +355,126 @@ export const useCollaborativeCanvas = (
     fabricRef.current.renderAll();
   }, []);
 
+  // Add shapes from AI
+  const addShapes = useCallback((shapes: WhiteboardShape[]) => {
+    if (!fabricRef.current) return;
+    
+    const objectsToAdd: FabricObject[] = [];
+    
+    for (const shape of shapes) {
+      const color = shape.color || "#c4a7ff";
+      
+      switch (shape.type) {
+        case "rectangle":
+          objectsToAdd.push(new Rect({
+            left: shape.x,
+            top: shape.y,
+            width: shape.width || 100,
+            height: shape.height || 60,
+            fill: "transparent",
+            stroke: color,
+            strokeWidth: 2,
+            rx: 4,
+            ry: 4,
+          }));
+          break;
+          
+        case "circle":
+          objectsToAdd.push(new Circle({
+            left: shape.x,
+            top: shape.y,
+            radius: shape.radius || 40,
+            fill: "transparent",
+            stroke: color,
+            strokeWidth: 2,
+          }));
+          break;
+          
+        case "arrow":
+          const endX = shape.endX || shape.x + 100;
+          const endY = shape.endY || shape.y;
+          
+          // Main line
+          objectsToAdd.push(new Line([shape.x, shape.y, endX, endY], {
+            stroke: color,
+            strokeWidth: 2,
+          }));
+          
+          // Arrow head
+          const angle = Math.atan2(endY - shape.y, endX - shape.x);
+          const headLength = 12;
+          const headAngle = Math.PI / 6;
+          
+          objectsToAdd.push(new Line([
+            endX,
+            endY,
+            endX - headLength * Math.cos(angle - headAngle),
+            endY - headLength * Math.sin(angle - headAngle),
+          ], {
+            stroke: color,
+            strokeWidth: 2,
+          }));
+          
+          objectsToAdd.push(new Line([
+            endX,
+            endY,
+            endX - headLength * Math.cos(angle + headAngle),
+            endY - headLength * Math.sin(angle + headAngle),
+          ], {
+            stroke: color,
+            strokeWidth: 2,
+          }));
+          break;
+          
+        case "sticky":
+          // Background rectangle
+          objectsToAdd.push(new Rect({
+            left: shape.x,
+            top: shape.y,
+            width: shape.width || 120,
+            height: shape.height || 80,
+            fill: color + "33", // 20% opacity
+            stroke: color,
+            strokeWidth: 1,
+            rx: 4,
+            ry: 4,
+          }));
+          
+          // Text on sticky
+          if (shape.text) {
+            objectsToAdd.push(new IText(shape.text, {
+              left: shape.x + 8,
+              top: shape.y + 8,
+              fontSize: 14,
+              fill: "#ffffff",
+              fontFamily: "Inter, sans-serif",
+              width: (shape.width || 120) - 16,
+            }));
+          }
+          break;
+          
+        case "text":
+          objectsToAdd.push(new IText(shape.text || "Text", {
+            left: shape.x,
+            top: shape.y,
+            fontSize: 18,
+            fill: color,
+            fontFamily: "Inter, sans-serif",
+          }));
+          break;
+      }
+    }
+    
+    // Add all objects
+    for (const obj of objectsToAdd) {
+      fabricRef.current.add(obj);
+    }
+    
+    fabricRef.current.renderAll();
+    saveToHistory();
+    debouncedSave();
+  }, [saveToHistory, debouncedSave]);
+
   return {
     canvasRef,
     isLoading,
@@ -351,6 +484,7 @@ export const useCollaborativeCanvas = (
     clearCanvas,
     deleteSelected,
     addText,
+    addShapes,
     undo,
     redo,
     canUndo,

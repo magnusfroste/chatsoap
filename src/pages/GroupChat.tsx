@@ -488,6 +488,38 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
               }
             }
 
+            // Check for whiteboard shapes command from AI tools
+            const whiteboardMarker = "__WHITEBOARD_SHAPES__:";
+            const whiteboardIndex = fullText.indexOf(whiteboardMarker);
+            if (whiteboardIndex !== -1) {
+              try {
+                const jsonStart = whiteboardIndex + whiteboardMarker.length;
+                let braceCount = 0;
+                let jsonEnd = jsonStart;
+                for (let i = jsonStart; i < fullText.length; i++) {
+                  if (fullText[i] === "{") braceCount++;
+                  else if (fullText[i] === "}") {
+                    braceCount--;
+                    if (braceCount === 0) {
+                      jsonEnd = i + 1;
+                      break;
+                    }
+                  }
+                }
+                const jsonStr = fullText.slice(jsonStart, jsonEnd);
+                const { shapes, description } = JSON.parse(jsonStr);
+                displayText = displayText.replace(whiteboardMarker + jsonStr, "").trim();
+                if (!displayText && description) {
+                  displayText = `🎨 ${description}`;
+                }
+                const { emitWhiteboardShapes } = await import("@/lib/canvas-apps/events");
+                emitWhiteboardShapes(shapes, description);
+                emitOpenApp('whiteboard');
+              } catch (e) {
+                console.error("Failed to parse whiteboard command:", e);
+              }
+            }
+
             await supabase.from("messages").insert({
               content: displayText || fullText,
               is_ai: true,

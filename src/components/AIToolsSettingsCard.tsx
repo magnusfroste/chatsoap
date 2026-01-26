@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Wrench, Search, ScanEye, Loader2, Code2, Play, ImagePlus, Presentation, Table2 } from "lucide-react";
+import { Wrench, Search, ScanEye, Loader2, Code2, Play, ImagePlus, Presentation, Table2, PenTool } from "lucide-react";
 import { toast } from "sonner";
 
 interface ToolSettings {
@@ -14,6 +14,7 @@ interface ToolSettings {
   generate_image: boolean;
   generate_slides: boolean;
   update_spreadsheet: boolean;
+  add_whiteboard_shapes: boolean;
 }
 
 const defaultSettings: ToolSettings = {
@@ -24,6 +25,7 @@ const defaultSettings: ToolSettings = {
   generate_image: false,
   generate_slides: true,
   update_spreadsheet: true,
+  add_whiteboard_shapes: true,
 };
 
 const toolInfo = {
@@ -61,6 +63,11 @@ const toolInfo = {
     name: "Spreadsheet Updates",
     description: "Let AI write data and formulas directly to the spreadsheet",
     icon: Table2,
+  },
+  add_whiteboard_shapes: {
+    name: "Whiteboard Shapes",
+    description: "Let AI draw shapes, diagrams, and sticky notes on the whiteboard",
+    icon: PenTool,
   },
 };
 

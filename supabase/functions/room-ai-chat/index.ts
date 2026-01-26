@@ -47,6 +47,7 @@ interface ToolSettings {
   generate_slides: boolean;
   navigate_browser: boolean;
   update_spreadsheet: boolean;
+  add_whiteboard_shapes: boolean;
 }
 
 const defaultToolSettings: ToolSettings = {
@@ -58,6 +59,7 @@ const defaultToolSettings: ToolSettings = {
   generate_slides: true,
   navigate_browser: true,
   update_spreadsheet: true,
+  add_whiteboard_shapes: true,
 };
 
 async function getToolSettings(): Promise<ToolSettings> {
@@ -550,6 +552,12 @@ async function processToolCalls(
             description: args.description || "Data added" 
           })}`;
           break;
+        case "add_whiteboard_shapes":
+          result = `__WHITEBOARD_SHAPES__:${JSON.stringify({ 
+            shapes: args.shapes, 
+            description: args.description || "Shapes added" 
+          })}`;
+          break;
         default:
           result = `Unknown tool: ${toolCall.function.name}`;
       }
@@ -637,6 +645,7 @@ serve(async (req) => {
       send_code_to_sandbox: toolSettings.send_code_to_sandbox,
       generate_slides: toolSettings.generate_slides,
       navigate_browser: toolSettings.navigate_browser,
+      add_whiteboard_shapes: toolSettings.add_whiteboard_shapes,
     };
 
     const promptConfig: PromptBuilderConfig = {
