@@ -13,7 +13,8 @@ import {
   Square,
   Circle,
   Minus,
-  StickyNote
+  StickyNote,
+  MoveUpRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { canvasEventBus } from "@/lib/canvas-apps/events";
@@ -37,7 +38,7 @@ const COLORS = [
 
 const BRUSH_SIZES = [2, 4, 8, 12];
 
-type ActiveTool = "draw" | "select" | "rectangle" | "circle" | "line" | "sticky";
+type ActiveTool = "draw" | "select" | "rectangle" | "circle" | "line" | "arrow" | "sticky";
 
 export const CollaborativeCanvas = ({ roomId, userId }: CollaborativeCanvasProps) => {
   const [activeTool, setActiveTool] = useState<ActiveTool>("draw");
@@ -220,6 +221,23 @@ export const CollaborativeCanvas = ({ roomId, userId }: CollaborativeCanvasProps
               </Button>
             </TooltipTrigger>
             <TooltipContent>Line</TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-8 w-8",
+                  activeTool === "arrow" && "bg-primary/20 text-primary"
+                )}
+                onClick={() => handleToolChange("arrow")}
+              >
+                <MoveUpRight className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Arrow</TooltipContent>
           </Tooltip>
           
           <Tooltip>
