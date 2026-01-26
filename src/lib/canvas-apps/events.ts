@@ -48,6 +48,22 @@ type SpreadsheetUpdatePayload = {
   description?: string;
 };
 
+type WhiteboardShapesPayload = {
+  shapes: Array<{
+    type: "rectangle" | "circle" | "arrow" | "sticky" | "text";
+    x: number;
+    y: number;
+    width?: number;
+    height?: number;
+    radius?: number;
+    text?: string;
+    color?: string;
+    endX?: number;
+    endY?: number;
+  }>;
+  description?: string;
+};
+
 type CanvasEventPayload = {
   "browser:navigate": BrowserNavigatePayload;
   "browser:preview": BrowserPreviewPayload;
@@ -56,6 +72,7 @@ type CanvasEventPayload = {
   "slides:update": SlidesUpdatePayload;
   "slides:presenting": PresentationStartPayload;
   "spreadsheet:update": SpreadsheetUpdatePayload;
+  "whiteboard:shapes": WhiteboardShapesPayload;
   "app:open": { appId: string; params?: Record<string, unknown> };
 };
 
@@ -139,4 +156,11 @@ export function emitSpreadsheetUpdate(
   description?: string
 ) {
   canvasEventBus.emit("spreadsheet:update", { updates, description });
+}
+
+export function emitWhiteboardShapes(
+  shapes: WhiteboardShapesPayload["shapes"],
+  description?: string
+) {
+  canvasEventBus.emit("whiteboard:shapes", { shapes, description });
 }

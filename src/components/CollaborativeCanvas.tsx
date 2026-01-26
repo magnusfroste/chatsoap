@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { useCollaborativeCanvas } from "@/hooks/useCollaborativeCanvas";
+import { useState, useRef, useEffect } from "react";
+import { useCollaborativeCanvas, WhiteboardShape } from "@/hooks/useCollaborativeCanvas";
 import { Button } from "@/components/ui/button";
 import { 
   Pencil, 
@@ -12,6 +12,7 @@ import {
   Redo2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { canvasEventBus } from "@/lib/canvas-apps/events";
 
 interface CollaborativeCanvasProps {
   roomId: string;
@@ -46,11 +47,23 @@ export const CollaborativeCanvas = ({ roomId, userId }: CollaborativeCanvasProps
     clearCanvas,
     deleteSelected,
     addText,
+    addShapes,
     undo,
     redo,
     canUndo,
     canRedo,
   } = useCollaborativeCanvas(roomId, userId, containerRef);
+
+  // Listen for AI-generated shapes
+  useEffect(() => {
+    const unsubscribe = canvasEventBus.on("whiteboard:shapes", (payload) => {
+      if (payload.shapes && payload.shapes.length > 0) {
+        addShapes(payload.shapes as WhiteboardShape[]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [addShapes]);
 
   const handleToolChange = (drawing: boolean) => {
     setIsDrawing(drawing);

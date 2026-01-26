@@ -326,3 +326,79 @@ registerTool({
     return { success: true, content: "Spreadsheet updated" };
   },
 });
+
+registerTool({
+  id: "add_whiteboard_shapes",
+  definition: {
+    type: "function",
+    function: {
+      name: "add_whiteboard_shapes",
+      description: "Add shapes, arrows, and sticky notes to the collaborative whiteboard canvas",
+      parameters: {
+        type: "object",
+        properties: {
+          shapes: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                type: {
+                  type: "string",
+                  enum: ["rectangle", "circle", "arrow", "sticky", "text"],
+                  description: "Shape type to add",
+                },
+                x: {
+                  type: "number",
+                  description: "X position (0-800)",
+                },
+                y: {
+                  type: "number",
+                  description: "Y position (0-500)",
+                },
+                width: {
+                  type: "number",
+                  description: "Width (for rectangle/sticky)",
+                },
+                height: {
+                  type: "number",
+                  description: "Height (for rectangle/sticky)",
+                },
+                radius: {
+                  type: "number",
+                  description: "Radius (for circle)",
+                },
+                text: {
+                  type: "string",
+                  description: "Text content (for sticky/text)",
+                },
+                color: {
+                  type: "string",
+                  description: "Color in hex format (e.g., #c4a7ff)",
+                },
+                endX: {
+                  type: "number",
+                  description: "End X position (for arrow)",
+                },
+                endY: {
+                  type: "number",
+                  description: "End Y position (for arrow)",
+                },
+              },
+              required: ["type", "x", "y"],
+            },
+            description: "Array of shapes to add to the whiteboard",
+          },
+          description: {
+            type: "string",
+            description: "Brief description of what was added",
+          },
+        },
+        required: ["shapes"],
+      },
+    },
+  },
+  promptInstructions: 'Use when the user asks to draw, create, or add shapes, diagrams, flowcharts, sticky notes, or visual elements to the whiteboard. Shape types: rectangle (with width/height), circle (with radius), arrow (with endX/endY for direction), sticky (colored note with text), text. Position shapes logically - use x/y coordinates within 0-800 for x and 0-500 for y. For flowcharts, connect shapes with arrows. Colors: #c4a7ff (purple), #ff6b6b (red), #4ecdc4 (teal), #ffd93d (yellow), #6bcb77 (green), #4a9eff (blue).',
+  execute: async (args, context): Promise<ToolResult> => {
+    return { success: true, content: "Shapes added to whiteboard" };
+  },
+});
