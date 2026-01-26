@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, RefObject } from "react";
-import { Canvas as FabricCanvas, PencilBrush, IText, Rect, Circle, Line, FabricObject } from "fabric";
+import { Canvas as FabricCanvas, PencilBrush, IText, Rect, Circle, Line, FabricObject, TPointerEvent, TPointerEventInfo } from "fabric";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface WhiteboardShape {
@@ -14,6 +14,8 @@ export interface WhiteboardShape {
   endX?: number;
   endY?: number;
 }
+
+export type ShapeTool = "none" | "rectangle" | "circle" | "line";
 
 const MAX_HISTORY = 50;
 
@@ -34,6 +36,14 @@ export const useCollaborativeCanvas = (
   const isUndoRedoRef = useRef(false);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  
+  // Shape tool state
+  const [activeShapeTool, setActiveShapeTool] = useState<ShapeTool>("none");
+  const shapeToolRef = useRef<ShapeTool>("none");
+  const isDrawingShapeRef = useRef(false);
+  const shapeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const currentShapeRef = useRef<FabricObject | null>(null);
+  const activeColorRef = useRef("#c4a7ff");
 
   // Save state to history
   const saveToHistory = useCallback(() => {
@@ -205,6 +215,113 @@ export const useCollaborativeCanvas = (
     canvas.on("object:removed", handleChange);
     canvas.on("path:created", handleChange);
     
+    // Shape drawing handlers
+    const handleMouseDown = (opt: TPointerEventInfo<TPointerEvent>) => {
+      if (shapeToolRef.current === "none") return;
+      
+      const pointer = canvas.getScenePoint(opt.e);
+      isDrawingShapeRef.current = true;
+      shapeStartRef.current = { x: pointer.x, y: pointer.y };
+      
+      const color = activeColorRef.current;
+      
+      let shape: FabricObject | null = null;
+      
+      if (shapeToolRef.current === "rectangle") {
+        shape = new Rect({
+          left: pointer.x,
+          top: pointer.y,
+          width: 0,
+          height: 0,
+          fill: "transparent",
+          stroke: color,
+          strokeWidth: 2,
+          rx: 4,
+          ry: 4,
+          selectable: false,
+          evented: false,
+        });
+      } else if (shapeToolRef.current === "circle") {
+        shape = new Circle({
+          left: pointer.x,
+          top: pointer.y,
+          radius: 0,
+          fill: "transparent",
+          stroke: color,
+          strokeWidth: 2,
+          selectable: false,
+          evented: false,
+        });
+      } else if (shapeToolRef.current === "line") {
+        shape = new Line([pointer.x, pointer.y, pointer.x, pointer.y], {
+          stroke: color,
+          strokeWidth: 2,
+          selectable: false,
+          evented: false,
+        });
+      }
+      
+      if (shape) {
+        currentShapeRef.current = shape;
+        canvas.add(shape);
+      }
+    };
+    
+    const handleMouseMove = (opt: TPointerEventInfo<TPointerEvent>) => {
+      if (!isDrawingShapeRef.current || !shapeStartRef.current || !currentShapeRef.current) return;
+      
+      const pointer = canvas.getScenePoint(opt.e);
+      const startX = shapeStartRef.current.x;
+      const startY = shapeStartRef.current.y;
+      
+      if (shapeToolRef.current === "rectangle") {
+        const rect = currentShapeRef.current as Rect;
+        const width = Math.abs(pointer.x - startX);
+        const height = Math.abs(pointer.y - startY);
+        rect.set({
+          left: Math.min(startX, pointer.x),
+          top: Math.min(startY, pointer.y),
+          width,
+          height,
+        });
+      } else if (shapeToolRef.current === "circle") {
+        const circle = currentShapeRef.current as Circle;
+        const radius = Math.sqrt(
+          Math.pow(pointer.x - startX, 2) + Math.pow(pointer.y - startY, 2)
+        ) / 2;
+        circle.set({
+          left: (startX + pointer.x) / 2 - radius,
+          top: (startY + pointer.y) / 2 - radius,
+          radius,
+        });
+      } else if (shapeToolRef.current === "line") {
+        const line = currentShapeRef.current as Line;
+        line.set({ x2: pointer.x, y2: pointer.y });
+      }
+      
+      canvas.renderAll();
+    };
+    
+    const handleMouseUp = () => {
+      if (!isDrawingShapeRef.current || !currentShapeRef.current) return;
+      
+      // Make the shape selectable after creation
+      currentShapeRef.current.set({
+        selectable: true,
+        evented: true,
+      });
+      
+      isDrawingShapeRef.current = false;
+      shapeStartRef.current = null;
+      currentShapeRef.current = null;
+      
+      canvas.renderAll();
+    };
+    
+    canvas.on("mouse:down", handleMouseDown);
+    canvas.on("mouse:move", handleMouseMove);
+    canvas.on("mouse:up", handleMouseUp);
+    
     // Save initial state to history
     setTimeout(() => {
       if (fabricRef.current) {
@@ -301,10 +418,15 @@ export const useCollaborativeCanvas = (
   const setDrawingMode = useCallback((enabled: boolean) => {
     if (fabricRef.current) {
       fabricRef.current.isDrawingMode = enabled;
+      if (enabled) {
+        setActiveShapeTool("none");
+        shapeToolRef.current = "none";
+      }
     }
   }, []);
 
   const setBrushColor = useCallback((color: string) => {
+    activeColorRef.current = color;
     if (fabricRef.current?.freeDrawingBrush) {
       fabricRef.current.freeDrawingBrush.color = color;
     }
@@ -313,6 +435,25 @@ export const useCollaborativeCanvas = (
   const setBrushWidth = useCallback((width: number) => {
     if (fabricRef.current?.freeDrawingBrush) {
       fabricRef.current.freeDrawingBrush.width = width;
+    }
+  }, []);
+  
+  // Shape tool selection
+  const selectShapeTool = useCallback((tool: ShapeTool) => {
+    if (!fabricRef.current) return;
+    
+    setActiveShapeTool(tool);
+    shapeToolRef.current = tool;
+    
+    if (tool !== "none") {
+      fabricRef.current.isDrawingMode = false;
+      fabricRef.current.selection = false;
+      fabricRef.current.defaultCursor = "crosshair";
+      fabricRef.current.hoverCursor = "crosshair";
+    } else {
+      fabricRef.current.selection = true;
+      fabricRef.current.defaultCursor = "default";
+      fabricRef.current.hoverCursor = "move";
     }
   }, []);
 
@@ -489,5 +630,7 @@ export const useCollaborativeCanvas = (
     redo,
     canUndo,
     canRedo,
+    activeShapeTool,
+    selectShapeTool,
   };
 };

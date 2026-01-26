@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useCollaborativeCanvas, WhiteboardShape } from "@/hooks/useCollaborativeCanvas";
+import { useCollaborativeCanvas, WhiteboardShape, ShapeTool } from "@/hooks/useCollaborativeCanvas";
 import { Button } from "@/components/ui/button";
 import { 
   Pencil, 
@@ -9,10 +9,14 @@ import {
   Loader2,
   Type,
   Undo2,
-  Redo2
+  Redo2,
+  Square,
+  Circle,
+  Minus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { canvasEventBus } from "@/lib/canvas-apps/events";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface CollaborativeCanvasProps {
   roomId: string;
@@ -32,8 +36,10 @@ const COLORS = [
 
 const BRUSH_SIZES = [2, 4, 8, 12];
 
+type ActiveTool = "draw" | "select" | "rectangle" | "circle" | "line";
+
 export const CollaborativeCanvas = ({ roomId, userId }: CollaborativeCanvasProps) => {
-  const [isDrawing, setIsDrawing] = useState(true);
+  const [activeTool, setActiveTool] = useState<ActiveTool>("draw");
   const [activeColor, setActiveColor] = useState(COLORS[0]);
   const [activeSize, setActiveSize] = useState(BRUSH_SIZES[0]);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -52,6 +58,7 @@ export const CollaborativeCanvas = ({ roomId, userId }: CollaborativeCanvasProps
     redo,
     canUndo,
     canRedo,
+    selectShapeTool,
   } = useCollaborativeCanvas(roomId, userId, containerRef);
 
   // Listen for AI-generated shapes
@@ -65,14 +72,25 @@ export const CollaborativeCanvas = ({ roomId, userId }: CollaborativeCanvasProps
     return () => unsubscribe();
   }, [addShapes]);
 
-  const handleToolChange = (drawing: boolean) => {
-    setIsDrawing(drawing);
-    setDrawingMode(drawing);
+  const handleToolChange = (tool: ActiveTool) => {
+    setActiveTool(tool);
+    
+    if (tool === "draw") {
+      setDrawingMode(true);
+      selectShapeTool("none");
+    } else if (tool === "select") {
+      setDrawingMode(false);
+      selectShapeTool("none");
+    } else {
+      setDrawingMode(false);
+      selectShapeTool(tool as ShapeTool);
+    }
   };
 
   const handleAddText = () => {
-    setIsDrawing(false);
+    setActiveTool("select");
     setDrawingMode(false);
+    selectShapeTool("none");
     addText(activeColor);
   };
 
@@ -99,39 +117,109 @@ export const CollaborativeCanvas = ({ roomId, userId }: CollaborativeCanvasProps
       <div className="flex items-center gap-2 p-2 border-b border-border/50 bg-card/50 flex-wrap">
         {/* Tools */}
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "h-8 w-8",
-              isDrawing && "bg-primary/20 text-primary"
-            )}
-            onClick={() => handleToolChange(true)}
-            title="Draw"
-          >
-            <Pencil className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "h-8 w-8",
-              !isDrawing && "bg-primary/20 text-primary"
-            )}
-            onClick={() => handleToolChange(false)}
-            title="Select"
-          >
-            <MousePointer className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={handleAddText}
-            title="Add text"
-          >
-            <Type className="w-4 h-4" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-8 w-8",
+                  activeTool === "draw" && "bg-primary/20 text-primary"
+                )}
+                onClick={() => handleToolChange("draw")}
+              >
+                <Pencil className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Draw</TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-8 w-8",
+                  activeTool === "select" && "bg-primary/20 text-primary"
+                )}
+                onClick={() => handleToolChange("select")}
+              >
+                <MousePointer className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Select</TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={handleAddText}
+              >
+                <Type className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Add text</TooltipContent>
+          </Tooltip>
+        </div>
+
+        <div className="w-px h-6 bg-border/50" />
+
+        {/* Shape Tools */}
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-8 w-8",
+                  activeTool === "rectangle" && "bg-primary/20 text-primary"
+                )}
+                onClick={() => handleToolChange("rectangle")}
+              >
+                <Square className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Rectangle</TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-8 w-8",
+                  activeTool === "circle" && "bg-primary/20 text-primary"
+                )}
+                onClick={() => handleToolChange("circle")}
+              >
+                <Circle className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Circle</TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-8 w-8",
+                  activeTool === "line" && "bg-primary/20 text-primary"
+                )}
+                onClick={() => handleToolChange("line")}
+              >
+                <Minus className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Line</TooltipContent>
+          </Tooltip>
         </div>
 
         <div className="w-px h-6 bg-border/50" />
