@@ -15,7 +15,7 @@ export interface WhiteboardShape {
   endY?: number;
 }
 
-export type ShapeTool = "none" | "rectangle" | "circle" | "line" | "sticky";
+export type ShapeTool = "none" | "rectangle" | "circle" | "line" | "sticky" | "arrow";
 
 const MAX_HISTORY = 50;
 
@@ -259,6 +259,13 @@ export const useCollaborativeCanvas = (
           selectable: false,
           evented: false,
         });
+      } else if (shapeToolRef.current === "arrow") {
+        shape = new Line([pointer.x, pointer.y, pointer.x, pointer.y], {
+          stroke: color,
+          strokeWidth: 2,
+          selectable: false,
+          evented: false,
+        });
       } else if (shapeToolRef.current === "sticky") {
         shape = new Rect({
           left: pointer.x,
@@ -311,6 +318,9 @@ export const useCollaborativeCanvas = (
       } else if (shapeToolRef.current === "line") {
         const line = currentShapeRef.current as Line;
         line.set({ x2: pointer.x, y2: pointer.y });
+      } else if (shapeToolRef.current === "arrow") {
+        const line = currentShapeRef.current as Line;
+        line.set({ x2: pointer.x, y2: pointer.y });
       } else if (shapeToolRef.current === "sticky") {
         const rect = currentShapeRef.current as Rect;
         const width = Math.abs(pointer.x - startX);
@@ -336,6 +346,43 @@ export const useCollaborativeCanvas = (
         selectable: true,
         evented: true,
       });
+      
+      // For arrows, add arrowhead lines
+      if (shapeToolRef.current === "arrow" && shape instanceof Line) {
+        const line = shape as Line;
+        const x1 = line.x1 || 0;
+        const y1 = line.y1 || 0;
+        const x2 = line.x2 || 0;
+        const y2 = line.y2 || 0;
+        
+        const angle = Math.atan2(y2 - y1, x2 - x1);
+        const headLength = 12;
+        const headAngle = Math.PI / 6;
+        const color = activeColorRef.current;
+        
+        const head1 = new Line([
+          x2,
+          y2,
+          x2 - headLength * Math.cos(angle - headAngle),
+          y2 - headLength * Math.sin(angle - headAngle),
+        ], {
+          stroke: color,
+          strokeWidth: 2,
+        });
+        
+        const head2 = new Line([
+          x2,
+          y2,
+          x2 - headLength * Math.cos(angle + headAngle),
+          y2 - headLength * Math.sin(angle + headAngle),
+        ], {
+          stroke: color,
+          strokeWidth: 2,
+        });
+        
+        canvas.add(head1);
+        canvas.add(head2);
+      }
       
       // For sticky notes, add editable text inside
       if (shapeToolRef.current === "sticky" && shape instanceof Rect) {
