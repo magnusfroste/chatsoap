@@ -15,7 +15,7 @@ export interface WhiteboardShape {
   endY?: number;
 }
 
-export type ShapeTool = "none" | "rectangle" | "circle" | "line";
+export type ShapeTool = "none" | "rectangle" | "circle" | "line" | "sticky";
 
 const MAX_HISTORY = 50;
 
@@ -259,6 +259,20 @@ export const useCollaborativeCanvas = (
           selectable: false,
           evented: false,
         });
+      } else if (shapeToolRef.current === "sticky") {
+        shape = new Rect({
+          left: pointer.x,
+          top: pointer.y,
+          width: 0,
+          height: 0,
+          fill: color + "33",
+          stroke: color,
+          strokeWidth: 1,
+          rx: 4,
+          ry: 4,
+          selectable: false,
+          evented: false,
+        });
       }
       
       if (shape) {
@@ -297,6 +311,16 @@ export const useCollaborativeCanvas = (
       } else if (shapeToolRef.current === "line") {
         const line = currentShapeRef.current as Line;
         line.set({ x2: pointer.x, y2: pointer.y });
+      } else if (shapeToolRef.current === "sticky") {
+        const rect = currentShapeRef.current as Rect;
+        const width = Math.abs(pointer.x - startX);
+        const height = Math.abs(pointer.y - startY);
+        rect.set({
+          left: Math.min(startX, pointer.x),
+          top: Math.min(startY, pointer.y),
+          width,
+          height,
+        });
       }
       
       canvas.renderAll();
@@ -305,11 +329,38 @@ export const useCollaborativeCanvas = (
     const handleMouseUp = () => {
       if (!isDrawingShapeRef.current || !currentShapeRef.current) return;
       
+      const shape = currentShapeRef.current;
+      
       // Make the shape selectable after creation
-      currentShapeRef.current.set({
+      shape.set({
         selectable: true,
         evented: true,
       });
+      
+      // For sticky notes, add editable text inside
+      if (shapeToolRef.current === "sticky" && shape instanceof Rect) {
+        const rect = shape as Rect;
+        const left = rect.left || 0;
+        const top = rect.top || 0;
+        const width = rect.width || 120;
+        const height = rect.height || 80;
+        
+        // Only add text if the sticky has reasonable size
+        if (width > 30 && height > 20) {
+          const text = new IText("Click to edit", {
+            left: left + 8,
+            top: top + 8,
+            fontSize: 14,
+            fill: "#ffffff",
+            fontFamily: "Inter, sans-serif",
+            width: width - 16,
+          });
+          canvas.add(text);
+          canvas.setActiveObject(text);
+          text.enterEditing();
+          text.selectAll();
+        }
+      }
       
       isDrawingShapeRef.current = false;
       shapeStartRef.current = null;
