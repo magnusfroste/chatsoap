@@ -12,7 +12,8 @@ import {
   Redo2,
   Square,
   Circle,
-  Minus
+  Minus,
+  StickyNote
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { canvasEventBus } from "@/lib/canvas-apps/events";
@@ -36,7 +37,7 @@ const COLORS = [
 
 const BRUSH_SIZES = [2, 4, 8, 12];
 
-type ActiveTool = "draw" | "select" | "rectangle" | "circle" | "line";
+type ActiveTool = "draw" | "select" | "rectangle" | "circle" | "line" | "sticky";
 
 export const CollaborativeCanvas = ({ roomId, userId }: CollaborativeCanvasProps) => {
   const [activeTool, setActiveTool] = useState<ActiveTool>("draw");
@@ -219,6 +220,23 @@ export const CollaborativeCanvas = ({ roomId, userId }: CollaborativeCanvasProps
               </Button>
             </TooltipTrigger>
             <TooltipContent>Line</TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-8 w-8",
+                  activeTool === "sticky" && "bg-primary/20 text-primary"
+                )}
+                onClick={() => handleToolChange("sticky")}
+              >
+                <StickyNote className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Sticky note</TooltipContent>
           </Tooltip>
         </div>
 
