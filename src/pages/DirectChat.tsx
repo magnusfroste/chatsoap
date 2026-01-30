@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Send, Bot, Loader2, Mic, Phone, Video, FolderOpen } from "lucide-react";
+import { ArrowLeft, Send, Bot, Loader2, Mic, Phone, Video } from "lucide-react";
 import { ChatActionsMenu } from "@/components/ChatActionsMenu";
 import { MessageBubble, ReplyPreview } from "@/components/MessageBubble";
 import { CallUI } from "@/components/CallUI";
@@ -884,15 +884,6 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
                   messages={messages}
                   onHighlightMessage={handleHighlightMessage}
                 />
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="text-muted-foreground hover:text-foreground"
-                  onClick={onOpenFiles}
-                  title="Open Files"
-                >
-                  <FolderOpen className="w-5 h-5" />
-                </Button>
                 <ChatActionsMenu
                   conversationId={id || ""}
                   userId={user?.id}
