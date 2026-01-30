@@ -10,19 +10,14 @@ const ScrollArea = React.forwardRef<
   <ScrollAreaPrimitive.Root 
     ref={ref} 
     className={cn("relative overflow-hidden", className)} 
-    style={{ maxWidth: '100%' }}
+    style={{ contain: 'inline-size' }}
     {...props}
   >
     <ScrollAreaPrimitive.Viewport 
-      className="h-full w-full rounded-[inherit]"
-      style={{ 
-        overflowX: 'hidden',
-        maxWidth: '100%',
-      }}
+      className="h-full w-full rounded-[inherit] [&>div]:!block [&>div]:!w-full [&>div]:!min-w-0"
+      style={{ overflowX: 'hidden' }}
     >
-      <div style={{ width: '100%', maxWidth: '100%', minWidth: 0 }}>
-        {children}
-      </div>
+      {children}
     </ScrollAreaPrimitive.Viewport>
     <ScrollBar />
     <ScrollAreaPrimitive.Corner />
