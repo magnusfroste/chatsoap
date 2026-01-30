@@ -161,7 +161,7 @@ const Chats = () => {
                   />
                 </div>
               </ResizablePanel>
-              <ResizableHandle />
+              <ResizableHandle withHandle />
             </>
           ) : (
             <div className="w-[72px] flex-shrink-0 flex flex-col border-r border-border">
