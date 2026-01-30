@@ -612,10 +612,10 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
                   {/* Content - fades out when collapsed */}
                   <div 
                     className={`flex-1 overflow-hidden transition-all duration-300 ${
-                      isCollapsed ? 'w-0 opacity-0 min-w-0' : 'opacity-100 min-w-0'
+                      isCollapsed ? 'w-0 opacity-0 min-w-0' : 'w-full opacity-100 min-w-0'
                     }`}
                   >
-                    <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                    <div className="flex items-center justify-between gap-2 min-w-0">
                       <div className="flex items-center gap-1.5 min-w-0 flex-1">
                         {conv.is_pinned && <Pin className="w-3 h-3 text-primary flex-shrink-0" />}
                         <span className="font-medium text-foreground truncate">
