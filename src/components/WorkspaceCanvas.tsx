@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNotes, Note } from "@/hooks/useNotes";
 import { useCAGContext, CAGFile, CAGNote } from "@/hooks/useCAGContext";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Loader2 } from "lucide-react";
 import { NoteEditor } from "@/components/NoteEditor";
 import { canvasAppRegistry, CanvasAppProps } from "@/lib/canvas-apps";
@@ -211,30 +212,34 @@ export const WorkspaceCanvas = ({
       {/* App Switcher - Dynamic tab bar from registry */}
       <div className="flex-shrink-0 border-b border-border bg-card px-2">
         <Tabs value={activeApp} onValueChange={setActiveApp}>
-          <TabsList className="h-12 w-full justify-start gap-1 bg-transparent p-0">
+          <TabsList className="h-10 w-full justify-start gap-0.5 bg-transparent p-0">
             {tabApps.map((app) => {
               const Icon = app.icon;
               const badge = app.getBadge?.({
                 selectedCAGFiles: cag.selectedFiles,
                 selectedCAGNotes: cag.selectedNotes,
               });
+              const displayName = app.id === "document" && documentParams ? documentParams.name : app.name;
               
               return (
-                <TabsTrigger 
-                  key={app.id}
-                  value={app.id} 
-                  className="relative flex items-center gap-2 px-4 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none rounded-lg"
-                >
-                  <Icon className="w-4 h-4" />
-                  <span className="hidden sm:inline truncate max-w-[100px]">
-                    {app.id === "document" && documentParams ? documentParams.name : app.name}
-                  </span>
-                  {badge && badge.type === "count" && (
-                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground px-1">
-                      {badge.value}
-                    </span>
-                  )}
-                </TabsTrigger>
+                <Tooltip key={app.id}>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger 
+                      value={app.id} 
+                      className="relative flex items-center justify-center w-9 h-9 p-0 data-[state=active]:bg-muted data-[state=active]:shadow-none rounded-lg"
+                    >
+                      <Icon className="w-4 h-4" />
+                      {badge && badge.type === "count" && (
+                        <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground px-0.5">
+                          {badge.value}
+                        </span>
+                      )}
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {displayName}
+                  </TooltipContent>
+                </Tooltip>
               );
             })}
           </TabsList>
