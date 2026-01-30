@@ -32,11 +32,20 @@ export function useIncomingCallListener(userId: string | undefined) {
     
     closeActiveNotification();
     
-    // Update call status to accepted
-    await supabase
+    console.log('[IncomingCallListener] Accepting call:', incomingCall.callId);
+    
+    // Update call status to accepted - MUST complete before navigation
+    const { error } = await supabase
       .from("direct_calls")
       .update({ status: "accepted", started_at: new Date().toISOString() })
       .eq("id", incomingCall.callId);
+
+    if (error) {
+      console.error('[IncomingCallListener] Failed to accept call:', error);
+      // Still try to continue - the caller might timeout
+    } else {
+      console.log('[IncomingCallListener] ✅ Call accepted successfully in database');
+    }
 
     const conversationId = incomingCall.conversationId;
     setIncomingCall(null);
