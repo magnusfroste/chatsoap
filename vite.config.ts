@@ -13,13 +13,20 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Polyfill Node.js modules for simple-peer
+      stream: "stream-browserify",
+      buffer: "buffer",
+      process: "process/browser",
     },
   },
   define: {
     global: "globalThis",
     "process.env": {},
+    "process.browser": true,
+    "process.version": JSON.stringify("v16.0.0"),
   },
   optimizeDeps: {
+    include: ["buffer", "process", "simple-peer"],
     esbuildOptions: {
       define: {
         global: "globalThis",

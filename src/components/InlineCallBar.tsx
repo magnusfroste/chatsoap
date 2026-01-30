@@ -52,17 +52,57 @@ export function InlineCallBar({
 
   // Attach remote audio stream
   useEffect(() => {
-    if (remoteAudioRef.current && remoteStream) {
-      console.log('[InlineCallBar] Attaching remote stream, tracks:', remoteStream.getTracks().map(t => `${t.kind}:${t.enabled}`));
-      remoteAudioRef.current.srcObject = remoteStream;
-      
-      // Try to play - may fail due to autoplay policy
-      remoteAudioRef.current.play().then(() => {
+    const audioEl = remoteAudioRef.current;
+    if (!audioEl || !remoteStream) return;
+
+    const audioTracks = remoteStream.getAudioTracks();
+    console.log('[InlineCallBar] Attaching remote stream:', {
+      trackCount: audioTracks.length,
+      tracks: audioTracks.map(t => ({ enabled: t.enabled, muted: t.muted, readyState: t.readyState })),
+    });
+
+    // Attach the stream
+    audioEl.srcObject = remoteStream;
+    audioEl.muted = false;
+    audioEl.volume = 1.0;
+
+    // Try to play immediately
+    const playAudio = async () => {
+      try {
+        await audioEl.play();
         console.log('[InlineCallBar] Audio playback started successfully');
-      }).catch((err) => {
-        console.warn('[InlineCallBar] Audio autoplay blocked, will retry on user interaction:', err.message);
+      } catch (err: any) {
+        console.warn('[InlineCallBar] Initial autoplay blocked:', err.message);
+        
+        // Set up one-time click handler to resume audio
+        const resumeAudio = async () => {
+          try {
+            await audioEl.play();
+            console.log('[InlineCallBar] Audio resumed on user interaction');
+          } catch (e) {
+            console.error('[InlineCallBar] Failed to resume audio:', e);
+          }
+          document.removeEventListener('click', resumeAudio);
+        };
+        document.addEventListener('click', resumeAudio, { once: true });
+      }
+    };
+
+    playAudio();
+
+    // Also try when audio track becomes unmuted
+    audioTracks.forEach(track => {
+      track.onunmute = () => {
+        console.log('[InlineCallBar] Track unmuted, attempting play');
+        playAudio();
+      };
+    });
+
+    return () => {
+      audioTracks.forEach(track => {
+        track.onunmute = null;
       });
-    }
+    };
   }, [remoteStream]);
 
   const formatDuration = (seconds: number) => {

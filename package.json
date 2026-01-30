@@ -67,6 +67,7 @@
     "remark-gfm": "^4.0.1",
     "simple-peer": "^9.11.1",
     "sonner": "^1.7.4",
+    "stream-browserify": "^3.0.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.9",
