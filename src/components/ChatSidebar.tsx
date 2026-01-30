@@ -5,11 +5,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { MessageSquare, Users, LogOut, Search, MoreVertical, CheckCheck, Settings, Star, Archive, User, Pin, BellOff, ArchiveRestore, PanelLeftClose, PanelLeft, Bot, RefreshCw } from "lucide-react";
+import { MessageSquare, Users, LogOut, Search, MoreVertical, CheckCheck, Settings, Star, Archive, User, Pin, BellOff, ArchiveRestore, PanelLeftClose, PanelLeft, Bot, RefreshCw, UserPlus, Link } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import NewChatDialog from "@/components/NewChatDialog";
 import NewGroupDialog from "@/components/NewGroupDialog";
+import CreateInviteLinkDialog from "@/components/CreateInviteLinkDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -454,6 +455,16 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
                   <DropdownMenuItem onClick={() => setNewGroupOpen(true)}>
                     <Users className="w-4 h-4 mr-2" />
                     New group
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <CreateInviteLinkDialog
+                      trigger={
+                        <span className="flex items-center w-full cursor-pointer">
+                          <Link className="w-4 h-4 mr-2" />
+                          Invite to chat
+                        </span>
+                      }
+                    />
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/admin")}>
                     <Settings className="w-4 h-4 mr-2" />
