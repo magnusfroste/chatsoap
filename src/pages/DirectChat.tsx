@@ -154,7 +154,8 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
   useEffect(() => {
     if (!user?.id || !id) return;
     
-    const channelName = `direct-chat-${id}-${user.id}`;
+    // Use a simpler, unique channel name to avoid binding conflicts
+    const channelName = `messages-${id}-${user.id}-${Date.now()}`;
     console.log('[DirectChat Realtime] Setting up channel:', channelName);
     
     const channel = supabase
@@ -165,10 +166,15 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
           event: "INSERT",
           schema: "public",
           table: "messages",
-          filter: `conversation_id=eq.${id}`,
         },
         async (payload) => {
           const newMsg = payload.new as any;
+          
+          // Filter client-side to avoid binding issues
+          if (newMsg.conversation_id !== id) {
+            return;
+          }
+          
           console.log('[DirectChat Realtime] New message received:', newMsg.id, 'from user:', newMsg.user_id);
           
           // Add message to state immediately, then enrich async
@@ -234,6 +240,9 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
       )
       .subscribe((status, err) => {
         console.log('[DirectChat Realtime] Subscription status:', status, err ? `Error: ${err}` : '');
+        if (status === 'SUBSCRIBED') {
+          console.log('[DirectChat Realtime] Successfully subscribed to channel');
+        }
       });
 
     return () => {
@@ -241,7 +250,7 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
       supabase.removeChannel(channel);
       cancelStream();
     };
-  }, [user?.id, id]);
+  }, [user?.id, id, cancelStream]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
