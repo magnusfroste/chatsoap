@@ -526,11 +526,12 @@ export function useDirectCall(
     };
   }, [userId]);
 
-  // Listen for call status changes
+  // Listen for call status changes - use ref to avoid re-subscription on status change
   useEffect(() => {
-    if (!callState.callId) return;
+    const callId = callIdRef.current;
+    if (!callId) return;
 
-    const channelName = `call-status-${callState.callId}-${Date.now()}`;
+    const channelName = `call-status-${callId}-${Date.now()}`;
     console.log('[DirectCall] Setting up call status channel:', channelName);
 
     const channel = supabase
@@ -545,13 +546,15 @@ export function useDirectCall(
         (payload) => {
           const call = payload.new as any;
           
-          // Client-side filter
-          if (call.id !== callState.callId) return;
+          // Client-side filter using ref for stability
+          if (call.id !== callIdRef.current) return;
           
           console.log('[DirectCall] Call status update:', call.status);
           
-          if (call.status === "accepted" && callState.status === "calling") {
-            setCallState((prev) => ({ ...prev, status: "connected" }));
+          if (call.status === "accepted") {
+            setCallState((prev) => 
+              prev.status === "calling" ? { ...prev, status: "connected" } : prev
+            );
           } else if (call.status === "declined" || call.status === "ended") {
             endCall();
           }
@@ -564,13 +567,14 @@ export function useDirectCall(
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [callState.callId, callState.status, endCall]);
+  }, [callState.callId, endCall]); // Only re-subscribe when callId changes, not status
 
-  // Listen for signals
+  // Listen for signals - use ref for stable filtering
   useEffect(() => {
-    if (!callState.callId || !userId) return;
+    const callId = callIdRef.current;
+    if (!callId || !userId) return;
 
-    const channelName = `call-signals-${callState.callId}-${Date.now()}`;
+    const channelName = `call-signals-${callId}-${Date.now()}`;
     console.log('[DirectCall] Setting up signal listener:', channelName);
 
     const channel = supabase
@@ -585,9 +589,9 @@ export function useDirectCall(
         async (payload) => {
           const signal = payload.new as any;
           
-          // Client-side filter
+          // Client-side filter using ref for stability
           if (signal.to_user_id !== userId) return;
-          if (signal.call_id !== callState.callId) return;
+          if (signal.call_id !== callIdRef.current) return;
 
           console.log('[DirectCall] Received signal, type:', (signal.signal_data as any)?.type || "candidate");
           
@@ -615,7 +619,7 @@ export function useDirectCall(
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [callState.callId, userId]);
+  }, [callState.callId, userId]); // Re-subscribe only when callId changes
 
   // Cleanup on unmount
   useEffect(() => {
