@@ -134,7 +134,7 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
       fetchMembers();
       fetchMessages();
 
-      // Subscribe to new messages
+      // Subscribe to new messages - directly update state for instant updates
       const channel = supabase
         .channel(`group-${id}`)
         .on(
@@ -147,78 +147,71 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
           },
           async (payload) => {
             const newMsg = payload.new as any;
+            console.log('[GroupChat Realtime] New message received:', newMsg.id);
             
-            // Skip if message already exists (from optimistic update or duplicate)
+            // Add message to state immediately
             setMessages((prev) => {
-              if (prev.find((m) => m.id === newMsg.id)) return prev;
-              // Skip temp messages - they'll be replaced by real ones
-              if (prev.find((m) => m.id.startsWith('temp-') && m.content === newMsg.content && m.user_id === newMsg.user_id)) {
+              // Skip if already exists (from optimistic update)
+              if (prev.find((m) => m.id === newMsg.id)) {
+                console.log('[GroupChat Realtime] Skipping duplicate:', newMsg.id);
                 return prev;
               }
-              return prev;
+              // Replace temp message with matching content
+              const hasTempMatch = prev.find(
+                (m) => m.id.startsWith('temp-') && 
+                m.content === newMsg.content && 
+                m.user_id === newMsg.user_id
+              );
+              if (hasTempMatch) {
+                console.log('[GroupChat Realtime] Replacing temp message with:', newMsg.id);
+                return prev.map((m) => 
+                  m.id.startsWith('temp-') && m.content === newMsg.content && m.user_id === newMsg.user_id
+                    ? { ...m, id: newMsg.id, sending: false }
+                    : m
+                );
+              }
+              
+              // Add new message immediately
+              console.log('[GroupChat Realtime] Adding new message:', newMsg.id);
+              const newMessage: Message = {
+                id: newMsg.id,
+                content: newMsg.content,
+                is_ai: newMsg.is_ai || false,
+                user_id: newMsg.user_id,
+                created_at: newMsg.created_at,
+                reply_to_id: newMsg.reply_to_id,
+              };
+              return [...prev, newMessage];
             });
 
-            // Fetch profile for the new message if it has a user_id
-            let msgProfile = undefined;
+            // Enrich with profile info asynchronously (won't block UI)
             if (newMsg.user_id) {
-              const { data: profileData } = await supabase
-                .from("profiles")
-                .select("display_name")
-                .eq("user_id", newMsg.user_id)
-                .single();
-              msgProfile = profileData || undefined;
-            }
-
-            // Fetch reply_to if exists
-            let reply_to = undefined;
-            if (newMsg.reply_to_id) {
-              const { data: replyData } = await supabase
-                .from("messages")
-                .select("id, content, user_id, is_ai")
-                .eq("id", newMsg.reply_to_id)
-                .single();
-              
-              if (replyData) {
-                let replyProfile = undefined;
-                if (replyData.user_id) {
-                  const { data: rp } = await supabase
-                    .from("profiles")
-                    .select("display_name")
-                    .eq("user_id", replyData.user_id)
-                    .single();
-                  replyProfile = rp || undefined;
+              try {
+                const { data: profileData } = await supabase
+                  .from("profiles")
+                  .select("display_name")
+                  .eq("user_id", newMsg.user_id)
+                  .single();
+                
+                if (profileData) {
+                  setMessages((prev) => 
+                    prev.map((m) => 
+                      m.id === newMsg.id 
+                        ? { ...m, profile: profileData }
+                        : m
+                    )
+                  );
                 }
-                reply_to = { ...replyData, profile: replyProfile };
+              } catch (e) {
+                console.log('[GroupChat Realtime] Profile fetch failed:', e);
               }
             }
-
-            const enrichedMessage: Message = {
-              id: newMsg.id,
-              content: newMsg.content,
-              is_ai: newMsg.is_ai || false,
-              user_id: newMsg.user_id,
-              created_at: newMsg.created_at,
-              reply_to_id: newMsg.reply_to_id,
-              reply_to,
-              profile: msgProfile,
-            };
-
-            setMessages((prev) => {
-              // Skip if already exists
-              if (prev.find((m) => m.id === newMsg.id)) return prev;
-              // Filter out temp messages that match this real message
-              const filtered = prev.filter(m => 
-                !(m.id.startsWith('temp-') && m.content === newMsg.content && m.user_id === newMsg.user_id)
-              );
-              return [...filtered, enrichedMessage];
-            });
 
             // Show notification for messages from others
             if (newMsg.user_id !== user?.id && group) {
-              const senderName = msgProfile?.display_name || "Någon";
               showMessageNotification(
                 group.name || "Grupp", 
-                `${senderName}: ${newMsg.content}`, 
+                newMsg.content, 
                 id!, 
                 true
               );
