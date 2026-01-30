@@ -17,6 +17,8 @@ export default defineConfig(({ mode }) => ({
       stream: "stream-browserify",
       buffer: "buffer",
       process: "process/browser",
+      util: "util",
+      events: "events",
     },
   },
   define: {
@@ -24,9 +26,10 @@ export default defineConfig(({ mode }) => ({
     "process.env": {},
     "process.browser": true,
     "process.version": JSON.stringify("v16.0.0"),
+    "process.nextTick": "queueMicrotask",
   },
   optimizeDeps: {
-    include: ["buffer", "process", "simple-peer"],
+    include: ["buffer", "process", "simple-peer", "stream-browserify", "util", "events"],
     esbuildOptions: {
       define: {
         global: "globalThis",
