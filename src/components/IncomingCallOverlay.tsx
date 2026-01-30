@@ -1,9 +1,7 @@
-import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Phone, PhoneOff, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IncomingCall } from "@/hooks/useIncomingCallListener";
-import { useRingtone } from "@/hooks/useRingtone";
 
 interface IncomingCallOverlayProps {
   call: IncomingCall;
@@ -13,20 +11,10 @@ interface IncomingCallOverlayProps {
 
 export function IncomingCallOverlay({ call, onAccept, onDecline }: IncomingCallOverlayProps) {
   const navigate = useNavigate();
-  const { startRingtone, stopRingtone } = useRingtone();
 
-  // Start ringtone when component mounts (incoming call appears)
-  useEffect(() => {
-    startRingtone();
-    
-    // Stop ringtone when component unmounts
-    return () => {
-      stopRingtone();
-    };
-  }, [startRingtone, stopRingtone]);
+  // Ringtone is now handled by useIncomingCallListener
 
   const handleAccept = async () => {
-    stopRingtone();
     const conversationId = await onAccept();
     if (conversationId) {
       navigate(`/chat/${conversationId}?autoJoinCall=true`);
@@ -34,7 +22,6 @@ export function IncomingCallOverlay({ call, onAccept, onDecline }: IncomingCallO
   };
 
   const handleDecline = async () => {
-    stopRingtone();
     await onDecline();
   };
 
