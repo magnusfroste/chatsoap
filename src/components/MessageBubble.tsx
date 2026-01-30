@@ -109,7 +109,7 @@ export const MessageBubble = ({
   const bubbleContent = (
     <div
       className={cn(
-        "relative max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 shadow-sm select-none",
+        "relative max-w-[90%] sm:max-w-[75%] rounded-lg px-2.5 py-1.5 shadow-sm select-none",
         isAI
           ? "bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-900/30 dark:to-purple-800/20 border border-purple-200 dark:border-purple-700/50"
           : isOwn
@@ -297,7 +297,7 @@ export const MessageBubble = ({
       </div>
       
       {/* Reactions */}
-      <div className={cn("max-w-[85%] sm:max-w-[70%]", isOwn ? "pr-0" : "pl-0")}>
+      <div className={cn("max-w-[90%] sm:max-w-[75%]", isOwn ? "pr-0" : "pl-0")}>
         <MessageReactions
           messageId={message.id}
           userId={userId}
