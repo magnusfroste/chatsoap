@@ -45,17 +45,35 @@ export function useDirectCall(
   // Get local media
   const getLocalMedia = useCallback(async (video: boolean) => {
     try {
+      console.log('[DirectCall] Requesting media permissions, video:', video);
+      
+      // First check if permissions are already granted
+      const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+      console.log('[DirectCall] Microphone permission status:', permissionStatus.state);
+      
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
         video: video ? { width: 640, height: 480, facingMode: "user" } : false,
       });
+      
+      console.log('[DirectCall] Media stream obtained successfully');
       localStreamRef.current = stream;
       setLocalStream(stream);
       setVideoEnabled(video);
       setAudioEnabled(true);
       return stream;
-    } catch (error) {
-      console.error("Error getting media:", error);
+    } catch (error: any) {
+      console.error("[DirectCall] Error getting media:", error.name, error.message);
+      
+      // Provide specific feedback based on error type
+      if (error.name === 'NotAllowedError') {
+        console.error('[DirectCall] User denied permission or permission was blocked');
+      } else if (error.name === 'NotFoundError') {
+        console.error('[DirectCall] No microphone/camera found');
+      } else if (error.name === 'NotReadableError') {
+        console.error('[DirectCall] Device is already in use');
+      }
+      
       return null;
     }
   }, []);
