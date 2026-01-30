@@ -122,12 +122,26 @@ export function useDirectCall(
     peer.on("stream", (stream: MediaStream) => {
       const audioTracks = stream.getAudioTracks();
       const videoTracks = stream.getVideoTracks();
-      console.log("[DirectCall] Received remote stream:", {
+      console.log("[DirectCall] 🎵 REMOTE STREAM RECEIVED:", {
         audioTracks: audioTracks.length,
         videoTracks: videoTracks.length,
-        audioEnabled: audioTracks.map(t => t.enabled),
-        audioMuted: audioTracks.map(t => t.muted),
+        audioDetails: audioTracks.map(t => ({ 
+          id: t.id, 
+          enabled: t.enabled, 
+          muted: t.muted, 
+          readyState: t.readyState,
+          label: t.label 
+        })),
       });
+      
+      // Force enable audio tracks
+      audioTracks.forEach(track => {
+        if (!track.enabled) {
+          console.log("[DirectCall] Enabling disabled audio track");
+          track.enabled = true;
+        }
+      });
+      
       setRemoteStream(stream);
     });
 
@@ -651,13 +665,14 @@ export function useDirectCall(
     };
   }, [callState.callId, userId]); // FIXED: Removed callState.status from dependencies
 
-  // Listen for signals - use ref for stable filtering
+  // Listen for signals - CRITICAL: Use callState.callId directly to ensure subscription is set up correctly
   useEffect(() => {
-    const callId = callIdRef.current;
+    const callId = callState.callId; // Use state value directly, not ref
     if (!callId || !userId) return;
 
+    // Use unique channel name with timestamp to ensure fresh subscription
     const channelName = `call-signals-${callId}-${Date.now()}`;
-    console.log('[DirectCall] Setting up signal listener:', channelName);
+    console.log('[DirectCall] Setting up signal listener for callId:', callId);
 
     const channel = supabase
       .channel(channelName)
@@ -671,24 +686,24 @@ export function useDirectCall(
         async (payload) => {
           const signal = payload.new as any;
           
-          // Client-side filter using ref for stability
+          // Filter for our call and user
           if (signal.to_user_id !== userId) return;
-          if (signal.call_id !== callIdRef.current) return;
+          if (signal.call_id !== callId) return; // Use closure value, not ref
 
-          console.log('[DirectCall] Received signal, type:', (signal.signal_data as any)?.type || "candidate");
+          console.log('[DirectCall] Received signal for call:', callId, 'type:', (signal.signal_data as any)?.type || "candidate");
           
           if (peerRef.current) {
             try {
               peerRef.current.signal(signal.signal_data);
-              console.log('[DirectCall] Signal processed successfully');
+              console.log('[DirectCall] Signal applied to peer successfully');
             } catch (err) {
-              console.error('[DirectCall] Error processing signal:', err);
+              console.error('[DirectCall] Error applying signal to peer:', err);
             }
           } else {
-            console.warn('[DirectCall] Peer not ready yet, signal might be lost');
+            console.warn('[DirectCall] Signal received but peer not ready yet - this should not happen');
           }
 
-          // Clean up signal after small delay to ensure it's processed
+          // Clean up signal after processing
           setTimeout(async () => {
             await supabase.from("call_signals").delete().eq("id", signal.id);
           }, 500);
@@ -699,9 +714,10 @@ export function useDirectCall(
       });
 
     return () => {
+      console.log('[DirectCall] Removing signal channel for callId:', callId);
       supabase.removeChannel(channel);
     };
-  }, [callState.callId, userId]); // Re-subscribe only when callId changes
+  }, [callState.callId, userId]);
 
   // Cleanup on unmount
   useEffect(() => {
