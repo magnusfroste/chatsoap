@@ -564,11 +564,11 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
                   ref={(el) => { conversationRefs.current[index] = el; }}
                   onClick={() => handleConversationClick(conv)}
                   onFocus={() => setFocusedIndex(index)}
-                  className={`w-full flex items-center transition-all duration-300 ease-in-out text-left outline-none ${
+                  className={`w-full flex items-center transition-all duration-300 ease-in-out text-left outline-none overflow-hidden ${
                     isCollapsed 
                       ? 'justify-center px-0 py-2 hover:bg-muted/50' 
                       : 'gap-3 px-4 py-3 hover:bg-muted/50 border-b border-border/50'
-                  } ${isActive ? (isCollapsed ? '' : 'bg-muted') : ''} ${isFocused ? 'ring-2 ring-inset ring-primary/50 bg-muted/30' : ''}`}
+                  } ${isActive ? (isCollapsed ? '' : 'bg-muted') : ''} ${isFocused ? 'bg-primary/10 border-l-2 border-l-primary' : ''}`}
                   title={isCollapsed ? getDisplayName(conv) : undefined}
                   style={{ 
                     animationDelay: `${index * 30}ms`,
