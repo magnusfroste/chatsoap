@@ -906,12 +906,12 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
           {/* Messages area with subtle pattern */}
           <ScrollArea className="flex-1 bg-muted/30">
             <div 
-              className="min-h-full px-4 py-3"
+              className="min-h-full px-2 sm:px-3 py-2"
               style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
               }}
             >
-              <div className="max-w-4xl mx-auto space-y-1">
+              <div className="max-w-4xl mx-auto space-y-0.5">
                 {messages.map((msg, index) => {
                   const prevMsg = index > 0 ? messages[index - 1] : undefined;
                   const showDateSeparator = shouldShowDateSeparator(msg, prevMsg);
@@ -954,7 +954,7 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
                 {/* User typing indicator */}
                 {typingUsers.length > 0 && (
                   <div className="flex justify-start mb-1">
-                    <div className="relative max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 shadow-sm bg-muted/60">
+                    <div className="relative max-w-[90%] sm:max-w-[75%] rounded-lg px-2.5 py-1.5 shadow-sm bg-muted/60">
                       <div className="flex items-center gap-2">
                         <div className="flex gap-1">
                           <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
@@ -972,7 +972,7 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
                 {/* AI typing indicator */}
                 {aiTyping && (
                   <div className="flex justify-start mb-1">
-                    <div className="relative max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 shadow-sm bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-900/30 dark:to-purple-800/20 border border-purple-200 dark:border-purple-700/50">
+                    <div className="relative max-w-[90%] sm:max-w-[75%] rounded-lg px-2.5 py-1.5 shadow-sm bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-900/30 dark:to-purple-800/20 border border-purple-200 dark:border-purple-700/50">
                       <div className="flex items-center gap-1.5 mb-1 text-purple-600 dark:text-purple-400">
                         <Bot className="w-3.5 h-3.5" />
                         <span className="text-xs font-medium">AI Assistent</span>
@@ -996,7 +996,7 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
           </ScrollArea>
 
           {/* Message Input */}
-          <div className="flex-shrink-0 bg-card border-t border-border px-4 py-3">
+          <div className="flex-shrink-0 bg-card border-t border-border px-2 sm:px-3 py-2">
             {/* File preview */}
             {pendingFile && (
               <div className="max-w-4xl mx-auto mb-3">
@@ -1032,7 +1032,7 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
               </div>
             )}
             
-            <form onSubmit={sendMessage} className="flex items-center gap-3 max-w-4xl mx-auto">
+            <form onSubmit={sendMessage} className="flex items-center gap-2 max-w-4xl mx-auto">
               <EmojiPicker 
                 onEmojiSelect={(emoji) => setNewMessage(prev => prev + emoji)} 
               />
