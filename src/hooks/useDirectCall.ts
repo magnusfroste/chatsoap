@@ -351,6 +351,8 @@ export function useDirectCall(
   useEffect(() => {
     if (!conversationId || !userId) return;
 
+    let cancelled = false;
+
     const checkActiveCall = async () => {
       // Look for an accepted call where this user is the callee and peer isn't created yet
       const { data: activeCall } = await supabase
@@ -363,7 +365,10 @@ export function useDirectCall(
         .limit(1)
         .single();
 
-      if (activeCall && !peerRef.current && callState.status === "idle") {
+      if (cancelled) return;
+
+      // Use ref to check current call state without triggering re-renders
+      if (activeCall && !peerRef.current && !callIdRef.current) {
         console.log('[DirectCall] Found active accepted call, joining:', activeCall.id);
         
         // Fetch caller info
@@ -372,6 +377,8 @@ export function useDirectCall(
           .select("display_name")
           .eq("user_id", activeCall.caller_id)
           .single();
+
+        if (cancelled) return;
 
         callIdRef.current = activeCall.id;
         setCallState({
@@ -384,17 +391,87 @@ export function useDirectCall(
         });
 
         // Get local media and create peer
-        const stream = await getLocalMedia(activeCall.call_type === "video");
-        if (stream) {
-          await createPeer(false, stream, activeCall.caller_id, activeCall.id);
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: activeCall.call_type === "video" ? { width: 640, height: 480, facingMode: "user" } : false,
+          });
+          
+          if (cancelled) {
+            stream.getTracks().forEach(t => t.stop());
+            return;
+          }
+
+          localStreamRef.current = stream;
+          setLocalStream(stream);
+          setVideoEnabled(activeCall.call_type === "video");
+          setAudioEnabled(true);
+
+          // Create peer as non-initiator
+          const peer = new Peer({
+            initiator: false,
+            trickle: true,
+            stream,
+            config: {
+              iceServers: [
+                { urls: "stun:stun.l.google.com:19302" },
+                { urls: "stun:stun1.l.google.com:19302" },
+              ],
+            },
+          });
+
+          peer.on("signal", async (signal) => {
+            await supabase.from("call_signals").insert({
+              call_id: activeCall.id,
+              from_user_id: userId,
+              to_user_id: activeCall.caller_id,
+              signal_data: signal as unknown as Json,
+            });
+          });
+
+          peer.on("stream", (remoteStream) => {
+            setRemoteStream(remoteStream);
+          });
+
+          peer.on("error", (err) => {
+            console.error("Peer error:", err);
+            peer.destroy();
+            peerRef.current = null;
+          });
+
+          peer.on("connect", () => {
+            console.log("Peer connected!");
+          });
+
+          peerRef.current = peer;
+
+          // Fetch existing signals
+          const { data: existingSignals } = await supabase
+            .from("call_signals")
+            .select("*")
+            .eq("call_id", activeCall.id)
+            .eq("to_user_id", userId)
+            .order("created_at", { ascending: true });
+
+          if (existingSignals && existingSignals.length > 0) {
+            for (const signal of existingSignals) {
+              peer.signal(signal.signal_data as any);
+              await supabase.from("call_signals").delete().eq("id", signal.id);
+            }
+          }
+        } catch (error) {
+          console.error("Error joining call:", error);
         }
       }
     };
 
     // Small delay to ensure component is mounted
     const timer = setTimeout(checkActiveCall, 300);
-    return () => clearTimeout(timer);
-  }, [conversationId, userId, callState.status, getLocalMedia, createPeer]);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [conversationId, userId]);
 
   // Listen for incoming calls
   useEffect(() => {
