@@ -549,14 +549,28 @@ export function useDirectCall(
           // Client-side filter using ref for stability
           if (call.id !== callIdRef.current) return;
           
-          console.log('[DirectCall] Call status update:', call.status);
+          console.log('[DirectCall] Call status update:', call.status, 'current local status:', callState.status);
           
           if (call.status === "accepted") {
-            setCallState((prev) => 
-              prev.status === "calling" ? { ...prev, status: "connected" } : prev
-            );
-          } else if (call.status === "declined" || call.status === "ended") {
+            // Only update status if we're the caller waiting for acceptance
+            setCallState((prev) => {
+              if (prev.status === "calling") {
+                console.log('[DirectCall] Caller: Call accepted, transitioning to connected');
+                return { ...prev, status: "connected" };
+              }
+              return prev;
+            });
+          } else if (call.status === "declined") {
+            // Call was declined by the callee
+            console.log('[DirectCall] Call declined');
             endCall();
+          } else if (call.status === "ended") {
+            // Only end if we didn't initiate the end ourselves
+            // Check if peer is still active - if so, the other party ended it
+            if (peerRef.current) {
+              console.log('[DirectCall] Remote party ended the call');
+              endCall();
+            }
           }
         }
       )
