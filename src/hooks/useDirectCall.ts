@@ -701,7 +701,7 @@ export function useDirectCall(
         console.log('[DirectCall] Call status subscription:', status, err ? `Error: ${err}` : '');
       });
 
-    // FALLBACK: Poll for status changes every 2 seconds (in case Realtime misses the event)
+    // FALLBACK: Poll for status changes every 1 second (in case Realtime misses the event)
     // Only poll while in "calling" state
     pollInterval = setInterval(async () => {
       if (callStatusRef.current !== "calling") {
@@ -709,18 +709,26 @@ export function useDirectCall(
         return;
       }
       
-      console.log('[DirectCall] Polling call status...');
-      const { data: call } = await supabase
+      console.log('[DirectCall] Polling call status for callId:', callId);
+      const { data: call, error } = await supabase
         .from("direct_calls")
         .select("status")
         .eq("id", callId)
         .maybeSingle();
       
-      if (call && call.status !== "ringing" && call.status !== callStatusRef.current) {
-        console.log('[DirectCall] Poll detected status change:', call.status);
-        handleStatusChange(call.status);
+      if (error) {
+        console.error('[DirectCall] Poll error:', error);
+        return;
       }
-    }, 2000);
+      
+      if (call) {
+        console.log('[DirectCall] Poll result:', call.status, 'local:', callStatusRef.current);
+        if (call.status !== "ringing" && call.status !== callStatusRef.current) {
+          console.log('[DirectCall] ✅ Poll detected status change:', call.status);
+          handleStatusChange(call.status);
+        }
+      }
+    }, 1000);
 
     return () => {
       console.log('[DirectCall] Removing call status channel:', channelName);
