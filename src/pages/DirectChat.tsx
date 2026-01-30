@@ -950,6 +950,24 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
                   );
                 })}
 
+                {/* User typing indicator */}
+                {typingUsers.length > 0 && (
+                  <div className="flex justify-start mb-1">
+                    <div className="relative max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 shadow-sm bg-muted/60">
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-1">
+                          <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                          <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                          <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {typingUsers.map(u => u.display_name).join(", ")} skriver...
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* AI typing indicator */}
                 {aiTyping && (
                   <div className="flex justify-start mb-1">
