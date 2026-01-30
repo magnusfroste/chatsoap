@@ -520,7 +520,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
               <div
                 key={i}
                 className={`flex items-center transition-all duration-300 ${
-                  isCollapsed ? 'justify-center px-0 py-2' : 'gap-3 px-3 py-3 border-b border-border/50'
+                  isCollapsed ? 'justify-center px-0 py-2' : 'gap-3 px-4 py-3 border-b border-border/50'
                 }`}
                 style={{ animationDelay: `${i * 50}ms` }}
               >
@@ -567,7 +567,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
                   className={`w-full flex items-center transition-all duration-300 ease-in-out text-left outline-none overflow-hidden ${
                     isCollapsed 
                       ? 'justify-center px-0 py-2 hover:bg-muted/50' 
-                      : 'gap-3 px-3 py-3 hover:bg-muted/50 border-b border-border/50'
+                      : 'gap-3 px-4 py-3 hover:bg-muted/50 border-b border-border/50'
                   } ${isActive ? (isCollapsed ? '' : 'bg-muted') : ''} ${isFocused ? 'ring-2 ring-inset ring-primary/50 bg-muted/30' : ''}`}
                   title={isCollapsed ? getDisplayName(conv) : undefined}
                   style={{ 
