@@ -351,19 +351,27 @@ export function useDirectCall(
   useEffect(() => {
     if (!userId) return;
 
+    // Use unique channel name to avoid binding conflicts
+    const channelName = `incoming-calls-${userId}-${Date.now()}`;
+    console.log('[DirectCall] Setting up incoming calls channel:', channelName);
+
     const channel = supabase
-      .channel(`incoming-calls-${userId}`)
+      .channel(channelName)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "direct_calls",
-          filter: `callee_id=eq.${userId}`,
         },
         async (payload) => {
           const call = payload.new as any;
+          
+          // Client-side filter to avoid binding mismatch
+          if (call.callee_id !== userId) return;
           if (call.status !== "ringing") return;
+
+          console.log('[DirectCall] Incoming call detected:', call.id);
 
           // Fetch caller info
           const { data: profile } = await supabase
@@ -383,7 +391,9 @@ export function useDirectCall(
           });
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log('[DirectCall] Incoming calls subscription status:', status, err ? `Error: ${err}` : '');
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -394,18 +404,25 @@ export function useDirectCall(
   useEffect(() => {
     if (!callState.callId) return;
 
+    const channelName = `call-status-${callState.callId}-${Date.now()}`;
+    console.log('[DirectCall] Setting up call status channel:', channelName);
+
     const channel = supabase
-      .channel(`call-${callState.callId}`)
+      .channel(channelName)
       .on(
         "postgres_changes",
         {
           event: "UPDATE",
           schema: "public",
           table: "direct_calls",
-          filter: `id=eq.${callState.callId}`,
         },
         (payload) => {
           const call = payload.new as any;
+          
+          // Client-side filter
+          if (call.id !== callState.callId) return;
+          
+          console.log('[DirectCall] Call status update:', call.status);
           
           if (call.status === "accepted" && callState.status === "calling") {
             setCallState((prev) => ({ ...prev, status: "connected" }));
@@ -414,7 +431,9 @@ export function useDirectCall(
           }
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log('[DirectCall] Call status subscription:', status, err ? `Error: ${err}` : '');
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -425,33 +444,36 @@ export function useDirectCall(
   useEffect(() => {
     if (!callState.callId || !userId) return;
 
-    console.log("Setting up signal listener for call:", callState.callId);
+    const channelName = `call-signals-${callState.callId}-${Date.now()}`;
+    console.log('[DirectCall] Setting up signal listener:', channelName);
 
     const channel = supabase
-      .channel(`call-signals-${callState.callId}-${Date.now()}`)
+      .channel(channelName)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "call_signals",
-          filter: `to_user_id=eq.${userId}`,
         },
         async (payload) => {
           const signal = payload.new as any;
+          
+          // Client-side filter
+          if (signal.to_user_id !== userId) return;
           if (signal.call_id !== callState.callId) return;
 
-          console.log("Received new signal via realtime, type:", (signal.signal_data as any)?.type || "candidate");
+          console.log('[DirectCall] Received signal, type:', (signal.signal_data as any)?.type || "candidate");
           
           if (peerRef.current) {
             try {
               peerRef.current.signal(signal.signal_data);
-              console.log("Signal processed successfully");
+              console.log('[DirectCall] Signal processed successfully');
             } catch (err) {
-              console.error("Error processing signal:", err);
+              console.error('[DirectCall] Error processing signal:', err);
             }
           } else {
-            console.warn("Peer not ready yet, signal might be lost");
+            console.warn('[DirectCall] Peer not ready yet, signal might be lost');
           }
 
           // Clean up signal after small delay to ensure it's processed
@@ -460,8 +482,8 @@ export function useDirectCall(
           }, 500);
         }
       )
-      .subscribe((status) => {
-        console.log("Signal channel status:", status);
+      .subscribe((status, err) => {
+        console.log('[DirectCall] Signal subscription status:', status, err ? `Error: ${err}` : '');
       });
 
     return () => {

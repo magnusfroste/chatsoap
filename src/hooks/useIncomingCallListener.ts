@@ -43,19 +43,29 @@ export function useIncomingCallListener(userId: string | undefined) {
   useEffect(() => {
     if (!userId) return;
 
+    // Use unique channel names to avoid binding conflicts
+    const channelName = `global-incoming-calls-${userId}-${Date.now()}`;
+    const statusChannelName = `global-call-status-${userId}-${Date.now()}`;
+
+    console.log('[IncomingCallListener] Setting up channel:', channelName);
+
     const channel = supabase
-      .channel(`global-incoming-calls-${userId}`)
+      .channel(channelName)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "direct_calls",
-          filter: `callee_id=eq.${userId}`,
         },
         async (payload) => {
           const call = payload.new as any;
+          
+          // Client-side filter to avoid binding mismatch
+          if (call.callee_id !== userId) return;
           if (call.status !== "ringing") return;
+
+          console.log('[IncomingCallListener] Incoming call detected:', call.id);
 
           // Fetch caller info
           const { data: profile } = await supabase
@@ -73,21 +83,26 @@ export function useIncomingCallListener(userId: string | undefined) {
           });
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log('[IncomingCallListener] Subscription status:', status, err ? `Error: ${err}` : '');
+      });
 
     // Also listen for call status changes to dismiss if caller cancels
     const statusChannel = supabase
-      .channel(`global-call-status-${userId}`)
+      .channel(statusChannelName)
       .on(
         "postgres_changes",
         {
           event: "UPDATE",
           schema: "public",
           table: "direct_calls",
-          filter: `callee_id=eq.${userId}`,
         },
         (payload) => {
           const call = payload.new as any;
+          
+          // Client-side filter
+          if (call.callee_id !== userId) return;
+          
           if (call.status === "ended" || call.status === "declined") {
             setIncomingCall((current) => 
               current?.callId === call.id ? null : current
