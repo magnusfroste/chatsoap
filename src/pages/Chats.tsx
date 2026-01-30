@@ -132,15 +132,6 @@ const Chats = () => {
 
   return (
     <div className="h-screen flex bg-background overflow-hidden">
-      {/* Left Sidebar - Conversations List (Desktop) */}
-      <div className={`${isSidebarCollapsed ? 'w-[72px]' : 'w-[320px]'} flex-shrink-0 hidden md:flex flex-col transition-all duration-300 overflow-hidden min-w-0`}>
-        <ChatSidebar 
-          activeConversationId={activeConversationId} 
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={toggleSidebarCollapse}
-        />
-      </div>
-
       {/* Mobile: Show only sidebar if not on chat page */}
       <div className="w-full md:hidden min-w-0 overflow-hidden">
         {!isOnChatPage ? (
@@ -150,13 +141,40 @@ const Chats = () => {
         )}
       </div>
 
-      {/* Desktop: Middle Chat + Right Canvas with Resizable Panels */}
-      <div className="flex-1 hidden md:flex relative">
+      {/* Desktop: All panels with ResizablePanelGroup */}
+      <div className="hidden md:flex w-full h-full">
         <ResizablePanelGroup direction="horizontal" className="min-w-0">
+          {/* Left Sidebar - Conversations List */}
+          {!isSidebarCollapsed ? (
+            <>
+              <ResizablePanel 
+                defaultSize={20} 
+                minSize={15} 
+                maxSize={35}
+                className="min-w-0"
+              >
+                <ChatSidebar 
+                  activeConversationId={activeConversationId} 
+                  isCollapsed={false}
+                  onToggleCollapse={toggleSidebarCollapse}
+                />
+              </ResizablePanel>
+              <ResizableHandle />
+            </>
+          ) : (
+            <div className="w-[72px] flex-shrink-0 flex flex-col border-r border-border">
+              <ChatSidebar 
+                activeConversationId={activeConversationId} 
+                isCollapsed={true}
+                onToggleCollapse={toggleSidebarCollapse}
+              />
+            </div>
+          )}
+
           {/* Middle - Chat Area */}
           <ResizablePanel 
-            defaultSize={isCanvasCollapsed ? 100 : 45} 
-            minSize={30} 
+            defaultSize={isCanvasCollapsed ? 80 : 35} 
+            minSize={25} 
             className="min-w-0"
           >
             <div className="h-full flex flex-col min-w-0 overflow-hidden relative">
@@ -190,7 +208,7 @@ const Chats = () => {
               <ResizableHandle withHandle />
 
               {/* Right - Canvas/Workspace */}
-              <ResizablePanel defaultSize={55} minSize={35} className="min-w-0">
+              <ResizablePanel defaultSize={45} minSize={30} className="min-w-0">
                 <WorkspaceCanvas 
                   conversationId={activeConversationId}
                   conversationType={conversationType as "direct" | "group" | "ai_chat" | undefined}
