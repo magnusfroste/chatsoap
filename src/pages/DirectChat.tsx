@@ -150,8 +150,7 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
     }
   }, [user, id]);
 
-  // Separate realtime subscription effect for better stability
-  // Realtime subscription - simple refetch pattern like ChatSidebar
+  // Realtime subscription - directly update state for instant updates
   useEffect(() => {
     if (!user?.id || !id) return;
     
@@ -168,15 +167,68 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
           table: "messages",
           filter: `conversation_id=eq.${id}`,
         },
-        (payload) => {
+        async (payload) => {
           const newMsg = payload.new as any;
           console.log('[DirectChat Realtime] New message received:', newMsg.id, 'from user:', newMsg.user_id);
           
-          // If message is from another user, refetch to ensure we have it
-          // For our own messages, we already have the optimistic update
-          if (newMsg.user_id !== user.id) {
-            console.log('[DirectChat Realtime] Message from other user, refetching...');
-            fetchMessages();
+          // Add message to state immediately, then enrich async
+          setMessages((prev) => {
+            // Skip if already exists (from optimistic update)
+            if (prev.find((m) => m.id === newMsg.id)) {
+              console.log('[DirectChat Realtime] Skipping duplicate:', newMsg.id);
+              return prev;
+            }
+            // Replace temp message with matching content
+            const hasTempMatch = prev.find(
+              (m) => m.id.startsWith('temp-') && 
+              m.content === newMsg.content && 
+              m.user_id === newMsg.user_id
+            );
+            if (hasTempMatch) {
+              console.log('[DirectChat Realtime] Replacing temp message with:', newMsg.id);
+              return prev.map((m) => 
+                m.id.startsWith('temp-') && m.content === newMsg.content && m.user_id === newMsg.user_id
+                  ? { ...m, id: newMsg.id, sending: false }
+                  : m
+              );
+            }
+            
+            // Add new message immediately (basic info)
+            console.log('[DirectChat Realtime] Adding new message:', newMsg.id);
+            const newMessage: Message = {
+              id: newMsg.id,
+              content: newMsg.content,
+              is_ai: newMsg.is_ai || false,
+              user_id: newMsg.user_id,
+              created_at: newMsg.created_at,
+              reply_to_id: newMsg.reply_to_id,
+              attachment_type: newMsg.attachment_type,
+              attachment_name: newMsg.attachment_name,
+            };
+            return [...prev, newMessage];
+          });
+          
+          // Enrich with profile info asynchronously (won't block UI)
+          if (newMsg.user_id && newMsg.user_id !== user.id) {
+            try {
+              const { data: profileData } = await supabase
+                .from("profiles")
+                .select("display_name")
+                .eq("user_id", newMsg.user_id)
+                .single();
+              
+              if (profileData) {
+                setMessages((prev) => 
+                  prev.map((m) => 
+                    m.id === newMsg.id 
+                      ? { ...m, profile: profileData }
+                      : m
+                  )
+                );
+              }
+            } catch (e) {
+              console.log('[DirectChat Realtime] Profile fetch failed:', e);
+            }
           }
         }
       )
