@@ -290,7 +290,7 @@ export const MessageBubble = ({
           onSaveToNotes={canSaveToNotes ? handleSaveToNotes : undefined}
           messageContent={message.content}
         >
-          <div className="cursor-pointer">
+          <div className="cursor-pointer w-fit">
             {bubbleContent}
           </div>
         </ReactionPicker>
