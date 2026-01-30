@@ -12,6 +12,7 @@ import Chats from "./pages/Chats";
 import DirectChat from "./pages/DirectChat";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import JoinChat from "./pages/JoinChat";
 import { Loader2 } from "lucide-react";
 
 // Lazy load GroupChat to avoid fabric.js and simple-peer blocking the main bundle
@@ -47,6 +48,7 @@ const App = () => {
               <Route path="/chats" element={<Chats />} />
               <Route path="/chat/:id" element={<Chats />} />
               <Route path="/group/:id" element={<Chats />} />
+              <Route path="/join/:token" element={<JoinChat />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

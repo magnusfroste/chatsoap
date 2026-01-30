@@ -12,6 +12,7 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/componen
 import { Loader2, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import AnonymousUserBanner from "@/components/AnonymousUserBanner";
 
 // Lazy load GroupChat
 const GroupChat = lazy(() => import("./GroupChat"));
@@ -125,14 +126,18 @@ const Chats = () => {
   };
 
   return (
-    <div className="h-screen flex bg-background overflow-hidden">
-      {/* Mobile: Show only sidebar if not on chat page */}
-      <div className="w-full md:hidden min-w-0 overflow-hidden">
-        {!isOnChatPage ? (
-          <ChatSidebar activeConversationId={activeConversationId} />
-        ) : (
-          renderChatContent()
-        )}
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
+      {/* Anonymous user banner */}
+      <AnonymousUserBanner />
+      
+      <div className="flex-1 flex overflow-hidden">
+        {/* Mobile: Show only sidebar if not on chat page */}
+        <div className="w-full md:hidden min-w-0 overflow-hidden">
+          {!isOnChatPage ? (
+            <ChatSidebar activeConversationId={activeConversationId} />
+          ) : (
+            renderChatContent()
+          )}
       </div>
 
       {/* Desktop: All panels with ResizablePanelGroup */}
@@ -229,6 +234,7 @@ const Chats = () => {
       <NotificationPermissionBanner />
 
       {/* Incoming Call Overlay is now handled globally by AuthProvider */}
+      </div>
     </div>
   );
 };
