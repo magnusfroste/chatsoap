@@ -280,7 +280,7 @@ export const MessageBubble = ({
 
   return (
     <div className={cn("flex flex-col", isOwn ? "items-end pr-1" : "items-start pl-1")}>
-      <div className={cn("flex items-end gap-1", isOwn ? "justify-end" : "justify-start")}>
+      <div className={cn("flex items-end gap-1 w-full", isOwn ? "justify-end" : "justify-start")}>
         <ReactionPicker
           messageId={message.id}
           userId={userId}
