@@ -611,14 +611,15 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
 
                   {/* Content - fades out when collapsed */}
                   <div 
-                    className={`flex-1 overflow-hidden transition-all duration-300 ${
-                      isCollapsed ? 'w-0 opacity-0 min-w-0' : 'w-full opacity-100 min-w-0'
+                    className={`flex-1 transition-all duration-300 ${
+                      isCollapsed ? 'w-0 opacity-0' : 'opacity-100'
                     }`}
+                    style={{ minWidth: 0, maxWidth: '100%' }}
                   >
-                    <div className="flex items-center justify-between gap-2 min-w-0">
-                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2" style={{ minWidth: 0 }}>
+                      <div className="flex items-center gap-1.5 overflow-hidden" style={{ minWidth: 0, flex: '1 1 0%' }}>
                         {conv.is_pinned && <Pin className="w-3 h-3 text-primary flex-shrink-0" />}
-                        <span className="font-medium text-foreground truncate">
+                        <span className="font-medium text-foreground truncate block">
                           {getDisplayName(conv)}
                         </span>
                         {conv.is_favorite && <Star className="w-3 h-3 text-yellow-500 flex-shrink-0 fill-yellow-500" />}
@@ -627,11 +628,11 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
                         {formatTime(conv.last_message_at)}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1 mt-0.5 min-w-0 overflow-hidden">
+                    <div className="flex items-center gap-1 mt-0.5 overflow-hidden" style={{ minWidth: 0 }}>
                       <CheckCheck className="w-4 h-4 text-primary flex-shrink-0" />
-                      <p className="text-sm text-muted-foreground truncate flex-1 min-w-0">
+                      <span className="text-sm text-muted-foreground truncate block" style={{ minWidth: 0, flex: '1 1 0%' }}>
                         {conv.last_message || (conv.type === "group" ? "Gruppchatt" : "Ny konversation")}
-                      </p>
+                      </span>
                       {conv.is_muted && <BellOff className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
                       {hasUnread && (
                         <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-xs font-medium flex items-center justify-center flex-shrink-0 ${
