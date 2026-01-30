@@ -1,13 +1,11 @@
 import { useEffect, lazy, Suspense, useState, useCallback } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useIncomingCallListener } from "@/hooks/useIncomingCallListener";
 import { useCAGContext } from "@/hooks/useCAGContext";
 import ChatSidebar from "@/components/ChatSidebar";
 import ChatEmptyState from "@/components/ChatEmptyState";
 import DirectChat from "./DirectChat";
 import { NotificationPermissionBanner } from "@/components/NotificationPermissionBanner";
-import { IncomingCallOverlay } from "@/components/IncomingCallOverlay";
 import { WorkspaceCanvas, CanvasApp } from "@/components/WorkspaceCanvas";
 import { canvasEventBus } from "@/lib/canvas-apps";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
@@ -43,9 +41,6 @@ const Chats = () => {
       return newValue;
     });
   }, []);
-  
-  // Global incoming call listener
-  const { incomingCall, acceptCall, declineCall } = useIncomingCallListener(user?.id);
   
   // Check if we're on a chat subpage
   const isDirectChat = location.pathname.startsWith("/chat/");
@@ -219,14 +214,7 @@ const Chats = () => {
       {/* Notification Permission Banner */}
       <NotificationPermissionBanner />
 
-      {/* Incoming Call Overlay */}
-      {incomingCall && (
-        <IncomingCallOverlay
-          call={incomingCall}
-          onAccept={acceptCall}
-          onDecline={declineCall}
-        />
-      )}
+      {/* Incoming Call Overlay is now handled globally by AuthProvider */}
     </div>
   );
 };
