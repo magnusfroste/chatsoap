@@ -45,7 +45,15 @@ export function InlineCallBar({
   // Attach remote audio stream
   useEffect(() => {
     if (remoteAudioRef.current && remoteStream) {
+      console.log('[InlineCallBar] Attaching remote stream, tracks:', remoteStream.getTracks().map(t => `${t.kind}:${t.enabled}`));
       remoteAudioRef.current.srcObject = remoteStream;
+      
+      // Try to play - may fail due to autoplay policy
+      remoteAudioRef.current.play().then(() => {
+        console.log('[InlineCallBar] Audio playback started successfully');
+      }).catch((err) => {
+        console.warn('[InlineCallBar] Audio autoplay blocked, will retry on user interaction:', err.message);
+      });
     }
   }, [remoteStream]);
 

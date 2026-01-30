@@ -116,7 +116,14 @@ export function useDirectCall(
     });
 
     peer.on("stream", (stream: MediaStream) => {
-      console.log("Received remote stream");
+      const audioTracks = stream.getAudioTracks();
+      const videoTracks = stream.getVideoTracks();
+      console.log("[DirectCall] Received remote stream:", {
+        audioTracks: audioTracks.length,
+        videoTracks: videoTracks.length,
+        audioEnabled: audioTracks.map(t => t.enabled),
+        audioMuted: audioTracks.map(t => t.muted),
+      });
       setRemoteStream(stream);
     });
 
