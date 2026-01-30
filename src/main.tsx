@@ -1,6 +1,6 @@
 // Polyfills for Node.js modules required by simple-peer
 import { Buffer } from 'buffer';
-import process from 'process/browser';
+import process from 'process';
 import { EventEmitter } from 'events';
 
 // Set globals before any other imports
@@ -9,7 +9,7 @@ import { EventEmitter } from 'events';
 (window as any).global = window;
 
 // Ensure process.nextTick exists for stream-browserify
-if (!process.nextTick) {
+if (!(process as any).nextTick) {
   (process as any).nextTick = (fn: Function, ...args: any[]) => {
     queueMicrotask(() => fn(...args));
   };
