@@ -41,6 +41,10 @@ export function useDirectCall(
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const callIdRef = useRef<string | null>(null);
+  const callStatusRef = useRef<CallStatus>("idle");
+  
+  // Keep ref in sync with state (for use in callbacks without re-subscribing)
+  callStatusRef.current = callState.status;
 
   // Get local media
   const getLocalMedia = useCallback(async (video: boolean) => {
@@ -552,17 +556,18 @@ export function useDirectCall(
   }, [userId]);
 
   // Listen for call status changes for CALLER (when they initiate a call)
-  // This needs to be set up when the caller starts a call to detect accept/decline
+  // IMPORTANT: This effect uses callState.callId to setup/teardown the subscription
+  // but checks callStatusRef inside the callback to avoid missing events during re-renders
   useEffect(() => {
-    // For caller: listen when status is "calling"
-    // For callee: listen when status is "connected" (after accepting)
-    if (!userId || callState.status === "idle" || callState.status === "ended") return;
+    const callId = callState.callId;
+    if (!callId || !userId) return;
     
-    const callId = callIdRef.current;
-    if (!callId) return;
+    // Don't subscribe if call is already ended
+    if (callStatusRef.current === "idle" || callStatusRef.current === "ended") return;
 
-    const channelName = `call-status-${callId}-${Date.now()}`;
-    console.log('[DirectCall] Setting up call status channel for callId:', callId, 'current status:', callState.status);
+    // Use stable channel name (no timestamp) so we don't recreate on state changes
+    const channelName = `call-status-${callId}`;
+    console.log('[DirectCall] Setting up STABLE call status channel for callId:', callId);
 
     const channel = supabase
       .channel(channelName)
@@ -579,17 +584,14 @@ export function useDirectCall(
           // Only process updates for our call
           if (call.id !== callIdRef.current) return;
           
-          console.log('[DirectCall] Call status update received:', call.status);
+          console.log('[DirectCall] Call status update received:', call.status, 'current local status:', callStatusRef.current);
           
           if (call.status === "accepted") {
             // Caller: Call was accepted by callee
-            setCallState((prev) => {
-              if (prev.status === "calling") {
-                console.log('[DirectCall] Caller: Call accepted, transitioning to connected');
-                return { ...prev, status: "connected" };
-              }
-              return prev;
-            });
+            if (callStatusRef.current === "calling") {
+              console.log('[DirectCall] Caller: Call accepted, transitioning to connected');
+              setCallState((prev) => ({ ...prev, status: "connected" }));
+            }
           } else if (call.status === "declined") {
             // Caller: Call was declined by callee - stop ringing and clean up
             console.log('[DirectCall] Call declined by callee');
@@ -597,7 +599,12 @@ export function useDirectCall(
               peerRef.current.destroy();
               peerRef.current = null;
             }
-            stopLocalMedia();
+            // Stop local media inline
+            if (localStreamRef.current) {
+              localStreamRef.current.getTracks().forEach((track) => track.stop());
+              localStreamRef.current = null;
+            }
+            setLocalStream(null);
             setRemoteStream(null);
             callIdRef.current = null;
             setCallState({
@@ -615,7 +622,12 @@ export function useDirectCall(
               peerRef.current.destroy();
               peerRef.current = null;
             }
-            stopLocalMedia();
+            // Stop local media inline
+            if (localStreamRef.current) {
+              localStreamRef.current.getTracks().forEach((track) => track.stop());
+              localStreamRef.current = null;
+            }
+            setLocalStream(null);
             setRemoteStream(null);
             callIdRef.current = null;
             setCallState({
@@ -637,7 +649,7 @@ export function useDirectCall(
       console.log('[DirectCall] Removing call status channel:', channelName);
       supabase.removeChannel(channel);
     };
-  }, [callState.status, callState.callId, userId, stopLocalMedia]);
+  }, [callState.callId, userId]); // FIXED: Removed callState.status from dependencies
 
   // Listen for signals - use ref for stable filtering
   useEffect(() => {
