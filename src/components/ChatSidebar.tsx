@@ -481,11 +481,12 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
 
       {/* Conversations List */}
       <ScrollArea 
-        className="flex-1 relative" 
+        className="flex-1 relative overflow-hidden" 
         ref={scrollAreaRef}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        style={{ width: '100%', maxWidth: '100%' }}
       >
         {/* Pull-to-refresh indicator */}
         <div 
@@ -552,7 +553,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
             </Button>
           </div>
         ) : (
-          <div className={`transition-all duration-300 ${isCollapsed ? 'py-2' : ''}`}>
+          <div className={`transition-all duration-300 ${isCollapsed ? 'py-2' : ''}`} style={{ width: '100%', maxWidth: '100%' }}>
             {filteredConversations.map((conv, index) => {
               const isActive = activeConversationId === conv.id;
               const hasUnread = (conv.unread_count ?? 0) > 0;
@@ -564,7 +565,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
                   ref={(el) => { conversationRefs.current[index] = el; }}
                   onClick={() => handleConversationClick(conv)}
                   onFocus={() => setFocusedIndex(index)}
-                  className={`w-full flex items-center transition-all duration-300 ease-in-out text-left outline-none overflow-hidden ${
+                  className={`flex items-center transition-all duration-300 ease-in-out text-left outline-none ${
                     isCollapsed 
                       ? 'justify-center px-0 py-2 hover:bg-muted/50' 
                       : 'gap-3 px-4 py-3 hover:bg-muted/50 border-b border-border/50'
@@ -572,6 +573,9 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
                   title={isCollapsed ? getDisplayName(conv) : undefined}
                   style={{ 
                     animationDelay: `${index * 30}ms`,
+                    width: '100%',
+                    maxWidth: '100%',
+                    overflow: 'hidden',
                   }}
                 >
                   {/* Avatar - always visible */}
