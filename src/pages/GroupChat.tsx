@@ -21,6 +21,7 @@ import { ChatMessageSearch } from "@/components/ChatMessageSearch";
 import { CAGContextBadge } from "@/components/CAGContextBadge";
 import { CAGFile, CAGNote } from "@/hooks/useCAGContext";
 import { emitBrowserNavigate, emitOpenApp } from "@/lib/canvas-apps/events";
+import { ChatActionsMenu } from "@/components/ChatActionsMenu";
 import {
   ArrowLeft,
   Send,
@@ -29,7 +30,6 @@ import {
   Users,
   Mic,
   Video,
-  FolderOpen,
 } from "lucide-react";
 
 interface ReplyToMessage {
@@ -653,55 +653,55 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="bg-whatsapp-green text-white sticky top-0 z-10 shadow-md">
-          <div className="px-2 py-2">
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => navigate("/chats")}
-                className="text-white hover:bg-whatsapp-green-dark"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <Avatar className="h-10 w-10 ring-2 ring-white/20">
-                <AvatarFallback className="bg-whatsapp-teal text-white">
-                  <Users className="w-5 h-5" />
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <h1 className="font-semibold truncate">
-                  {group?.name || "Grupp"}
-                </h1>
-                <p className="text-xs text-white/70 truncate">
-                  {typingUsers.length > 0 
-                    ? `${typingUsers.map(u => u.display_name).join(", ")} skriver...`
-                    : members.map(m => m.display_name).join(", ")}
-                </p>
-              </div>
+        <header className="flex-shrink-0 bg-card border-b border-border px-4 py-2">
+          <div className="flex items-center gap-3">
+            {/* Mobile back button */}
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => navigate("/chats")}
+              className="md:hidden text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            
+            <Avatar className="h-10 w-10">
+              <AvatarFallback className="bg-gradient-to-br from-primary/80 to-accent/80 text-primary-foreground font-medium">
+                <Users className="w-5 h-5" />
+              </AvatarFallback>
+            </Avatar>
+            
+            <div className="flex-1 min-w-0">
+              <h1 className="font-semibold text-foreground truncate">
+                {group?.name || "Grupp"}
+              </h1>
+              <p className="text-xs text-muted-foreground truncate">
+                {typingUsers.length > 0 
+                  ? `${typingUsers.map(u => u.display_name).join(", ")} skriver...`
+                  : members.map(m => m.display_name).join(", ")}
+              </p>
+            </div>
+
+            {/* Action icons */}
+            <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-white hover:bg-whatsapp-green-dark"
+                className={`text-muted-foreground hover:text-foreground ${inCall ? "text-destructive" : ""}`}
                 onClick={inCall ? handleLeaveCall : handleJoinCall}
               >
-                <Video className={`w-5 h-5 ${inCall ? "text-red-300" : ""}`} />
+                <Video className="w-5 h-5" />
               </Button>
               <ChatMessageSearch
                 messages={messages}
                 onHighlightMessage={handleHighlightMessage}
-                className="text-white"
               />
-              {onOpenFiles && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-white hover:bg-whatsapp-green-dark"
-                  onClick={onOpenFiles}
-                >
-                  <FolderOpen className="w-5 h-5" />
-                </Button>
-              )}
+              <ChatActionsMenu
+                conversationId={id || ""}
+                userId={user?.id}
+                chatName={group?.name || "Grupp"}
+                onDeleted={() => navigate("/chats")}
+              />
             </div>
           </div>
         </header>
