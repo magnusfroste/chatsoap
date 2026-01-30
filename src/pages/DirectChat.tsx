@@ -850,6 +850,7 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
                     status={callState.status}
                     callType={callState.callType}
                     remoteUserName={callState.remoteUserName}
+                    localStream={localStream}
                     remoteStream={remoteStream}
                     audioEnabled={audioEnabled}
                     onEnd={endCall}

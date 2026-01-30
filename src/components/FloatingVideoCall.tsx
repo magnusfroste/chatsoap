@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { CallStatus, CallType } from "@/hooks/useDirectCall";
 import { cn } from "@/lib/utils";
+import { useAudioLevel } from "@/hooks/useAudioLevel";
+import { AudioLevelIndicator } from "@/components/AudioLevelIndicator";
 
 interface FloatingVideoCallProps {
   status: CallStatus;
@@ -62,6 +64,10 @@ export function FloatingVideoCall({
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
+
+  // Audio level monitoring
+  const localAudioLevel = useAudioLevel(localStream, audioEnabled && status === "connected");
+  const remoteAudioLevel = useAudioLevel(remoteStream, status === "connected");
 
   // Duration timer
   useEffect(() => {
@@ -221,6 +227,14 @@ export function FloatingVideoCall({
 
       {/* Controls */}
       <div className="flex items-center justify-center gap-2 p-2 bg-muted/30">
+        {/* Audio level indicators */}
+        {status === "connected" && (
+          <div className="flex items-center gap-1 mr-1">
+            <AudioLevelIndicator level={localAudioLevel} size="sm" />
+            <AudioLevelIndicator level={remoteAudioLevel} size="sm" />
+          </div>
+        )}
+
         <Button
           onClick={onToggleAudio}
           size="icon"
