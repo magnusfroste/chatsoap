@@ -279,8 +279,8 @@ export const MessageBubble = ({
   };
 
   return (
-    <div className={cn("flex flex-col", isOwn ? "items-end pr-1" : "items-start pl-1")}>
-      <div className={cn("flex items-end gap-1 w-full", isOwn ? "justify-end" : "justify-start")}>
+    <div className={cn("flex flex-col", isOwn ? "items-end" : "items-start")}>
+      <div className={cn("flex items-end gap-1", isOwn ? "justify-end flex-row-reverse" : "justify-start")}>
         <ReactionPicker
           messageId={message.id}
           userId={userId}
@@ -290,7 +290,7 @@ export const MessageBubble = ({
           onSaveToNotes={canSaveToNotes ? handleSaveToNotes : undefined}
           messageContent={message.content}
         >
-          <div className="cursor-pointer w-fit">
+          <div className="cursor-pointer">
             {bubbleContent}
           </div>
         </ReactionPicker>
