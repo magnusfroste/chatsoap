@@ -551,13 +551,18 @@ export function useDirectCall(
     };
   }, [userId]);
 
-  // Listen for call status changes - use ref to avoid re-subscription on status change
+  // Listen for call status changes for CALLER (when they initiate a call)
+  // This needs to be set up when the caller starts a call to detect accept/decline
   useEffect(() => {
+    // For caller: listen when status is "calling"
+    // For callee: listen when status is "connected" (after accepting)
+    if (!userId || callState.status === "idle" || callState.status === "ended") return;
+    
     const callId = callIdRef.current;
     if (!callId) return;
 
     const channelName = `call-status-${callId}-${Date.now()}`;
-    console.log('[DirectCall] Setting up call status channel:', channelName);
+    console.log('[DirectCall] Setting up call status channel for callId:', callId, 'current status:', callState.status);
 
     const channel = supabase
       .channel(channelName)
@@ -571,13 +576,13 @@ export function useDirectCall(
         (payload) => {
           const call = payload.new as any;
           
-          // Client-side filter using ref for stability
+          // Only process updates for our call
           if (call.id !== callIdRef.current) return;
           
-          console.log('[DirectCall] Call status update:', call.status, 'current local status:', callState.status);
+          console.log('[DirectCall] Call status update received:', call.status);
           
           if (call.status === "accepted") {
-            // Only update status if we're the caller waiting for acceptance
+            // Caller: Call was accepted by callee
             setCallState((prev) => {
               if (prev.status === "calling") {
                 console.log('[DirectCall] Caller: Call accepted, transitioning to connected');
@@ -586,16 +591,41 @@ export function useDirectCall(
               return prev;
             });
           } else if (call.status === "declined") {
-            // Call was declined by the callee
-            console.log('[DirectCall] Call declined');
-            endCall();
-          } else if (call.status === "ended") {
-            // Only end if we didn't initiate the end ourselves
-            // Check if peer is still active - if so, the other party ended it
+            // Caller: Call was declined by callee - stop ringing and clean up
+            console.log('[DirectCall] Call declined by callee');
             if (peerRef.current) {
-              console.log('[DirectCall] Remote party ended the call');
-              endCall();
+              peerRef.current.destroy();
+              peerRef.current = null;
             }
+            stopLocalMedia();
+            setRemoteStream(null);
+            callIdRef.current = null;
+            setCallState({
+              callId: null,
+              status: "idle",
+              callType: "audio",
+              remoteUserId: null,
+              remoteUserName: null,
+              isIncoming: false,
+            });
+          } else if (call.status === "ended") {
+            // Other party ended the call
+            console.log('[DirectCall] Remote party ended the call');
+            if (peerRef.current) {
+              peerRef.current.destroy();
+              peerRef.current = null;
+            }
+            stopLocalMedia();
+            setRemoteStream(null);
+            callIdRef.current = null;
+            setCallState({
+              callId: null,
+              status: "idle",
+              callType: "audio",
+              remoteUserId: null,
+              remoteUserName: null,
+              isIncoming: false,
+            });
           }
         }
       )
@@ -604,9 +634,10 @@ export function useDirectCall(
       });
 
     return () => {
+      console.log('[DirectCall] Removing call status channel:', channelName);
       supabase.removeChannel(channel);
     };
-  }, [callState.callId, endCall]); // Only re-subscribe when callId changes, not status
+  }, [callState.status, callState.callId, userId, stopLocalMedia]);
 
   // Listen for signals - use ref for stable filtering
   useEffect(() => {

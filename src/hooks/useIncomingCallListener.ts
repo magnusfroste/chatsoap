@@ -120,7 +120,7 @@ export function useIncomingCallListener(userId: string | undefined) {
         console.log('[IncomingCallListener] Subscription status:', status, err ? `Error: ${err}` : '');
       });
 
-    // Also listen for call status changes to dismiss if caller cancels
+    // Also listen for call status changes to dismiss if caller cancels or callee answers elsewhere
     const statusChannel = supabase
       .channel(statusChannelName)
       .on(
@@ -136,8 +136,9 @@ export function useIncomingCallListener(userId: string | undefined) {
           // Client-side filter
           if (call.callee_id !== userId) return;
           
-          if (call.status === "ended" || call.status === "declined") {
-            // Close notification when call ends or is declined
+          // Stop ringing for any status change that ends the ringing state
+          if (call.status === "ended" || call.status === "declined" || call.status === "accepted") {
+            console.log('[IncomingCallListener] Call status changed to:', call.status, '- stopping ringtone');
             closeActiveNotification();
             setIncomingCall((current) => 
               current?.callId === call.id ? null : current
