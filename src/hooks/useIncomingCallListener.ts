@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNotifications } from "./useNotifications";
+import { useRingtone } from "./useRingtone";
 
 export interface IncomingCall {
   callId: string;
@@ -13,15 +14,17 @@ export interface IncomingCall {
 export function useIncomingCallListener(userId: string | undefined) {
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
   const { showCallNotification } = useNotifications();
+  const { startRingtone, stopRingtone } = useRingtone();
   const activeNotificationRef = useRef<Notification | null>(null);
 
-  // Close any active notification
+  // Close any active notification and stop ringtone
   const closeActiveNotification = useCallback(() => {
+    stopRingtone();
     if (activeNotificationRef.current) {
       activeNotificationRef.current.close();
       activeNotificationRef.current = null;
     }
-  }, []);
+  }, [stopRingtone]);
 
   // Accept call - navigate to chat
   const acceptCall = useCallback(async () => {
@@ -100,6 +103,9 @@ export function useIncomingCallListener(userId: string | undefined) {
           if (notification) {
             activeNotificationRef.current = notification;
           }
+
+          // Start ringtone immediately when call is detected
+          startRingtone();
 
           setIncomingCall({
             callId: call.id,
