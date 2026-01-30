@@ -7,20 +7,17 @@ import { useWebRTC } from "@/hooks/useWebRTC";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useNotifications } from "@/hooks/useNotifications";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { VideoSidebar } from "@/components/VideoSidebar";
 import { VideoGrid } from "@/components/VideoGrid";
-import { ReplyPreview } from "@/components/MessageBubble";
 import { ChatMessageList } from "@/components/ChatMessageList";
-import { EmojiPicker } from "@/components/EmojiPicker";
-import { FileUploadButton, FilePreview, UploadedFile } from "@/components/FileUploadButton";
+import { ChatMessageInput } from "@/components/ChatMessageInput";
+import { UploadedFile } from "@/components/FileUploadButton";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChatHeader } from "@/components/ChatHeader";
 import { CAGContextBadge } from "@/components/CAGContextBadge";
 import { CAGFile, CAGNote } from "@/hooks/useCAGContext";
 import { emitBrowserNavigate, emitOpenApp } from "@/lib/canvas-apps/events";
-import { Send, Loader2, Mic } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 interface ReplyToMessage {
   id: string;
@@ -664,90 +661,27 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
             variant="group"
           />
 
-          {/* Message Input */}
-          <div className="bg-whatsapp-chat-bg border-t border-border/50 p-2">
-            {/* File preview */}
-            {pendingFile && (
-              <div className="max-w-3xl mx-auto mb-3">
-                <FilePreview file={pendingFile} onRemove={() => setPendingFile(null)} showAnalyzeHint />
-              </div>
-            )}
-            
-            {/* Reply preview */}
-            {replyTo && (
-              <div className="max-w-3xl mx-auto mb-2">
-                <ReplyPreview 
-                  replyTo={replyTo} 
-                  currentUserId={user?.id} 
-                  onCancel={() => setReplyTo(null)} 
-                />
-              </div>
-            )}
-
-            {/* CAG Context Badge */}
-            {(cagFiles.length > 0 || cagNotes.length > 0) && onRemoveCAGFile && onClearCAG && (
-              <div className="max-w-3xl mx-auto mb-2">
-                <CAGContextBadge 
-                  files={cagFiles} 
-                  notes={cagNotes}
-                  onRemoveFile={onRemoveCAGFile} 
-                  onRemoveNote={onRemoveCAGNote}
-                  onClearAll={onClearCAG} 
-                />
-              </div>
-            )}
-            <form onSubmit={sendMessage} className="flex items-center gap-2 max-w-3xl mx-auto">
-              <EmojiPicker 
-                onEmojiSelect={(emoji) => setNewMessage(prev => prev + emoji)} 
-              />
-              
-              <div className="flex-1 flex items-center bg-white dark:bg-card rounded-full px-4 py-2 shadow-sm">
-                <Input
-                  value={newMessage}
-                  onChange={(e) => {
-                    setNewMessage(e.target.value);
-                    handleInputChange();
-                  }}
-                  onBlur={stopTyping}
-                  placeholder={
-                    cagFiles.length > 0
-                      ? `Ask about your ${cagFiles.length} file${cagFiles.length > 1 ? 's' : ''}...`
-                      : "Write a message"
-                  }
-                  className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0 text-sm"
-                  disabled={sending}
-                />
-                <FileUploadButton 
-                  onFileSelect={(file) => setPendingFile(file)} 
-                  className="h-8 w-8"
-                />
-              </div>
-
-              {(newMessage.trim() || pendingFile) ? (
-                <Button 
-                  type="submit" 
-                  size="icon" 
-                  disabled={sending}
-                  className="flex-shrink-0 rounded-full w-12 h-12 bg-whatsapp-green hover:bg-whatsapp-green-dark shadow-md"
-                >
-                  <Send className="w-5 h-5" />
-                </Button>
-              ) : (
-                <Button 
-                  type="button" 
-                  size="icon"
-                  className="flex-shrink-0 rounded-full w-12 h-12 bg-whatsapp-green hover:bg-whatsapp-green-dark shadow-md"
-                >
-                  <Mic className="w-5 h-5" />
-                </Button>
-              )}
-            </form>
-
-            {/* AI hint */}
-            <p className="text-center text-xs text-muted-foreground mt-2">
-              Skriv <span className="font-medium text-whatsapp-green">@ai</span> för att prata med AI-assistenten
-            </p>
-          </div>
+          <ChatMessageInput
+            value={newMessage}
+            onChange={setNewMessage}
+            onSubmit={sendMessage}
+            onTyping={handleInputChange}
+            onStopTyping={stopTyping}
+            sending={sending}
+            replyTo={replyTo}
+            onCancelReply={() => setReplyTo(null)}
+            currentUserId={user?.id}
+            pendingFile={pendingFile}
+            onFileSelect={(file) => setPendingFile(file)}
+            onRemoveFile={() => setPendingFile(null)}
+            cagFiles={cagFiles}
+            cagNotes={cagNotes}
+            onRemoveCAGFile={onRemoveCAGFile}
+            onRemoveCAGNote={onRemoveCAGNote}
+            onClearCAG={onClearCAG}
+            variant="group"
+            showAnalyzeHint={true}
+          />
         </div>
       </div>
 

@@ -7,19 +7,15 @@ import { useReadReceipts } from "@/hooks/useReadReceipts";
 import { useDirectCall } from "@/hooks/useDirectCall";
 import { useNotifications } from "@/hooks/useNotifications";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Send, Loader2, Mic } from "lucide-react";
-import { ReplyPreview } from "@/components/MessageBubble";
+import { Loader2 } from "lucide-react";
 import { ChatMessageList } from "@/components/ChatMessageList";
+import { ChatMessageInput } from "@/components/ChatMessageInput";
 import { CallUI } from "@/components/CallUI";
 import { FloatingVideoCall } from "@/components/FloatingVideoCall";
-import { EmojiPicker } from "@/components/EmojiPicker";
-import { FileUploadButton, FilePreview, UploadedFile } from "@/components/FileUploadButton";
+import { UploadedFile } from "@/components/FileUploadButton";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChatHeader } from "@/components/ChatHeader";
 import { AI_PERSONAS } from "@/components/PersonaSwitcher";
-import { CAGContextBadge } from "@/components/CAGContextBadge";
 import { CAGFile, CAGNote } from "@/hooks/useCAGContext";
 import { emitBrowserNavigate, emitOpenApp, emitCreateNote } from "@/lib/canvas-apps";
 import { toast } from "@/hooks/use-toast";
@@ -803,107 +799,28 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
             variant="direct"
           />
 
-          {/* Message Input */}
-          <div className="flex-shrink-0 bg-card border-t border-border px-2 sm:px-3 py-2">
-            {/* File preview */}
-            {pendingFile && (
-              <div className="max-w-4xl mx-auto mb-3">
-                <FilePreview 
-                  file={pendingFile} 
-                  onRemove={() => setPendingFile(null)} 
-                  showAnalyzeHint={pendingFile.type !== "image"}
-                />
-              </div>
-            )}
-            
-            {/* Reply preview */}
-            {replyTo && (
-              <div className="max-w-4xl mx-auto mb-2">
-                <ReplyPreview 
-                  replyTo={replyTo} 
-                  currentUserId={user?.id} 
-                  onCancel={() => setReplyTo(null)} 
-                />
-              </div>
-            )}
-
-            {/* CAG Context Badge */}
-            {(cagFiles.length > 0 || cagNotes.length > 0) && onRemoveCAGFile && onClearCAG && (
-              <div className="max-w-4xl mx-auto mb-2">
-                <CAGContextBadge 
-                  files={cagFiles} 
-                  notes={cagNotes}
-                  onRemoveFile={onRemoveCAGFile} 
-                  onRemoveNote={onRemoveCAGNote}
-                  onClearAll={onClearCAG} 
-                />
-              </div>
-            )}
-            
-            <form onSubmit={sendMessage} className="flex items-center gap-2 max-w-4xl mx-auto">
-              <EmojiPicker 
-                onEmojiSelect={(emoji) => setNewMessage(prev => prev + emoji)} 
-              />
-              
-              <FileUploadButton 
-                onFileSelect={(file) => setPendingFile(file)} 
-              />
-              
-              <div className="flex-1">
-                <Input
-                  value={newMessage}
-                  onChange={(e) => {
-                    setNewMessage(e.target.value);
-                    handleInputChange();
-                  }}
-                  onBlur={stopTyping}
-                  placeholder={
-                    cagFiles.length > 0
-                      ? `Ask about your ${cagFiles.length} file${cagFiles.length > 1 ? 's' : ''}...`
-                      : conversation?.type === "ai_chat"
-                        ? "Write a message to AI..."
-                        : "Write a message"
-                  }
-                  className="bg-muted/50 border-0 rounded-lg h-10 focus-visible:ring-1 focus-visible:ring-ring"
-                  disabled={sending}
-                />
-              </div>
-
-              {(newMessage.trim() || pendingFile) ? (
-                <Button 
-                  type="submit" 
-                  size="icon" 
-                  disabled={sending}
-                  className="flex-shrink-0 rounded-full w-10 h-10 bg-primary hover:bg-primary/90"
-                >
-                  <Send className="w-5 h-5" />
-                </Button>
-              ) : (
-                <Button 
-                  type="button" 
-                  size="icon"
-                  className="flex-shrink-0 rounded-full w-10 h-10 bg-primary hover:bg-primary/90"
-                >
-                  <Mic className="w-5 h-5" />
-                </Button>
-              )}
-            </form>
-
-            {/* AI hint - only show for non-AI chats */}
-            {conversation?.type !== "ai_chat" && (
-              <p className="text-center text-xs text-muted-foreground mt-2 max-w-4xl mx-auto">
-                Type <span className="font-medium text-primary">@ai</span> to chat with AI
-                {pendingFile && pendingFile.type !== "image" && (
-                  <span> • Attach document + @ai to analyze</span>
-                )}
-              </p>
-            )}
-            {conversation?.type === "ai_chat" && pendingFile && pendingFile.type !== "image" && (
-              <p className="text-center text-xs text-muted-foreground mt-2 max-w-4xl mx-auto">
-                Type a question to analyze the document
-              </p>
-            )}
-          </div>
+          <ChatMessageInput
+            value={newMessage}
+            onChange={setNewMessage}
+            onSubmit={sendMessage}
+            onTyping={handleInputChange}
+            onStopTyping={stopTyping}
+            sending={sending}
+            replyTo={replyTo}
+            onCancelReply={() => setReplyTo(null)}
+            currentUserId={user?.id}
+            pendingFile={pendingFile}
+            onFileSelect={(file) => setPendingFile(file)}
+            onRemoveFile={() => setPendingFile(null)}
+            cagFiles={cagFiles}
+            cagNotes={cagNotes}
+            onRemoveCAGFile={onRemoveCAGFile}
+            onRemoveCAGNote={onRemoveCAGNote}
+            onClearCAG={onClearCAG}
+            variant="direct"
+            isAIChat={conversation?.type === "ai_chat"}
+            showAnalyzeHint={true}
+          />
         </div>
       </div>
     </TooltipProvider>
