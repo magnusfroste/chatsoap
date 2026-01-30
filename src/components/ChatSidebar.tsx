@@ -396,7 +396,15 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
   };
 
   return (
-    <div className={`h-full flex flex-col bg-card border-r border-border transition-all duration-300 ease-in-out overflow-hidden ${isCollapsed ? 'w-[72px] min-w-[72px] max-w-[72px]' : 'w-full min-w-0 max-w-full'}`}>
+    <div 
+      className={`h-full flex flex-col bg-card border-r border-border transition-all duration-300 ease-in-out ${isCollapsed ? 'w-[72px] min-w-[72px] max-w-[72px]' : ''}`}
+      style={{ 
+        overflow: 'hidden',
+        width: isCollapsed ? undefined : '100%',
+        minWidth: isCollapsed ? undefined : 0,
+        maxWidth: isCollapsed ? undefined : '100%',
+      }}
+    >
       {/* Header */}
       <header className={`flex-shrink-0 border-b border-border bg-card transition-all duration-300 ${isCollapsed ? 'px-2 py-3' : 'px-4 py-3'}`}>
         <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>

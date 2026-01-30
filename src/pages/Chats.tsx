@@ -151,13 +151,16 @@ const Chats = () => {
                 defaultSize={20} 
                 minSize={15} 
                 maxSize={35}
-                className="min-w-0"
+                className="min-w-0 overflow-hidden"
+                style={{ overflow: 'hidden' }}
               >
-                <ChatSidebar 
-                  activeConversationId={activeConversationId} 
-                  isCollapsed={false}
-                  onToggleCollapse={toggleSidebarCollapse}
-                />
+                <div className="h-full w-full overflow-hidden">
+                  <ChatSidebar 
+                    activeConversationId={activeConversationId} 
+                    isCollapsed={false}
+                    onToggleCollapse={toggleSidebarCollapse}
+                  />
+                </div>
               </ResizablePanel>
               <ResizableHandle />
             </>
