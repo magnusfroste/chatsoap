@@ -71,10 +71,9 @@ interface DirectChatProps {
   onRemoveCAGFile?: (fileId: string) => void;
   onRemoveCAGNote?: (noteId: string) => void;
   onClearCAG?: () => void;
-  onOpenFiles?: () => void;
 }
 
-const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGNote, onClearCAG, onOpenFiles }: DirectChatProps) => {
+const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGNote, onClearCAG }: DirectChatProps) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, profile, loading: authLoading } = useAuth();
