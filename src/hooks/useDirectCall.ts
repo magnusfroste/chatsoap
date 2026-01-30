@@ -347,6 +347,55 @@ export function useDirectCall(
     }
   }, [isScreenSharing]);
 
+  // Check for active calls when mounting (handles case where user accepts via global overlay)
+  useEffect(() => {
+    if (!conversationId || !userId) return;
+
+    const checkActiveCall = async () => {
+      // Look for an accepted call where this user is the callee and peer isn't created yet
+      const { data: activeCall } = await supabase
+        .from("direct_calls")
+        .select("*")
+        .eq("conversation_id", conversationId)
+        .eq("callee_id", userId)
+        .eq("status", "accepted")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (activeCall && !peerRef.current && callState.status === "idle") {
+        console.log('[DirectCall] Found active accepted call, joining:', activeCall.id);
+        
+        // Fetch caller info
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("display_name")
+          .eq("user_id", activeCall.caller_id)
+          .single();
+
+        callIdRef.current = activeCall.id;
+        setCallState({
+          callId: activeCall.id,
+          status: "connected",
+          callType: activeCall.call_type as CallType,
+          remoteUserId: activeCall.caller_id,
+          remoteUserName: profile?.display_name || null,
+          isIncoming: true,
+        });
+
+        // Get local media and create peer
+        const stream = await getLocalMedia(activeCall.call_type === "video");
+        if (stream) {
+          await createPeer(false, stream, activeCall.caller_id, activeCall.id);
+        }
+      }
+    };
+
+    // Small delay to ensure component is mounted
+    const timer = setTimeout(checkActiveCall, 300);
+    return () => clearTimeout(timer);
+  }, [conversationId, userId, callState.status, getLocalMedia, createPeer]);
+
   // Listen for incoming calls
   useEffect(() => {
     if (!userId) return;
