@@ -10,18 +10,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Send, Bot, Loader2, Mic, Phone, Video } from "lucide-react";
-import { ChatActionsMenu } from "@/components/ChatActionsMenu";
+import { Send, Loader2, Bot, Mic } from "lucide-react";
 import { MessageBubble, ReplyPreview } from "@/components/MessageBubble";
 import { CallUI } from "@/components/CallUI";
-import { InlineCallBar } from "@/components/InlineCallBar";
 import { FloatingVideoCall } from "@/components/FloatingVideoCall";
 import { EmojiPicker } from "@/components/EmojiPicker";
 import { FileUploadButton, FilePreview, UploadedFile } from "@/components/FileUploadButton";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ChatMessageSearch } from "@/components/ChatMessageSearch";
-import { PersonaSwitcher, AI_PERSONAS } from "@/components/PersonaSwitcher";
+import { ChatHeader } from "@/components/ChatHeader";
+import { AI_PERSONAS } from "@/components/PersonaSwitcher";
 import { CAGContextBadge } from "@/components/CAGContextBadge";
 import { CAGFile, CAGNote } from "@/hooks/useCAGContext";
 import { emitBrowserNavigate, emitOpenApp, emitCreateNote } from "@/lib/canvas-apps";
@@ -783,115 +780,44 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
       <div className="h-full flex bg-background">
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Header - WhatsApp desktop style */}
-          <header className="flex-shrink-0 bg-card border-b border-border px-4 py-2">
-            <div className="flex items-center gap-3">
-              {/* Mobile back button */}
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => navigate("/chats")}
-                className="md:hidden text-muted-foreground hover:text-foreground"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              
-              <Avatar className="h-10 w-10">
-                <AvatarFallback className={`font-medium ${
-                  conversation?.type === "ai_chat" 
-                    ? "bg-gradient-to-br from-primary to-accent text-primary-foreground"
-                    : "bg-gradient-to-br from-primary/80 to-accent/80 text-primary-foreground"
-                }`}>
-                  {conversation?.type === "ai_chat" ? (
-                    <Bot className="w-5 h-5" />
-                  ) : conversation?.other_user ? (
-                    getInitials(conversation.other_user.display_name)
-                  ) : "?"}
-                </AvatarFallback>
-              </Avatar>
-              
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h1 className="font-semibold text-foreground truncate">
-                    {conversation?.type === "ai_chat" 
-                      ? (conversation.personaName || AI_PERSONAS.find(p => p.id === conversation.persona)?.name || "AI Assistent")
-                      : conversation?.other_user?.display_name || "Chatt"}
-                  </h1>
-                  {conversation?.type === "ai_chat" && (
-                    <PersonaSwitcher 
-                      conversationId={id || ""}
-                      currentPersona={conversation.persona}
-                      onPersonaChange={(persona, customSystemPrompt) => {
-                        setConversation(prev => prev ? { 
-                          ...prev, 
-                          persona,
-                          customSystemPrompt: customSystemPrompt || null 
-                        } : null);
-                      }}
-                    />
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {conversation?.type === "ai_chat" 
-                    ? (aiTyping ? "skriver..." : "redo att hjälpa")
-                    : (typingUsers.length > 0 ? "skriver..." : "online")}
-                </p>
-              </div>
-
-              {/* Action icons - Call buttons or inline call bar */}
-              <div className="flex items-center gap-1">
-                {/* Inline call bar for audio calls (not video, not incoming) */}
-                {callState.status !== "idle" && 
-                 !(callState.status === "ringing" && callState.isIncoming) && 
-                 callState.callType === "audio" && 
-                 !videoEnabled && (
-                  <InlineCallBar
-                    status={callState.status}
-                    callType={callState.callType}
-                    remoteUserName={callState.remoteUserName}
-                    localStream={localStream}
-                    remoteStream={remoteStream}
-                    audioEnabled={audioEnabled}
-                    onEnd={endCall}
-                    onToggleAudio={toggleAudio}
-                    onExpandToVideo={toggleVideo}
-                  />
-                )}
-
-                {/* Call buttons - only show when not in a call */}
-                {conversation?.type !== "ai_chat" && callState.status === "idle" && (
-                  <>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="text-muted-foreground hover:text-foreground"
-                      onClick={() => startCall("video")}
-                    >
-                      <Video className="w-5 h-5" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="text-muted-foreground hover:text-foreground"
-                      onClick={() => startCall("audio")}
-                    >
-                      <Phone className="w-5 h-5" />
-                    </Button>
-                  </>
-                )}
-                <ChatMessageSearch
-                  messages={messages}
-                  onHighlightMessage={handleHighlightMessage}
-                />
-                <ChatActionsMenu
-                  conversationId={id || ""}
-                  userId={user?.id}
-                  chatName={conversation?.other_user?.display_name || "Chatt"}
-                  onDeleted={() => navigate("/chats")}
-                />
-              </div>
-            </div>
-          </header>
+          <ChatHeader
+            variant="direct"
+            conversationId={id || ""}
+            userId={user?.id}
+            messages={messages}
+            typingUsers={typingUsers}
+            aiTyping={aiTyping}
+            conversation={conversation ? {
+              type: conversation.type as "direct" | "ai_chat",
+              persona: conversation.persona,
+              personaName: conversation.personaName,
+              customSystemPrompt: conversation.customSystemPrompt,
+              other_user: conversation.other_user,
+            } : null}
+            callState={{
+              status: callState.status,
+              callType: callState.callType,
+              isIncoming: callState.isIncoming,
+              remoteUserName: callState.remoteUserName,
+            }}
+            localStream={localStream}
+            remoteStream={remoteStream}
+            audioEnabled={audioEnabled}
+            videoEnabled={videoEnabled}
+            onStartCall={startCall}
+            onEndCall={endCall}
+            onToggleAudio={toggleAudio}
+            onToggleVideo={toggleVideo}
+            onPersonaChange={(persona, customSystemPrompt) => {
+              setConversation(prev => prev ? { 
+                ...prev, 
+                persona,
+                customSystemPrompt: customSystemPrompt || null 
+              } : null);
+            }}
+            onHighlightMessage={handleHighlightMessage}
+            onDeleted={() => navigate("/chats")}
+          />
 
           {/* Messages area with subtle pattern */}
           <ScrollArea className="flex-1 bg-muted/30">

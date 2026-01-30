@@ -17,20 +17,11 @@ import { MessageBubble, ReplyPreview } from "@/components/MessageBubble";
 import { EmojiPicker } from "@/components/EmojiPicker";
 import { FileUploadButton, FilePreview, UploadedFile } from "@/components/FileUploadButton";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ChatMessageSearch } from "@/components/ChatMessageSearch";
+import { ChatHeader } from "@/components/ChatHeader";
 import { CAGContextBadge } from "@/components/CAGContextBadge";
 import { CAGFile, CAGNote } from "@/hooks/useCAGContext";
 import { emitBrowserNavigate, emitOpenApp } from "@/lib/canvas-apps/events";
-import { ChatActionsMenu } from "@/components/ChatActionsMenu";
-import {
-  ArrowLeft,
-  Send,
-  Bot,
-  Loader2,
-  Users,
-  Mic,
-  Video,
-} from "lucide-react";
+import { Send, Bot, Loader2, Mic } from "lucide-react";
 
 interface ReplyToMessage {
   id: string;
@@ -648,62 +639,27 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <header className="flex-shrink-0 bg-card border-b border-border px-4 py-2">
-          <div className="flex items-center gap-3">
-            {/* Mobile back button */}
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => navigate("/chats")}
-              className="md:hidden text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            
-            <Avatar className="h-10 w-10">
-              <AvatarFallback className="bg-gradient-to-br from-primary/80 to-accent/80 text-primary-foreground font-medium">
-                <Users className="w-5 h-5" />
-              </AvatarFallback>
-            </Avatar>
-            
-            <div className="flex-1 min-w-0">
-              <h1 className="font-semibold text-foreground truncate">
-                {group?.name || "Grupp"}
-              </h1>
-              <p className="text-xs text-muted-foreground truncate">
-                {typingUsers.length > 0 
-                  ? `${typingUsers.map(u => u.display_name).join(", ")} skriver...`
-                  : members.map(m => m.display_name).join(", ")}
-              </p>
-            </div>
-
-            {/* Action icons */}
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className={`text-muted-foreground hover:text-foreground ${inCall ? "text-destructive" : ""}`}
-                onClick={inCall ? handleLeaveCall : handleJoinCall}
-              >
-                <Video className="w-5 h-5" />
-              </Button>
-              <ChatMessageSearch
-                messages={messages}
-                onHighlightMessage={handleHighlightMessage}
-              />
-              <ChatActionsMenu
-                conversationId={id || ""}
-                userId={user?.id}
-                chatName={group?.name || "Grupp"}
-                onDeleted={() => navigate("/chats")}
-              />
-            </div>
-          </div>
-        </header>
+    <TooltipProvider>
+      <div className="min-h-screen bg-background flex">
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <ChatHeader
+            variant="group"
+            conversationId={id || ""}
+            userId={user?.id}
+            messages={messages}
+            typingUsers={typingUsers}
+            group={group ? {
+              type: "group",
+              name: group.name,
+              members: members,
+            } : null}
+            inCall={inCall}
+            onJoinCall={handleJoinCall}
+            onLeaveCall={handleLeaveCall}
+            onHighlightMessage={handleHighlightMessage}
+            onDeleted={() => navigate("/chats")}
+          />
 
         {/* Chat Content */}
         <div className="flex-1 flex flex-col bg-whatsapp-chat-bg overflow-hidden">
@@ -907,7 +863,8 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
           onLeaveCall={handleLeaveCall}
         />
       )}
-    </div>
+      </div>
+    </TooltipProvider>
   );
 };
 
