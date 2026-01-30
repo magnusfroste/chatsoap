@@ -54,11 +54,19 @@ export function CallUI({
 
   useEffect(() => {
     if (remoteStream) {
+      console.log('[CallUI] Attaching remote stream, tracks:', remoteStream.getTracks().map(t => `${t.kind}:${t.enabled}`));
+      
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = remoteStream;
       }
       if (remoteAudioRef.current) {
         remoteAudioRef.current.srcObject = remoteStream;
+        // Try to play audio
+        remoteAudioRef.current.play().then(() => {
+          console.log('[CallUI] Audio playback started');
+        }).catch((err) => {
+          console.warn('[CallUI] Audio autoplay blocked:', err.message);
+        });
       }
     }
   }, [remoteStream]);
