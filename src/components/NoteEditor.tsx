@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -309,11 +310,16 @@ export const NoteEditor = ({
       <DialogContent className="max-w-4xl w-[95vw] h-[90vh] sm:h-[85vh] flex flex-col p-4 sm:p-6 gap-3">
         <DialogHeader className="flex-shrink-0 pb-2">
           <div className="flex items-center justify-between gap-2">
-            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-              <span className="hidden sm:inline">Edit Note</span>
-              <span className="sm:hidden">Note</span>
-            </DialogTitle>
+            <div>
+              <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                <span className="hidden sm:inline">Edit Note</span>
+                <span className="sm:hidden">Note</span>
+              </DialogTitle>
+              <DialogDescription className="sr-only">
+                Edit your note content and title using Markdown formatting
+              </DialogDescription>
+            </div>
             <div className="flex items-center gap-1 sm:gap-2">
               <Button
                 variant="default"

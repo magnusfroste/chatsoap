@@ -64,10 +64,6 @@ const Chats = () => {
     });
   };
 
-  const handleOpenFilesTab = useCallback(() => {
-    setCanvasActiveTab("files");
-  }, []);
-
   const handleCanvasTabChange = useCallback((tab: CanvasApp) => {
     setCanvasActiveTab(tab);
     localStorage.setItem('workspace-canvas-app', tab);
@@ -105,7 +101,6 @@ const Chats = () => {
           onRemoveCAGFile={cagContext.removeFile} 
           onRemoveCAGNote={cagContext.removeNote}
           onClearCAG={cagContext.clearAll}
-          onOpenFiles={handleOpenFilesTab}
         />
       );
     }
@@ -122,7 +117,6 @@ const Chats = () => {
             onRemoveCAGFile={cagContext.removeFile} 
             onRemoveCAGNote={cagContext.removeNote}
             onClearCAG={cagContext.clearAll}
-            onOpenFiles={handleOpenFilesTab}
           />
         </Suspense>
       );

@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -144,6 +145,9 @@ export function CustomPersonaDialog({ open, onOpenChange, onPersonaSaved, editin
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Redigera AI-persona" : "Skapa egen AI-persona"}</DialogTitle>
+          <DialogDescription>
+            {isEditing ? "Uppdatera personans inställningar" : "Definiera en anpassad AI-personlighet"}
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4 mt-4">

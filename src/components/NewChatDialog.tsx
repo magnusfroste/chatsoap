@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -199,7 +200,12 @@ const NewChatDialog = ({ open, onOpenChange, onChatCreated }: NewChatDialogProps
               >
                 <ArrowLeft className="w-4 h-4" />
               </Button>
-              <DialogTitle>Choose AI Persona</DialogTitle>
+              <div>
+                <DialogTitle>Choose AI Persona</DialogTitle>
+                <DialogDescription className="sr-only">
+                  Select an AI personality to chat with
+                </DialogDescription>
+              </div>
             </div>
           </DialogHeader>
 
@@ -237,6 +243,9 @@ const NewChatDialog = ({ open, onOpenChange, onChatCreated }: NewChatDialogProps
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>New chat</DialogTitle>
+          <DialogDescription>
+            Start a conversation with AI or another user
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

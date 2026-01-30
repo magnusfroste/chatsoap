@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -133,6 +134,9 @@ const NewGroupDialog = ({ open, onOpenChange, onGroupCreated }: NewGroupDialogPr
             <Users className="w-5 h-5" />
             Create New Group
           </DialogTitle>
+          <DialogDescription>
+            Give your group a name and optionally add members
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
