@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useNotifications } from "./useNotifications";
 
 export interface IncomingCall {
   callId: string;
@@ -11,10 +12,22 @@ export interface IncomingCall {
 
 export function useIncomingCallListener(userId: string | undefined) {
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
+  const { showCallNotification } = useNotifications();
+  const activeNotificationRef = useRef<Notification | null>(null);
+
+  // Close any active notification
+  const closeActiveNotification = useCallback(() => {
+    if (activeNotificationRef.current) {
+      activeNotificationRef.current.close();
+      activeNotificationRef.current = null;
+    }
+  }, []);
 
   // Accept call - navigate to chat
   const acceptCall = useCallback(async () => {
     if (!incomingCall) return null;
+    
+    closeActiveNotification();
     
     // Update call status to accepted
     await supabase
@@ -25,11 +38,13 @@ export function useIncomingCallListener(userId: string | undefined) {
     const conversationId = incomingCall.conversationId;
     setIncomingCall(null);
     return conversationId;
-  }, [incomingCall]);
+  }, [incomingCall, closeActiveNotification]);
 
   // Decline call
   const declineCall = useCallback(async () => {
     if (!incomingCall) return;
+
+    closeActiveNotification();
 
     await supabase
       .from("direct_calls")
@@ -37,7 +52,7 @@ export function useIncomingCallListener(userId: string | undefined) {
       .eq("id", incomingCall.callId);
 
     setIncomingCall(null);
-  }, [incomingCall]);
+  }, [incomingCall, closeActiveNotification]);
 
   // Listen for incoming calls globally
   useEffect(() => {
@@ -74,10 +89,22 @@ export function useIncomingCallListener(userId: string | undefined) {
             .eq("user_id", call.caller_id)
             .single();
 
+          const callerName = profile?.display_name || null;
+
+          // Show push notification for incoming call (works when app is in background)
+          const notification = showCallNotification(
+            callerName || "Unknown",
+            call.call_type as "audio" | "video",
+            call.conversation_id
+          );
+          if (notification) {
+            activeNotificationRef.current = notification;
+          }
+
           setIncomingCall({
             callId: call.id,
             callerId: call.caller_id,
-            callerName: profile?.display_name || null,
+            callerName,
             callType: call.call_type,
             conversationId: call.conversation_id,
           });
@@ -104,6 +131,8 @@ export function useIncomingCallListener(userId: string | undefined) {
           if (call.callee_id !== userId) return;
           
           if (call.status === "ended" || call.status === "declined") {
+            // Close notification when call ends or is declined
+            closeActiveNotification();
             setIncomingCall((current) => 
               current?.callId === call.id ? null : current
             );

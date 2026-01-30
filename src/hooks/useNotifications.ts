@@ -106,11 +106,28 @@ export const useNotifications = () => {
     [showNotification, triggerNotificationEffect]
   );
 
+  const showCallNotification = useCallback(
+    (callerName: string, callType: "audio" | "video", conversationId: string) => {
+      return showNotification({
+        title: `Incoming ${callType === "video" ? "video" : "voice"} call`,
+        body: `${callerName || "Someone"} is calling you...`,
+        tag: `call-${conversationId}`, // Unique tag for call notifications
+        data: { conversationId, callType },
+        onClick: () => {
+          // Navigate to conversation to answer
+          window.location.href = `/chat/${conversationId}?autoJoinCall=true`;
+        },
+      });
+    },
+    [showNotification]
+  );
+
   return {
     permission,
     isSupported,
     requestPermission,
     showNotification,
     showMessageNotification,
+    showCallNotification,
   };
 };
