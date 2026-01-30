@@ -151,10 +151,9 @@ const Chats = () => {
                 defaultSize={20} 
                 minSize={15} 
                 maxSize={35}
-                className="min-w-0 overflow-hidden"
-                style={{ overflow: 'hidden' }}
+                className="min-w-0 overflow-hidden relative"
               >
-                <div className="h-full w-full overflow-hidden">
+                <div className="absolute inset-0 overflow-hidden">
                   <ChatSidebar 
                     activeConversationId={activeConversationId} 
                     isCollapsed={false}
