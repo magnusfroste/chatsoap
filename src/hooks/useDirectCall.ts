@@ -391,14 +391,21 @@ export function useDirectCall(
   }, [isScreenSharing]);
 
   // Check for active calls when mounting (handles case where user accepts via global overlay)
+  // Uses polling to handle race condition where the call status update hasn't propagated yet
   useEffect(() => {
     if (!conversationId || !userId) return;
 
     let cancelled = false;
+    let pollCount = 0;
+    const maxPolls = 10; // Try for up to 5 seconds (10 polls * 500ms)
 
     const checkActiveCall = async () => {
+      if (cancelled || peerRef.current || callIdRef.current) return;
+      
+      console.log('[DirectCall] Checking for active call, attempt:', pollCount + 1);
+      
       // Look for an accepted call where this user is the callee and peer isn't created yet
-      const { data: activeCall } = await supabase
+      const { data: activeCall, error } = await supabase
         .from("direct_calls")
         .select("*")
         .eq("conversation_id", conversationId)
@@ -406,13 +413,17 @@ export function useDirectCall(
         .eq("status", "accepted")
         .order("created_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle(); // Use maybeSingle to avoid 406 error on empty result
 
       if (cancelled) return;
+      
+      if (error) {
+        console.error('[DirectCall] Error checking active call:', error);
+      }
 
       // Use ref to check current call state without triggering re-renders
       if (activeCall && !peerRef.current && !callIdRef.current) {
-        console.log('[DirectCall] Found active accepted call, joining:', activeCall.id);
+        console.log('[DirectCall] ✅ Found active accepted call, joining:', activeCall.id);
         
         // Fetch caller info
         const { data: profile } = await supabase
@@ -464,6 +475,7 @@ export function useDirectCall(
           });
 
           peer.on("signal", async (signal) => {
+            console.log('[DirectCall] Callee sending signal:', (signal as any).type || 'candidate');
             await supabase.from("call_signals").insert({
               call_id: activeCall.id,
               from_user_id: userId,
@@ -473,6 +485,15 @@ export function useDirectCall(
           });
 
           peer.on("stream", (remoteStream) => {
+            console.log('[DirectCall] 🎵 CALLEE: Received remote stream');
+            const audioTracks = remoteStream.getAudioTracks();
+            console.log('[DirectCall] CALLEE audio tracks:', audioTracks.length);
+            audioTracks.forEach(track => {
+              if (!track.enabled) {
+                console.log('[DirectCall] CALLEE: Enabling audio track');
+                track.enabled = true;
+              }
+            });
             setRemoteStream(remoteStream);
           });
 
@@ -483,12 +504,12 @@ export function useDirectCall(
           });
 
           peer.on("connect", () => {
-            console.log("Peer connected!");
+            console.log("✅ Peer connected!");
           });
 
           peerRef.current = peer;
 
-          // Fetch existing signals
+          // Fetch existing signals from caller
           const { data: existingSignals } = await supabase
             .from("call_signals")
             .select("*")
@@ -497,6 +518,7 @@ export function useDirectCall(
             .order("created_at", { ascending: true });
 
           if (existingSignals && existingSignals.length > 0) {
+            console.log('[DirectCall] CALLEE: Processing', existingSignals.length, 'existing signals');
             for (const signal of existingSignals) {
               peer.signal(signal.signal_data as any);
               await supabase.from("call_signals").delete().eq("id", signal.id);
@@ -505,11 +527,21 @@ export function useDirectCall(
         } catch (error) {
           console.error("Error joining call:", error);
         }
+        return; // Found and joined, stop polling
+      }
+      
+      // Poll again if no call found yet
+      pollCount++;
+      if (pollCount < maxPolls && !cancelled) {
+        console.log('[DirectCall] No accepted call found, polling again in 500ms...');
+        setTimeout(checkActiveCall, 500);
+      } else if (pollCount >= maxPolls) {
+        console.log('[DirectCall] Max poll attempts reached, no active call found');
       }
     };
 
-    // Small delay to ensure component is mounted
-    const timer = setTimeout(checkActiveCall, 300);
+    // Start checking after small delay for component mount
+    const timer = setTimeout(checkActiveCall, 200);
     return () => {
       cancelled = true;
       clearTimeout(timer);
@@ -570,8 +602,7 @@ export function useDirectCall(
   }, [userId]);
 
   // Listen for call status changes for CALLER (when they initiate a call)
-  // IMPORTANT: This effect uses callState.callId to setup/teardown the subscription
-  // but checks callStatusRef inside the callback to avoid missing events during re-renders
+  // IMPORTANT: Uses both Realtime subscription AND polling as fallback
   useEffect(() => {
     const callId = callState.callId;
     if (!callId || !userId) return;
@@ -582,6 +613,70 @@ export function useDirectCall(
     // Use stable channel name (no timestamp) so we don't recreate on state changes
     const channelName = `call-status-${callId}`;
     console.log('[DirectCall] Setting up STABLE call status channel for callId:', callId);
+    
+    let pollInterval: NodeJS.Timeout | null = null;
+
+    const handleStatusChange = (newStatus: string) => {
+      console.log('[DirectCall] Processing status change:', newStatus, 'current local status:', callStatusRef.current);
+      
+      if (newStatus === "accepted") {
+        // Caller: Call was accepted by callee
+        if (callStatusRef.current === "calling") {
+          console.log('[DirectCall] ✅ Caller: Call accepted, transitioning to connected');
+          setCallState((prev) => ({ ...prev, status: "connected" }));
+          // Stop polling since we're connected
+          if (pollInterval) clearInterval(pollInterval);
+        }
+      } else if (newStatus === "declined") {
+        // Caller: Call was declined by callee - stop ringing and clean up
+        console.log('[DirectCall] Call declined by callee');
+        if (pollInterval) clearInterval(pollInterval);
+        if (peerRef.current) {
+          peerRef.current.destroy();
+          peerRef.current = null;
+        }
+        // Stop local media inline
+        if (localStreamRef.current) {
+          localStreamRef.current.getTracks().forEach((track) => track.stop());
+          localStreamRef.current = null;
+        }
+        setLocalStream(null);
+        setRemoteStream(null);
+        callIdRef.current = null;
+        setCallState({
+          callId: null,
+          status: "idle",
+          callType: "audio",
+          remoteUserId: null,
+          remoteUserName: null,
+          isIncoming: false,
+        });
+      } else if (newStatus === "ended") {
+        // Other party ended the call
+        console.log('[DirectCall] Remote party ended the call');
+        if (pollInterval) clearInterval(pollInterval);
+        if (peerRef.current) {
+          peerRef.current.destroy();
+          peerRef.current = null;
+        }
+        // Stop local media inline
+        if (localStreamRef.current) {
+          localStreamRef.current.getTracks().forEach((track) => track.stop());
+          localStreamRef.current = null;
+        }
+        setLocalStream(null);
+        setRemoteStream(null);
+        callIdRef.current = null;
+        setCallState({
+          callId: null,
+          status: "idle",
+          callType: "audio",
+          remoteUserId: null,
+          remoteUserName: null,
+          isIncoming: false,
+        });
+      }
+    };
 
     const channel = supabase
       .channel(channelName)
@@ -598,69 +693,38 @@ export function useDirectCall(
           // Only process updates for our call
           if (call.id !== callIdRef.current) return;
           
-          console.log('[DirectCall] Call status update received:', call.status, 'current local status:', callStatusRef.current);
-          
-          if (call.status === "accepted") {
-            // Caller: Call was accepted by callee
-            if (callStatusRef.current === "calling") {
-              console.log('[DirectCall] Caller: Call accepted, transitioning to connected');
-              setCallState((prev) => ({ ...prev, status: "connected" }));
-            }
-          } else if (call.status === "declined") {
-            // Caller: Call was declined by callee - stop ringing and clean up
-            console.log('[DirectCall] Call declined by callee');
-            if (peerRef.current) {
-              peerRef.current.destroy();
-              peerRef.current = null;
-            }
-            // Stop local media inline
-            if (localStreamRef.current) {
-              localStreamRef.current.getTracks().forEach((track) => track.stop());
-              localStreamRef.current = null;
-            }
-            setLocalStream(null);
-            setRemoteStream(null);
-            callIdRef.current = null;
-            setCallState({
-              callId: null,
-              status: "idle",
-              callType: "audio",
-              remoteUserId: null,
-              remoteUserName: null,
-              isIncoming: false,
-            });
-          } else if (call.status === "ended") {
-            // Other party ended the call
-            console.log('[DirectCall] Remote party ended the call');
-            if (peerRef.current) {
-              peerRef.current.destroy();
-              peerRef.current = null;
-            }
-            // Stop local media inline
-            if (localStreamRef.current) {
-              localStreamRef.current.getTracks().forEach((track) => track.stop());
-              localStreamRef.current = null;
-            }
-            setLocalStream(null);
-            setRemoteStream(null);
-            callIdRef.current = null;
-            setCallState({
-              callId: null,
-              status: "idle",
-              callType: "audio",
-              remoteUserId: null,
-              remoteUserName: null,
-              isIncoming: false,
-            });
-          }
+          console.log('[DirectCall] Realtime: Call status update received:', call.status);
+          handleStatusChange(call.status);
         }
       )
       .subscribe((status, err) => {
         console.log('[DirectCall] Call status subscription:', status, err ? `Error: ${err}` : '');
       });
 
+    // FALLBACK: Poll for status changes every 2 seconds (in case Realtime misses the event)
+    // Only poll while in "calling" state
+    pollInterval = setInterval(async () => {
+      if (callStatusRef.current !== "calling") {
+        if (pollInterval) clearInterval(pollInterval);
+        return;
+      }
+      
+      console.log('[DirectCall] Polling call status...');
+      const { data: call } = await supabase
+        .from("direct_calls")
+        .select("status")
+        .eq("id", callId)
+        .maybeSingle();
+      
+      if (call && call.status !== "ringing" && call.status !== callStatusRef.current) {
+        console.log('[DirectCall] Poll detected status change:', call.status);
+        handleStatusChange(call.status);
+      }
+    }, 2000);
+
     return () => {
       console.log('[DirectCall] Removing call status channel:', channelName);
+      if (pollInterval) clearInterval(pollInterval);
       supabase.removeChannel(channel);
     };
   }, [callState.callId, userId]); // FIXED: Removed callState.status from dependencies
