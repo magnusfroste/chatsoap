@@ -3,11 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Phone, PhoneOff, Mic, MicOff, Video, Maximize2 } from "lucide-react";
 import { CallStatus, CallType } from "@/hooks/useDirectCall";
 import { cn } from "@/lib/utils";
+import { useAudioLevel } from "@/hooks/useAudioLevel";
+import { AudioLevelDots } from "@/components/AudioLevelIndicator";
 
 interface InlineCallBarProps {
   status: CallStatus;
   callType: CallType;
   remoteUserName: string | null;
+  localStream: MediaStream | null;
   remoteStream: MediaStream | null;
   audioEnabled: boolean;
   onEnd: () => void;
@@ -19,6 +22,7 @@ export function InlineCallBar({
   status,
   callType,
   remoteUserName,
+  localStream,
   remoteStream,
   audioEnabled,
   onEnd,
@@ -27,6 +31,10 @@ export function InlineCallBar({
 }: InlineCallBarProps) {
   const [duration, setDuration] = useState(0);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
+
+  // Audio level monitoring
+  const localAudioLevel = useAudioLevel(localStream, audioEnabled && status === "connected");
+  const remoteAudioLevel = useAudioLevel(remoteStream, status === "connected");
 
   // Call duration timer
   useEffect(() => {
@@ -97,6 +105,20 @@ export function InlineCallBar({
         </span>
         <span className="text-muted-foreground text-xs">{getStatusText()}</span>
       </div>
+
+      {/* Audio levels */}
+      {status === "connected" && (
+        <div className="flex items-center gap-1.5 ml-1">
+          <div className="flex items-center gap-0.5" title="Your audio">
+            <Mic className="w-3 h-3 text-muted-foreground" />
+            <AudioLevelDots level={localAudioLevel} />
+          </div>
+          <div className="flex items-center gap-0.5" title="Remote audio">
+            <Phone className="w-3 h-3 text-muted-foreground" />
+            <AudioLevelDots level={remoteAudioLevel} />
+          </div>
+        </div>
+      )}
 
       {/* Controls */}
       <div className="flex items-center gap-1 ml-1">
