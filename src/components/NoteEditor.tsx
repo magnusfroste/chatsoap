@@ -48,10 +48,12 @@ import {
   Copy,
   Check,
   MessageSquare,
+  MoreHorizontal,
 } from "lucide-react";
 import { Note } from "@/hooks/useNotes";
 import { useNoteAI, NoteAIAction } from "@/hooks/useNoteAI";
 import { SendToChatButton } from "@/components/SendToChatButton";
+import { TransformationsMenu } from "@/components/TransformationsMenu";
 
 // Custom code block component with syntax highlighting
 interface CodeBlockProps {
@@ -387,6 +389,7 @@ export const NoteEditor = ({
               <Sparkles className="h-3 w-3" />
               <span className="hidden sm:inline">AI:</span>
             </span>
+            {/* Quick actions for common transformations */}
             <Button
               variant="outline"
               size="sm"
@@ -425,6 +428,21 @@ export const NoteEditor = ({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+            
+            {/* Full transformations menu (including custom) */}
+            <TransformationsMenu
+              content={content}
+              onResult={(result) => {
+                setAiResult(result);
+              }}
+              trigger={
+                <Button variant="outline" size="sm" disabled={isProcessing} className="h-7 text-xs px-2">
+                  <MoreHorizontal className="h-3 w-3 sm:mr-1" />
+                  <span className="hidden sm:inline">More</span>
+                </Button>
+              }
+            />
+            
             {isProcessing && (
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
