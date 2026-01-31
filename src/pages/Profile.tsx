@@ -11,6 +11,7 @@ import { ArrowLeft, Camera, Loader2, Save, User, Mail, Calendar } from "lucide-r
 import { toast } from "sonner";
 import { NotificationSettingsCard } from "@/components/NotificationSettingsCard";
 import { ThemeSettingsCard } from "@/components/ThemeSettingsCard";
+import { TransformationsSettingsCard } from "@/components/TransformationsSettingsCard";
 
 const Profile = () => {
   const { user, profile, loading: authLoading, refreshProfile } = useAuth();
@@ -234,6 +235,9 @@ const Profile = () => {
 
         {/* Appearance Settings */}
         <ThemeSettingsCard />
+
+        {/* AI Transformations */}
+        <TransformationsSettingsCard />
 
         {/* Notification Settings */}
         <NotificationSettingsCard />
