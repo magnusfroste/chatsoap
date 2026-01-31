@@ -105,29 +105,11 @@ export default function JoinChat() {
         });
       }
 
-      let conversationId = inviteLink.conversation_id;
+      // The conversation should already exist (created when the invite link was made)
+      const conversationId = inviteLink.conversation_id;
 
-      // If no existing conversation, create a new one (direct or group based on context)
       if (!conversationId) {
-        // Create a new direct conversation between creator and joiner
-        const { data: newConv, error: convError } = await supabase
-          .from("conversations")
-          .insert({
-            type: "direct",
-            created_by: inviteLink.created_by,
-            name: inviteLink.conversation_name,
-          })
-          .select()
-          .single();
-
-        if (convError) throw convError;
-        conversationId = newConv.id;
-
-        // Add creator as member
-        await supabase.from("conversation_members").insert({
-          conversation_id: conversationId,
-          user_id: inviteLink.created_by,
-        });
+        throw new Error("Invalid invite link - no conversation associated");
       }
 
       // Add the joining user as a member

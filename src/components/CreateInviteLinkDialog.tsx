@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Link, Copy, Check, Loader2, UserPlus } from "lucide-react";
+import { Link, Copy, Check, Loader2, UserPlus, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
 interface CreateInviteLinkDialogProps {
@@ -27,10 +28,12 @@ export default function CreateInviteLinkDialog({
   conversationName 
 }: CreateInviteLinkDialogProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [createdConversationId, setCreatedConversationId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const handleCreate = async () => {
@@ -38,12 +41,32 @@ export default function CreateInviteLinkDialog({
     
     setLoading(true);
     try {
+      let targetConversationId = conversationId;
+
+      // If no existing conversation, create one now so the creator can start chatting
+      if (!targetConversationId) {
+        const chatName = name.trim() || "New Chat";
+        const { data: newConv, error: convError } = await supabase
+          .from("conversations")
+          .insert({
+            type: "direct",
+            created_by: user.id,
+            name: chatName,
+          })
+          .select()
+          .single();
+
+        if (convError) throw convError;
+        targetConversationId = newConv.id;
+      }
+
+      // Create the invite link pointing to the conversation
       const { data, error } = await supabase
         .from("chat_invite_links")
         .insert({
           created_by: user.id,
-          conversation_id: conversationId || null,
-          conversation_name: conversationId ? null : (name.trim() || "New Chat"),
+          conversation_id: targetConversationId,
+          conversation_name: null,
         })
         .select()
         .single();
@@ -52,6 +75,7 @@ export default function CreateInviteLinkDialog({
 
       const link = `${window.location.origin}/join/${data.token}`;
       setInviteLink(link);
+      setCreatedConversationId(targetConversationId);
       toast.success("Invite link created!");
     } catch (error) {
       console.error("Error creating invite link:", error);
@@ -80,8 +104,16 @@ export default function CreateInviteLinkDialog({
     setTimeout(() => {
       setName("");
       setInviteLink(null);
+      setCreatedConversationId(null);
       setCopied(false);
     }, 200);
+  };
+
+  const handleGoToChat = () => {
+    if (createdConversationId) {
+      navigate(`/chat/${createdConversationId}`);
+      handleClose();
+    }
   };
 
   return (
@@ -168,13 +200,24 @@ export default function CreateInviteLinkDialog({
               This link can only be used once. Share it privately!
             </p>
 
-            <Button 
-              variant="outline" 
-              onClick={handleClose}
-              className="w-full"
-            >
-              Done
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={handleClose}
+                className="flex-1"
+              >
+                Done
+              </Button>
+              {createdConversationId && !conversationId && (
+                <Button 
+                  onClick={handleGoToChat}
+                  className="flex-1 gradient-valhalla hover:opacity-90"
+                >
+                  Go to Chat
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </DialogContent>
