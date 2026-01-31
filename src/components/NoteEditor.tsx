@@ -321,6 +321,7 @@ export const NoteEditor = ({
               </DialogDescription>
             </div>
             <div className="flex items-center gap-1 sm:gap-2">
+              {/* Save - primary action */}
               <Button
                 variant="default"
                 size="sm"
@@ -337,6 +338,23 @@ export const NoteEditor = ({
                   </>
                 )}
               </Button>
+              
+              {/* Send to chat */}
+              {userId && content && (
+                <SendToChatButton
+                  content={content}
+                  userId={userId}
+                  sourceNoteId={note?.id}
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                />
+              )}
+              
+              {/* Spacer to push delete far right */}
+              <div className="w-4 sm:w-8" />
+              
+              {/* Delete - destructive action, separated from save */}
               <Button
                 variant="ghost"
                 size="sm"
@@ -350,16 +368,6 @@ export const NoteEditor = ({
                   <Trash2 className="h-4 w-4" />
                 )}
               </Button>
-              {userId && content && (
-                <SendToChatButton
-                  content={content}
-                  userId={userId}
-                  sourceNoteId={note?.id}
-                  variant="outline"
-                  size="sm"
-                  className="h-8"
-                />
-              )}
             </div>
           </div>
         </DialogHeader>
