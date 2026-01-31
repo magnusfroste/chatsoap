@@ -41,6 +41,7 @@ import {
   Plus,
   CheckSquare,
   Square,
+  Wand2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -49,6 +50,7 @@ import { CAGFile, CAGNote } from "@/hooks/useCAGContext";
 import { useAuth } from "@/hooks/useAuth";
 import { Note } from "@/hooks/useNotes";
 import { cn } from "@/lib/utils";
+import { TransformationsMenu } from "@/components/TransformationsMenu";
 
 interface ConversationFile {
   id: string;
@@ -83,6 +85,8 @@ interface FileManagerAppProps {
   // Callbacks for note editing
   onNoteSelect?: (note: Note) => void;
   onCreateNote?: () => void;
+  // Transformation callback - creates a new note with the result
+  onTransformationResult?: (result: string, title: string) => void;
 }
 
 const FileManagerApp = ({ 
@@ -97,6 +101,7 @@ const FileManagerApp = ({
   isNoteInCAG,
   onNoteSelect,
   onCreateNote,
+  onTransformationResult,
 }: FileManagerAppProps) => {
   const { user } = useAuth();
   // Use viewDocument from registry, fall back to legacy onViewDocument
@@ -714,6 +719,47 @@ const FileManagerApp = ({
     content: file.noteContent || "",
   });
 
+  // Get content for transformation
+  const getFileContentForTransformation = (file: ConversationFile): string => {
+    if (file.source === "note") {
+      return file.noteContent || "";
+    }
+    // For attachments, we'd need to fetch content - for now use the URL as placeholder
+    return `[File: ${file.name}]\nURL: ${file.url}`;
+  };
+
+  // Handle transformation result - create a new note
+  const handleTransformationResult = async (result: string, transformationName: string, file: ConversationFile) => {
+    if (onTransformationResult) {
+      const title = `${transformationName}: ${file.name.replace(".md", "")}`;
+      onTransformationResult(result, title);
+    } else {
+      // Fallback: create note directly
+      if (!user?.id) {
+        toast.error("You must be logged in");
+        return;
+      }
+      
+      try {
+        const title = `${transformationName}: ${file.name.replace(".md", "")}`;
+        const { error } = await supabase
+          .from("notes")
+          .insert({
+            user_id: user.id,
+            title,
+            content: result,
+            conversation_id: conversationId,
+          });
+        
+        if (error) throw error;
+        toast.success("Note created from transformation");
+      } catch (err) {
+        console.error("Failed to create note:", err);
+        toast.error("Failed to create note");
+      }
+    }
+  };
+
   const cagFileCount = selectedCAGFiles?.length || 0;
   const cagNoteCount = selectedCAGNotes?.length || 0;
   const totalInContext = cagFileCount + cagNoteCount;
@@ -1077,6 +1123,19 @@ const FileManagerApp = ({
 
                     {/* Hover actions */}
                     <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* Transformation Quick Action for notes */}
+                      {file.source === "note" && file.noteContent && (
+                        <TransformationsMenu
+                          content={file.noteContent}
+                          onResult={(result, transformName) => handleTransformationResult(result, transformName, file)}
+                          trigger={
+                            <Button variant="secondary" size="icon" className="h-7 w-7 shadow-md">
+                              <Wand2 className="h-3.5 w-3.5 text-primary" />
+                            </Button>
+                          }
+                        />
+                      )}
+                      
                       {file.source === "note" ? (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -1226,7 +1285,20 @@ const FileManagerApp = ({
                     </div>
 
                     {/* Actions */}
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                      {/* Transformation Quick Action - only for notes (they have content) */}
+                      {file.source === "note" && file.noteContent && (
+                        <TransformationsMenu
+                          content={file.noteContent}
+                          onResult={(result, transformName) => handleTransformationResult(result, transformName, file)}
+                          trigger={
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <Wand2 className="h-4 w-4 text-primary" />
+                            </Button>
+                          }
+                        />
+                      )}
+                      
                       {file.source === "note" ? (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
