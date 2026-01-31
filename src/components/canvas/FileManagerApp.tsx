@@ -295,12 +295,13 @@ const FileManagerApp = ({
           .eq("is_attachment_deleted", false)
           .order("created_at", { ascending: false });
 
-        // Fetch notes for this conversation OR owned by user
+        // Fetch notes: only those belonging to THIS conversation
+        // Notes with conversation_id are scoped to that conversation only
         const notesPromise = user?.id
           ? supabase
               .from("notes")
               .select("*")
-              .or(`user_id.eq.${user.id},conversation_id.eq.${conversationId}`)
+              .eq("conversation_id", conversationId)
               .order("updated_at", { ascending: false })
           : Promise.resolve({ data: [], error: null });
 
