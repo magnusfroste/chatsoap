@@ -295,12 +295,12 @@ const FileManagerApp = ({
           .eq("is_attachment_deleted", false)
           .order("created_at", { ascending: false });
 
-        // Fetch notes for current user
+        // Fetch notes for this conversation OR owned by user
         const notesPromise = user?.id
           ? supabase
               .from("notes")
               .select("*")
-              .eq("user_id", user.id)
+              .or(`user_id.eq.${user.id},conversation_id.eq.${conversationId}`)
               .order("updated_at", { ascending: false })
           : Promise.resolve({ data: [], error: null });
 
@@ -435,17 +435,16 @@ const FileManagerApp = ({
       )
       .subscribe();
 
-    // Subscribe to notes changes
+    // Subscribe to notes changes (own notes + conversation notes)
     const notesChannel = user?.id
       ? supabase
-          .channel(`notes-files-${user.id}`)
+          .channel(`notes-files-${conversationId}-${user.id}`)
           .on(
             "postgres_changes",
             {
               event: "*",
               schema: "public",
               table: "notes",
-              filter: `user_id=eq.${user.id}`,
             },
             async (payload) => {
               if (payload.eventType === "INSERT") {
