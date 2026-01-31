@@ -30,8 +30,10 @@ import {
   ArchiveRestore,
   PinOff,
   StarOff,
+  UserPlus,
 } from "lucide-react";
 import { useChatActions, ChatMemberSettings } from "@/hooks/useChatActions";
+import CreateInviteLinkDialog from "@/components/CreateInviteLinkDialog";
 
 interface ChatActionsMenuProps {
   conversationId: string;
@@ -136,6 +138,20 @@ export const ChatActionsMenu = ({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
+          {/* Invite to chat - at the top for visibility */}
+          <CreateInviteLinkDialog
+            conversationId={conversationId}
+            conversationName={chatName}
+            trigger={
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Invite to chat
+              </DropdownMenuItem>
+            }
+          />
+          
+          <DropdownMenuSeparator />
+
           {!isGroup && onContactInfo && (
             <DropdownMenuItem onClick={onContactInfo}>
               <User className="h-4 w-4 mr-2" />
