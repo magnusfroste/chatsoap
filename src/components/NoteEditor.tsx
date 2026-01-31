@@ -381,7 +381,7 @@ export const NoteEditor = ({
             className="text-base sm:text-lg font-semibold h-10 sm:h-11"
           />
 
-          {/* AI Actions */}
+          {/* AI Actions - Transformations Menu */}
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap flex-shrink-0">
             <span className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1">
               <Sparkles className="h-3 w-3" />

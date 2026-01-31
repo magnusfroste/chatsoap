@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.parse-document]
 verify_jwt = false
+
+[functions.transform-content]
+verify_jwt = false

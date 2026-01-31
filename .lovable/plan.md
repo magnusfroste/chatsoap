@@ -142,25 +142,24 @@ const {
 
 ## Implementation Steps
 
-### Phase 1: Backend Foundation
-1. Create migration to seed built-in transformations and add `is_default` column
-2. Create `transform-content` edge function with streaming support
-3. Create `useTransformations` hook for CRUD + execution
+### Phase 1: Backend Foundation ✅ COMPLETE
+1. ✅ Created migration to seed built-in transformations (Summarize, Extract Action Items, Key Points, Generate Q&A, Translate)
+2. ✅ Created `transform-content` edge function with streaming support
+3. ✅ Created `useTransformations` hook for CRUD + execution
 
-### Phase 2: NoteEditor Integration
-1. Replace hardcoded AI buttons with TransformationsMenu
-2. Add result preview pane (already exists, reuse)
-3. Connect to streaming response
+### Phase 2: UI Components ✅ COMPLETE
+1. ✅ Created TransformationsMenu dropdown component
+2. ✅ Created TransformationDialog for create/edit
+3. ✅ Created TransformationQuickAction hover button
 
-### Phase 3: FileManager Integration
-1. Add TransformationQuickAction button on hover
-2. Handle execution and create new Note with result
-3. Show loading state during processing
+### Phase 3: Integration ✅ COMPLETE
+1. ✅ Added TransformationsMenu quick action to FileManagerApp (list and grid views)
+2. ✅ Transformation results create new Notes automatically
+3. ✅ Loading state during processing
 
-### Phase 4: Management UI
-1. Create TransformationDialog for create/edit
-2. Add ManageTransformationsCard to Settings
-3. Add quick-create button in FileManager header
+### Phase 4: Management UI (FUTURE)
+1. Create ManageTransformationsCard to Settings/Profile
+2. Add ability to create custom transformations via dialog
 
 ## User Flow Example
 
