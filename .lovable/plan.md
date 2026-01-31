@@ -1,77 +1,230 @@
-# Calling System - Status & Documentation
 
-## ✅ Working Features (Verified 2026-01-30)
+# Implementation Plan: Transformations
 
-### Direct Chat 1-to-1 Calls
-- **Audio calls**: ✅ Working - Both parties can hear each other
-- **Video calls**: ✅ Ready to test - Code is in place
-- **Incoming call detection**: ✅ Working - Global listener in AuthProvider
-- **Call accept/decline**: ✅ Working - Database status updates correctly
-- **Call end**: ✅ Working - Cleanup of streams and peer connections
+## Overview
 
-### Technical Implementation
-| Component | Purpose | Status |
-|-----------|---------|--------|
-| `useDirectCall.ts` | WebRTC peer connection, media handling | ✅ |
-| `useIncomingCallListener.ts` | Global incoming call detection | ✅ |
-| `CallUI.tsx` | Full-screen call interface | ✅ |
-| `FloatingVideoCall.tsx` | Floating PiP call panel | ✅ |
-| `IncomingCallOverlay.tsx` | Incoming call notification | ✅ |
-| `InlineCallBar.tsx` | Header bar for active calls | ✅ |
+Transformations are reusable AI-powered "recipes" that can be run on Notes and Files with one click. Think of them as custom AI commands that process content in specific ways - similar to what we already have in NoteEditor (Summarize, Enhance, Translate) but extensible, user-customizable, and applicable across the entire workspace.
 
-### Architecture
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     AuthProvider                             │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │         useIncomingCallListener (global)            │    │
-│  │  - Listens for direct_calls with status="ringing"   │    │
-│  │  - Shows IncomingCallOverlay when call detected     │    │
-│  └─────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    DirectChat Page                           │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │               useDirectCall hook                     │    │
-│  │  - Manages WebRTC peer connection (simple-peer)     │    │
-│  │  - Handles local/remote MediaStreams                │    │
-│  │  - Signaling via Supabase call_signals table        │    │
-│  │  - Status sync via direct_calls table               │    │
-│  └─────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────┘
+## Architecture
+
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         TRANSFORMATIONS SYSTEM                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ┌──────────────────┐    ┌──────────────────┐    ┌─────────────────┐   │
+│  │  Built-in        │    │  Custom (DB)     │    │  Output         │   │
+│  │  Transformations │    │  Transformations │    │  Handler        │   │
+│  ├──────────────────┤    ├──────────────────┤    ├─────────────────┤   │
+│  │ - Summarize      │    │ - User-created   │    │ - Create Note   │   │
+│  │ - Extract Tasks  │    │ - Icon + Color   │    │ - Replace       │   │
+│  │ - Translate      │    │ - Custom Prompt  │    │ - Copy          │   │
+│  │ - Key Points     │    │ - Editable       │    │                 │   │
+│  │ - Q&A Generator  │    │ - Deletable      │    │                 │   │
+│  └────────┬─────────┘    └────────┬─────────┘    └────────┬────────┘   │
+│           │                       │                       │            │
+│           └───────────────────────┴───────────────────────┘            │
+│                                   │                                     │
+│                    ┌──────────────▼──────────────┐                     │
+│                    │   transform-content         │                     │
+│                    │   (Edge Function)           │                     │
+│                    └──────────────┬──────────────┘                     │
+│                                   │                                     │
+│           ┌───────────────────────┼───────────────────────┐            │
+│           ▼                       ▼                       ▼            │
+│  ┌────────────────┐    ┌─────────────────┐    ┌─────────────────┐     │
+│  │   NoteEditor   │    │  FileManager    │    │  Quick Actions  │     │
+│  │   (Note AI)    │    │  (File context) │    │  Menu           │     │
+│  └────────────────┘    └─────────────────┘    └─────────────────┘     │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Signaling Flow
-1. **Caller** creates `direct_calls` record with `status: "ringing"`
-2. **Callee** detects call via global listener, shows overlay
-3. **Callee accepts** → updates status to `"accepted"`, creates peer
-4. **Caller** detects status change via polling (1s interval)
-5. **Both** exchange ICE candidates via `call_signals` table
-6. **WebRTC** connection established, audio/video streams flow
+## What Gets Built
 
-### Key Technical Decisions
-- **Polling fallback**: 1-second polling supplements Realtime for reliability
-- **Global listener**: Centralized in AuthProvider to avoid competing subscriptions
-- **simple-peer**: Wraps WebRTC for simpler API
-- **Node.js polyfills**: Buffer, process, events for simple-peer browser compatibility
+### 1. Built-in Transformations (Pre-installed)
 
-## 🔧 Previous Issues Fixed
+| Name | Icon | Purpose |
+|------|------|---------|
+| Summarize | FileText | Condense content to key points |
+| Extract Action Items | CheckSquare | Pull out tasks and todos |
+| Translate | Languages | Convert to another language |
+| Key Points | List | Bullet-point format of main ideas |
+| Generate Q&A | HelpCircle | Create study questions from content |
 
-### Issue: Callee answers but caller stays in "calling" state
-**Root cause**: Duplicate `useIncomingCallListener` instances in AuthProvider AND Chats.tsx created competing Realtime subscriptions.
-**Fix**: Removed duplicate from Chats.tsx, kept only in AuthProvider.
+### 2. Custom Transformations
 
-### Issue: Database not updating to "accepted" 
-**Root cause**: Navigation happening before database update completed.
-**Fix**: Ensured `await` on database update before any state transitions.
+Users create their own via dialog:
+- Name (required)
+- Description (optional)
+- Prompt template (required) - supports `{{content}}` placeholder
+- Icon selection (6 options)
+- Color gradient
 
-## 📋 TODO / Future Improvements
+### 3. UI Integration Points
 
-- [ ] Group video calls (Room-based)
-- [ ] Screen sharing in calls
-- [ ] Call recording
-- [ ] TURN server for better NAT traversal
-- [ ] Call quality indicators
-- [ ] Mobile camera switching (front/back)
+**A. NoteEditor Quick Actions**
+- Replace current hardcoded Summarize/Enhance/Translate buttons with dynamic Transformations menu
+- Dropdown with all available transformations
+- Result appears in preview pane, user can Apply or Discard
+
+**B. FileManagerApp Context Menu**
+- When hovering a file/note row, show sparkle icon
+- Click opens Transformations dropdown
+- Result creates a new Note (since files are read-only)
+
+**C. Manage Transformations Dialog**
+- Accessed from Settings or FileManager header
+- List all transformations (built-in marked, custom editable)
+- Create/Edit/Delete custom transformations
+
+## Technical Details
+
+### Database
+
+The `transformations` table already exists with this schema:
+
+| Column | Type | Purpose |
+|--------|------|---------|
+| id | uuid | Primary key |
+| user_id | uuid | Owner (null for built-in) |
+| name | text | Display name |
+| description | text | Optional description |
+| prompt | text | The AI prompt template |
+| icon | text | lucide icon name |
+| is_default | boolean | True for built-in |
+| created_at | timestamp | Creation time |
+| updated_at | timestamp | Last update |
+
+**Migration needed**: Add `is_default` column for built-in transformations
+
+### Edge Function: transform-content
+
+New edge function that:
+1. Receives: `{ transformationId, content, targetLanguage? }`
+2. Loads transformation prompt from DB (or uses built-in)
+3. Replaces `{{content}}` placeholder with actual content
+4. Streams response back
+5. Handles rate limits and errors
+
+### Frontend Hook: useTransformations
+
+```typescript
+interface Transformation {
+  id: string;
+  name: string;
+  description: string | null;
+  prompt: string;
+  icon: string;
+  isDefault: boolean;
+}
+
+const { 
+  transformations,     // All available (built-in + custom)
+  isLoading,
+  createTransformation,
+  updateTransformation,
+  deleteTransformation,
+  runTransformation,   // Execute on content
+  isProcessing,
+  cancel,
+} = useTransformations(userId);
+```
+
+### Components
+
+| Component | Purpose |
+|-----------|---------|
+| TransformationsMenu | Dropdown showing all transformations |
+| TransformationDialog | Create/Edit custom transformation |
+| ManageTransformationsCard | Settings view for managing list |
+| TransformationQuickAction | Hover button for FileManager rows |
+
+## Implementation Steps
+
+### Phase 1: Backend Foundation
+1. Create migration to seed built-in transformations and add `is_default` column
+2. Create `transform-content` edge function with streaming support
+3. Create `useTransformations` hook for CRUD + execution
+
+### Phase 2: NoteEditor Integration
+1. Replace hardcoded AI buttons with TransformationsMenu
+2. Add result preview pane (already exists, reuse)
+3. Connect to streaming response
+
+### Phase 3: FileManager Integration
+1. Add TransformationQuickAction button on hover
+2. Handle execution and create new Note with result
+3. Show loading state during processing
+
+### Phase 4: Management UI
+1. Create TransformationDialog for create/edit
+2. Add ManageTransformationsCard to Settings
+3. Add quick-create button in FileManager header
+
+## User Flow Example
+
+1. User uploads a PDF to the chat
+2. Opens FileManager (Files panel in canvas)
+3. Hovers over the PDF row, clicks sparkle icon
+4. Dropdown shows: Summarize, Extract Tasks, Key Points, etc.
+5. Clicks "Extract Action Items"
+6. Loading indicator while AI processes
+7. New Note is created: "Action Items from document.pdf"
+8. Note opens in editor with extracted tasks
+9. User can edit, save, or send to chat
+
+## Files to Create/Modify
+
+### New Files
+- `supabase/functions/transform-content/index.ts` - Edge function
+- `src/hooks/useTransformations.ts` - State management hook
+- `src/components/TransformationsMenu.tsx` - Dropdown component
+- `src/components/TransformationDialog.tsx` - Create/Edit dialog
+- `src/components/TransformationQuickAction.tsx` - Hover action button
+
+### Modified Files
+- `src/components/NoteEditor.tsx` - Replace AI buttons with menu
+- `src/components/canvas/FileManagerApp.tsx` - Add quick action
+- `src/pages/Profile.tsx` - Add management section (optional)
+
+### Database Migration
+- Add `is_default` column
+- Seed built-in transformations
+
+## Built-in Transformation Prompts
+
+**Summarize**
+```
+Summarize the following content concisely, preserving key information and main points. Respond in the same language as the input.
+
+{{content}}
+```
+
+**Extract Action Items**
+```
+Extract all action items, tasks, and todos from the following content. Format as a checklist. If no explicit tasks, identify implied next steps.
+
+{{content}}
+```
+
+**Key Points**
+```
+Extract the main points from this content as clear, concise bullet points. Focus on the most important information.
+
+{{content}}
+```
+
+**Generate Q&A**
+```
+Create 5-10 study questions with answers based on this content. Make questions progressively more challenging.
+
+{{content}}
+```
+
+**Translate** (uses targetLanguage parameter)
+```
+Translate the following content to {{targetLanguage}}. Preserve formatting and meaning.
+
+{{content}}
+```
