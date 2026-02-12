@@ -95,7 +95,7 @@ export default function Dashboard() {
   const generateInviteCode = async () => {
     if (!user) return;
     
-    const code = `MESSEM-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const code = `SOAP-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
     
     const { error } = await supabase.from("invite_codes").insert({
       code,
@@ -145,7 +145,7 @@ export default function Dashboard() {
             <div className="w-9 h-9 rounded-lg gradient-valhalla flex items-center justify-center">
               <Zap className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="font-display text-lg font-bold">Messem</span>
+            <span className="font-display text-lg font-bold">ChatSoap</span>
           </div>
           <div className="flex items-center gap-4">
             <Dialog>
@@ -156,7 +156,7 @@ export default function Dashboard() {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Invite to Messem</DialogTitle>
+                  <DialogTitle>Invite to ChatSoap</DialogTitle>
                   <DialogDescription>
                     Share this code with someone you want to invite
                   </DialogDescription>
