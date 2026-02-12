@@ -164,7 +164,7 @@ export default function JoinChat() {
           <div className="w-12 h-12 rounded-lg gradient-valhalla flex items-center justify-center glow-valhalla">
             <Zap className="w-7 h-7 text-primary-foreground" />
           </div>
-          <span className="font-display text-2xl font-bold">Messem</span>
+          <span className="font-display text-2xl font-bold">ChatSoap</span>
         </div>
 
         <Card className="glass-card border-border/50">
