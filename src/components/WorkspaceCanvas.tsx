@@ -4,7 +4,8 @@ import { useNotes, Note } from "@/hooks/useNotes";
 import { useCAGContext, CAGFile, CAGNote } from "@/hooks/useCAGContext";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, PanelRightClose } from "lucide-react";
 import { NoteEditor } from "@/components/NoteEditor";
 import { canvasAppRegistry, CanvasAppProps } from "@/lib/canvas-apps";
 import { canvasEventBus } from "@/lib/canvas-apps/events";
@@ -22,6 +23,7 @@ interface WorkspaceCanvasProps {
   };
   activeTab?: string;
   onTabChange?: (tab: string) => void;
+  onCollapse?: () => void;
 }
 
 export type CanvasApp = string;
@@ -33,7 +35,8 @@ export const WorkspaceCanvas = ({
   conversationType, 
   cagContext, 
   activeTab, 
-  onTabChange 
+  onTabChange,
+  onCollapse,
 }: WorkspaceCanvasProps) => {
   const { user } = useAuth();
   const { notes, isLoading: notesLoading, createNote, updateNote, deleteNote } = useNotes(user?.id);
@@ -210,8 +213,8 @@ export const WorkspaceCanvas = ({
   return (
     <div className="h-full flex flex-col bg-background min-w-0 overflow-hidden">
       {/* App Switcher - Dynamic tab bar from registry */}
-      <div className="flex-shrink-0 border-b border-border bg-card px-2">
-        <Tabs value={activeApp} onValueChange={setActiveApp}>
+      <div className="flex-shrink-0 border-b border-border bg-card px-2 flex items-center">
+        <Tabs value={activeApp} onValueChange={setActiveApp} className="flex-1">
           <TabsList className="h-10 w-full justify-start gap-0.5 bg-transparent p-0">
             {tabApps.map((app) => {
               const Icon = app.icon;
@@ -244,6 +247,21 @@ export const WorkspaceCanvas = ({
             })}
           </TabsList>
         </Tabs>
+        {onCollapse && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onCollapse}
+                className="h-8 w-8 ml-auto text-muted-foreground hover:text-foreground hover:bg-muted flex-shrink-0"
+              >
+                <PanelRightClose className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="text-xs">Hide workspace</TooltipContent>
+          </Tooltip>
+        )}
       </div>
 
       {/* App Content - Render from registry */}
