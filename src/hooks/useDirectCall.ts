@@ -42,6 +42,7 @@ export function useDirectCall(
   const screenStreamRef = useRef<MediaStream | null>(null);
   const callIdRef = useRef<string | null>(null);
   const callStatusRef = useRef<CallStatus>("idle");
+  const pendingSignalsRef = useRef<any[]>([]);
   
   // Keep ref in sync with state (for use in callbacks without re-subscribing)
   callStatusRef.current = callState.status;
@@ -161,6 +162,19 @@ export function useDirectCall(
     });
 
     peerRef.current = peer;
+
+    // Apply any buffered signals that arrived before peer was ready
+    if (pendingSignalsRef.current.length > 0) {
+      console.log(`[DirectCall] Applying ${pendingSignalsRef.current.length} buffered signals`);
+      for (const sig of pendingSignalsRef.current) {
+        try {
+          peer.signal(sig);
+        } catch (err) {
+          console.error('[DirectCall] Error applying buffered signal:', err);
+        }
+      }
+      pendingSignalsRef.current = [];
+    }
 
     // For non-initiator: fetch any existing signals that were sent before we created the peer
     if (!initiator) {
@@ -283,6 +297,7 @@ export function useDirectCall(
     setScreenStream(null);
     setIsScreenSharing(false);
     callIdRef.current = null;
+    pendingSignalsRef.current = [];
     setCallState({
       callId: null,
       status: "idle",
@@ -671,7 +686,8 @@ export function useDirectCall(
               console.error('[DirectCall] Error applying signal to peer:', err);
             }
           } else {
-            console.warn('[DirectCall] Signal received but peer not ready yet - this should not happen');
+            console.log('[DirectCall] Signal received but peer not ready yet - buffering');
+            pendingSignalsRef.current.push(signal.signal_data);
           }
 
           // Clean up signal after processing
