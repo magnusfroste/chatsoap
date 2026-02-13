@@ -73,27 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, displayName?: string, inviteCode?: string) => {
+  const signUp = async (email: string, password: string, displayName?: string) => {
     try {
-      // Validate invite code first
-      if (inviteCode) {
-        const { data: validCode, error: codeError } = await supabase
-          .from("invite_codes")
-          .select("*")
-          .eq("code", inviteCode)
-          .is("used_by", null)
-          .maybeSingle();
-
-        if (codeError || !validCode) {
-          return { error: new Error("Ogiltig eller redan använd inbjudningskod") };
-        }
-
-        // Check if expired
-        if (validCode.expires_at && new Date(validCode.expires_at) < new Date()) {
-          return { error: new Error("Inbjudningskoden har gått ut") };
-        }
-      }
-
       const redirectUrl = `${window.location.origin}/`;
 
       const { data, error } = await supabase.auth.signUp({
@@ -108,17 +89,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) return { error };
-
-      // Mark invite code as used
-      if (inviteCode && data.user) {
-        await supabase
-          .from("invite_codes")
-          .update({ 
-            used_by: data.user.id, 
-            used_at: new Date().toISOString() 
-          })
-          .eq("code", inviteCode);
-      }
 
       return { error: null };
     } catch (err) {
