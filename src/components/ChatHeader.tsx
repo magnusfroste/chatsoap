@@ -7,6 +7,7 @@ import { ChatMessageSearch } from "@/components/ChatMessageSearch";
 import { PersonaSwitcher, AI_PERSONAS } from "@/components/PersonaSwitcher";
 import { InlineCallBar } from "@/components/InlineCallBar";
 import { CallStatus, CallType } from "@/hooks/useDirectCall";
+import { formatLastSeen } from "@/hooks/useLastSeen";
 
 interface TypingUser {
   id: string;
@@ -33,6 +34,7 @@ interface DirectChatInfo {
   other_user?: {
     id: string;
     display_name: string;
+    last_seen_at?: string | null;
   };
 }
 
@@ -197,7 +199,7 @@ export const ChatHeader = (props: ChatHeaderProps) => {
               : "redo att hjälpa"
             : typingUsers.length > 0
             ? "skriver..."
-            : "online"}
+            : formatLastSeen(conversation?.other_user?.last_seen_at)}
         </p>
       </div>
     );
