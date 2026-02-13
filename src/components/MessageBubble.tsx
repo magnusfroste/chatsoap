@@ -101,9 +101,9 @@ export const MessageBubble = ({
   };
 
   const getReplyUserName = () => {
-    if (message.reply_to?.is_ai) return "AI Assistent";
-    if (message.reply_to?.user_id === userId) return "Du";
-    return message.reply_to?.profile?.display_name || "Användare";
+    if (message.reply_to?.is_ai) return "AI Assistant";
+    if (message.reply_to?.user_id === userId) return "You";
+    return message.reply_to?.profile?.display_name || "User";
   };
 
   const bubbleContent = (
@@ -177,7 +177,7 @@ export const MessageBubble = ({
           "text-xs font-semibold mb-0.5",
           getUserColor(message.user_id).replace("bg-", "text-")
         )}>
-          {message.profile?.display_name || "Användare"}
+          {message.profile?.display_name || "User"}
         </p>
       )}
 
@@ -325,9 +325,9 @@ interface ReplyPreviewProps {
 
 export const ReplyPreview = ({ replyTo, currentUserId, onCancel }: ReplyPreviewProps) => {
   const getUserName = () => {
-    if (replyTo.is_ai) return "AI Assistent";
-    if (replyTo.user_id === currentUserId) return "Du";
-    return replyTo.profile?.display_name || "Användare";
+    if (replyTo.is_ai) return "AI Assistant";
+    if (replyTo.user_id === currentUserId) return "You";
+    return replyTo.profile?.display_name || "User";
   };
 
   const getPreview = (content: string) => {

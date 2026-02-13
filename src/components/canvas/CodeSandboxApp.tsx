@@ -119,7 +119,7 @@ const CodeSandboxApp = ({ conversationId, userId }: CodeSandboxAppProps) => {
         setIsReady(true);
       } catch (err) {
         console.error("Error setting up room:", err);
-        setError("Kunde inte initiera sandbox");
+        setError("Could not initialize sandbox");
       }
     };
 
@@ -149,7 +149,7 @@ const CodeSandboxApp = ({ conversationId, userId }: CodeSandboxAppProps) => {
         updateLanguage(payload.language);
       }
       setActiveTab("code");
-      toast.success("Kod mottagen från AI");
+      toast.success("Code received from AI");
       
       // Auto-run if requested
       if (payload.autoRun) {
@@ -184,7 +184,7 @@ const CodeSandboxApp = ({ conversationId, userId }: CodeSandboxAppProps) => {
       <div className="flex items-center justify-center h-full">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
           <Loader2 className="w-6 h-6 animate-spin" />
-          <span className="text-sm">Laddar sandbox...</span>
+          <span className="text-sm">Loading sandbox...</span>
         </div>
       </div>
     );
@@ -208,7 +208,7 @@ const CodeSandboxApp = ({ conversationId, userId }: CodeSandboxAppProps) => {
       <div className="flex items-center justify-center h-full">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
           <Code2 className="w-8 h-8" />
-          <span className="text-sm">Logga in för att använda Code Sandbox</span>
+          <span className="text-sm">Sign in to use Code Sandbox</span>
         </div>
       </div>
     );

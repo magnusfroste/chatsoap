@@ -24,12 +24,12 @@ const ICON_OPTIONS = [
 ];
 
 const GRADIENT_OPTIONS = [
-  { id: "from-violet-500 to-fuchsia-500", label: "Lila" },
-  { id: "from-rose-500 to-pink-500", label: "Rosa" },
-  { id: "from-cyan-500 to-blue-500", label: "Blå" },
-  { id: "from-emerald-500 to-green-500", label: "Grön" },
-  { id: "from-amber-500 to-yellow-500", label: "Gul" },
-  { id: "from-red-500 to-orange-500", label: "Röd" },
+  { id: "from-violet-500 to-fuchsia-500", label: "Purple" },
+  { id: "from-rose-500 to-pink-500", label: "Pink" },
+  { id: "from-cyan-500 to-blue-500", label: "Blue" },
+  { id: "from-emerald-500 to-green-500", label: "Green" },
+  { id: "from-amber-500 to-yellow-500", label: "Yellow" },
+  { id: "from-red-500 to-orange-500", label: "Red" },
 ];
 
 export function getIconComponent(iconId: string) {
@@ -86,14 +86,14 @@ export function CustomPersonaDialog({ open, onOpenChange, onPersonaSaved, editin
 
   const handleSave = async () => {
     if (!name.trim() || !systemPrompt.trim()) {
-      toast.error("Namn och systemprompt krävs");
+      toast.error("Name and system prompt are required");
       return;
     }
 
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Ej inloggad");
+      if (!user) throw new Error("Not logged in");
 
       if (isEditing) {
         // Update existing persona
@@ -110,7 +110,7 @@ export function CustomPersonaDialog({ open, onOpenChange, onPersonaSaved, editin
           .eq("user_id", user.id);
 
         if (error) throw error;
-        toast.success("Persona uppdaterad!");
+        toast.success("Persona updated!");
       } else {
         // Create new persona
         const { error } = await supabase
@@ -125,14 +125,14 @@ export function CustomPersonaDialog({ open, onOpenChange, onPersonaSaved, editin
           });
 
         if (error) throw error;
-        toast.success("Persona skapad!");
+        toast.success("Persona created!");
       }
 
       resetForm();
       onPersonaSaved();
     } catch (error) {
       console.error("Error saving persona:", error);
-      toast.error(isEditing ? "Kunde inte uppdatera persona" : "Kunde inte skapa persona");
+      toast.error(isEditing ? "Could not update persona" : "Could not create persona");
     } finally {
       setSaving(false);
     }
@@ -144,9 +144,9 @@ export function CustomPersonaDialog({ open, onOpenChange, onPersonaSaved, editin
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Redigera AI-persona" : "Skapa egen AI-persona"}</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit AI Persona" : "Create Custom AI Persona"}</DialogTitle>
           <DialogDescription>
-            {isEditing ? "Uppdatera personans inställningar" : "Definiera en anpassad AI-personlighet"}
+            {isEditing ? "Update persona settings" : "Define a custom AI personality"}
           </DialogDescription>
         </DialogHeader>
         
@@ -157,55 +157,55 @@ export function CustomPersonaDialog({ open, onOpenChange, onPersonaSaved, editin
               <SelectedIconComponent className="w-5 h-5 text-white" />
             </div>
             <div>
-              <div className="font-medium">{name || "Din persona"}</div>
+              <div className="font-medium">{name || "Your persona"}</div>
               <p className="text-xs text-muted-foreground">
-                {description || "Beskrivning..."}
+                {description || "Description..."}
               </p>
             </div>
           </div>
 
           {/* Name */}
           <div className="space-y-2">
-            <Label htmlFor="name">Namn *</Label>
+            <Label htmlFor="name">Name *</Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="T.ex. Min Kodexpert"
+              placeholder="e.g. My Code Expert"
               maxLength={50}
             />
           </div>
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description">Kort beskrivning</Label>
+            <Label htmlFor="description">Short description</Label>
             <Input
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="T.ex. Hjälper med JavaScript och React"
+              placeholder="e.g. Helps with JavaScript and React"
               maxLength={100}
             />
           </div>
 
           {/* System Prompt */}
           <div className="space-y-2">
-            <Label htmlFor="prompt">Systemprompt *</Label>
+            <Label htmlFor="prompt">System prompt *</Label>
             <Textarea
               id="prompt"
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
-              placeholder="Beskriv hur AI:n ska bete sig, t.ex: Du är en expert på JavaScript och React. Du ger alltid kodexempel och förklarar steg för steg..."
+              placeholder="Describe how the AI should behave, e.g.: You are an expert in JavaScript and React. You always provide code examples and explain step by step..."
               rows={4}
             />
             <p className="text-xs text-muted-foreground">
-              Denna text skickas till AI:n för att definiera dess personlighet och beteende.
+              This text is sent to the AI to define its personality and behavior.
             </p>
           </div>
 
           {/* Icon Selection */}
           <div className="space-y-2">
-            <Label>Ikon</Label>
+            <Label>Icon</Label>
             <div className="flex gap-2 flex-wrap">
               {ICON_OPTIONS.map((option) => {
                 const Icon = option.icon;
@@ -229,7 +229,7 @@ export function CustomPersonaDialog({ open, onOpenChange, onPersonaSaved, editin
 
           {/* Gradient Selection */}
           <div className="space-y-2">
-            <Label>Färg</Label>
+            <Label>Color</Label>
             <div className="flex gap-2 flex-wrap">
               {GRADIENT_OPTIONS.map((option) => (
                 <button
@@ -256,10 +256,10 @@ export function CustomPersonaDialog({ open, onOpenChange, onPersonaSaved, editin
             {saving ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                Sparar...
+                Saving...
               </>
             ) : (
-              isEditing ? "Spara ändringar" : "Skapa persona"
+              isEditing ? "Save changes" : "Create persona"
             )}
           </Button>
         </div>

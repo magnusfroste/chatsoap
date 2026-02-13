@@ -73,7 +73,7 @@ export const useTypingPresence = (
         if (status === "SUBSCRIBED") {
           await channel.track({
             user_id: userId,
-            display_name: displayName || "Användare",
+            display_name: displayName || "User",
             is_typing: false,
           });
         }
@@ -95,7 +95,7 @@ export const useTypingPresence = (
     isTypingRef.current = true;
     await channelRef.current.track({
       user_id: userId,
-      display_name: displayName || "Användare",
+      display_name: displayName || "User",
       is_typing: true,
     });
 
@@ -119,7 +119,7 @@ export const useTypingPresence = (
 
     await channelRef.current.track({
       user_id: userId,
-      display_name: displayName || "Användare",
+      display_name: displayName || "User",
       is_typing: false,
     });
   }, [userId, displayName]);

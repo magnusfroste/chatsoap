@@ -26,13 +26,13 @@ export const ImageUploadButton = ({ onImageSelect, className }: ImageUploadButto
 
     // Validate file type
     if (!file.type.startsWith("image/")) {
-      toast.error("Välj en bildfil");
+      toast.error("Please select an image file");
       return;
     }
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      toast.error("Bilden får vara max 5MB");
+      toast.error("Image must be under 5MB");
       return;
     }
 
@@ -61,11 +61,11 @@ export const ImageUploadButton = ({ onImageSelect, className }: ImageUploadButto
 
       if (urlData?.publicUrl) {
         onImageSelect(urlData.publicUrl);
-        toast.success("Bild uppladdad!");
+        toast.success("Image uploaded!");
       }
     } catch (error) {
       console.error("Upload error:", error);
-      toast.error("Kunde inte ladda upp bilden");
+      toast.error("Could not upload image");
     } finally {
       setIsUploading(false);
       // Reset input
@@ -113,7 +113,7 @@ export const ImageUploadButton = ({ onImageSelect, className }: ImageUploadButto
             <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
               <Image className="w-5 h-5 text-purple-600 dark:text-purple-400" />
             </div>
-            <span className="text-sm font-medium">Bild</span>
+            <span className="text-sm font-medium">Image</span>
           </button>
         </PopoverContent>
       </Popover>
@@ -131,7 +131,7 @@ export const ImagePreview = ({ imageUrl, onRemove }: ImagePreviewProps) => {
     <div className="relative inline-block">
       <img
         src={imageUrl}
-        alt="Förhandsgranskning"
+        alt="Preview"
         className="max-w-[200px] max-h-[150px] rounded-lg object-cover"
       />
       <button

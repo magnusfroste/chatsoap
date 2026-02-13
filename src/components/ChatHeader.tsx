@@ -155,11 +155,11 @@ export const ChatHeader = (props: ChatHeaderProps) => {
       return (
         <div className="flex-1 min-w-0">
           <h1 className="font-semibold text-foreground truncate">
-            {group?.name || "Grupp"}
+            {group?.name || "Group"}
           </h1>
           <p className="text-xs text-muted-foreground truncate">
             {typingUsers.length > 0
-              ? `${typingUsers.map((u) => u.display_name).join(", ")} skriver...`
+              ? `${typingUsers.map((u) => u.display_name).join(", ")} typing...`
               : memberNames}
           </p>
         </div>
@@ -173,7 +173,7 @@ export const ChatHeader = (props: ChatHeaderProps) => {
     const getAIChatName = () => {
       if (conversation?.personaName) return conversation.personaName;
       const builtIn = AI_PERSONAS.find((p) => p.id === conversation?.persona);
-      return builtIn?.name || "AI Assistent";
+      return builtIn?.name || "AI Assistant";
     };
 
     return (
@@ -182,7 +182,7 @@ export const ChatHeader = (props: ChatHeaderProps) => {
           <h1 className="font-semibold text-foreground truncate">
             {isAIChat
               ? getAIChatName()
-              : conversation?.other_user?.display_name || "Chatt"}
+              : conversation?.other_user?.display_name || "Chat"}
           </h1>
           {isAIChat && onPersonaChange && (
             <PersonaSwitcher
@@ -195,10 +195,10 @@ export const ChatHeader = (props: ChatHeaderProps) => {
         <p className="text-xs text-muted-foreground">
           {isAIChat
             ? aiTyping
-              ? "skriver..."
-              : "redo att hjälpa"
+              ? "typing..."
+              : "ready to help"
             : typingUsers.length > 0
-            ? "skriver..."
+            ? "typing..."
             : formatLastSeen(conversation?.other_user?.last_seen_at)}
         </p>
       </div>
@@ -229,7 +229,7 @@ export const ChatHeader = (props: ChatHeaderProps) => {
           <ChatActionsMenu
             conversationId={conversationId}
             userId={userId}
-            chatName={group?.name || "Grupp"}
+            chatName={group?.name || "Group"}
             onDeleted={onDeleted}
           />
         </div>
@@ -302,7 +302,7 @@ export const ChatHeader = (props: ChatHeaderProps) => {
         <ChatActionsMenu
           conversationId={conversationId}
           userId={userId}
-          chatName={conversation?.other_user?.display_name || "Chatt"}
+          chatName={conversation?.other_user?.display_name || "Chat"}
           onDeleted={onDeleted}
         />
       </div>

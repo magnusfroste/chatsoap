@@ -665,7 +665,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
                     <div className="flex items-center gap-1 mt-0.5 overflow-hidden" style={{ minWidth: 0 }}>
                       <CheckCheck className="w-4 h-4 text-primary flex-shrink-0" />
                       <span className="text-sm text-muted-foreground truncate block" style={{ minWidth: 0, flex: '1 1 0%' }}>
-                        {conv.last_message || (conv.type === "group" ? "Gruppchatt" : "Ny konversation")}
+                        {conv.last_message || (conv.type === "group" ? "Group chat" : "New conversation")}
                       </span>
                       {conv.is_muted && <BellOff className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
                       {hasUnread && (
@@ -695,7 +695,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
           size="icon" 
           className={`hover:bg-muted transition-all duration-200 hover:scale-105 ${filter === "all" ? "text-primary" : ""}`}
           onClick={() => isCollapsed ? setNewChatOpen(true) : setFilter("all")}
-          title={isCollapsed ? "Ny chatt" : "Alla chattar"}
+          title={isCollapsed ? "New chat" : "All chats"}
         >
           <MessageSquare className="w-5 h-5" />
         </Button>
@@ -723,7 +723,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
           size="icon" 
           className="hover:bg-muted transition-all duration-200 hover:scale-105" 
           onClick={() => navigate("/admin")}
-          title="Inställningar"
+          title="Settings"
         >
           <Settings className="w-5 h-5" />
         </Button>

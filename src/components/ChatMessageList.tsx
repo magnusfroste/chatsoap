@@ -58,7 +58,7 @@ interface ChatMessageListProps {
 // Helper functions
 const formatMessageTime = (dateStr: string) => {
   const date = new Date(dateStr);
-  return date.toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 };
 
 const formatDateSeparator = (dateStr: string) => {
@@ -68,11 +68,11 @@ const formatDateSeparator = (dateStr: string) => {
   yesterday.setDate(yesterday.getDate() - 1);
 
   if (date.toDateString() === today.toDateString()) {
-    return "Idag";
+    return "Today";
   } else if (date.toDateString() === yesterday.toDateString()) {
-    return "Igår";
+    return "Yesterday";
   } else {
-    return date.toLocaleDateString("sv-SE", { 
+    return date.toLocaleDateString("en-US", { 
       weekday: "long", 
       day: "numeric", 
       month: "long" 
@@ -190,7 +190,7 @@ export const ChatMessageList = ({
                     <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    {typingUsers.map(u => u.display_name).join(", ")} skriver...
+                    {typingUsers.map(u => u.display_name).join(", ")} typing...
                   </span>
                 </div>
               </div>
