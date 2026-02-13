@@ -409,16 +409,16 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
     >
       {/* Header */}
       <header className={`flex-shrink-0 border-b border-border bg-card transition-all duration-300 ${isCollapsed ? 'px-2 py-3' : 'px-4 py-3'}`}>
-        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
+        <div className={`flex ${isCollapsed ? 'flex-col items-center gap-2' : 'items-center justify-between'}`}>
           {/* Title - animated fade */}
           <h1 
             className={`text-xl font-semibold text-foreground transition-all duration-300 overflow-hidden whitespace-nowrap ${
-              isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
+              isCollapsed ? 'w-0 h-0 opacity-0' : 'w-auto opacity-100'
             }`}
           >
             Chats
           </h1>
-          <div className={`flex items-center gap-1 ${isCollapsed ? '' : ''}`}>
+          <div className={`flex ${isCollapsed ? 'flex-col items-center gap-1' : 'items-center gap-1'}`}>
             {onToggleCollapse && (
               <Button 
                 variant="ghost" 
@@ -433,7 +433,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
               </Button>
             )}
             {/* These buttons fade out when collapsed */}
-            <div className={`flex items-center gap-1 transition-all duration-300 overflow-hidden ${isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
+            <div className={`flex items-center gap-1 transition-all duration-300 overflow-hidden ${isCollapsed ? 'w-0 h-0 opacity-0' : 'w-auto opacity-100'}`}>
               <Button 
                 variant="ghost" 
                 size="icon" 
