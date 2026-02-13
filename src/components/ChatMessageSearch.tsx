@@ -112,7 +112,7 @@ export const ChatMessageSearch = ({
         size="icon"
         onClick={handleOpen}
         className={cn("h-8 w-8", className)}
-        title="Sök i meddelanden"
+        title="Search messages"
       >
         <Search className="h-4 w-4" />
       </Button>
@@ -125,7 +125,7 @@ export const ChatMessageSearch = ({
       <Input
         ref={inputRef}
         type="text"
-        placeholder="Sök i meddelanden..."
+        placeholder="Search messages..."
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         onKeyDown={handleKeyDown}
@@ -135,7 +135,7 @@ export const ChatMessageSearch = ({
         <span className="text-xs text-muted-foreground whitespace-nowrap">
           {matchedMessages.length > 0
             ? `${currentIndex + 1}/${matchedMessages.length}`
-            : "0 träffar"}
+            : "0 results"}
         </span>
       )}
       <div className="flex items-center">
@@ -145,7 +145,7 @@ export const ChatMessageSearch = ({
           onClick={goToPrevious}
           disabled={matchedMessages.length === 0}
           className="h-6 w-6"
-          title="Föregående (Shift+Enter)"
+          title="Previous (Shift+Enter)"
         >
           <ChevronUp className="h-3 w-3" />
         </Button>
@@ -155,7 +155,7 @@ export const ChatMessageSearch = ({
           onClick={goToNext}
           disabled={matchedMessages.length === 0}
           className="h-6 w-6"
-          title="Nästa (Enter)"
+          title="Next (Enter)"
         >
           <ChevronDown className="h-3 w-3" />
         </Button>
@@ -165,7 +165,7 @@ export const ChatMessageSearch = ({
         size="icon"
         onClick={handleClose}
         className="h-6 w-6"
-        title="Stäng"
+        title="Close"
       >
         <X className="h-3 w-3" />
       </Button>

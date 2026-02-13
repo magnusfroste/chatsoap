@@ -460,13 +460,13 @@ const MiniBrowserApp = ({ conversationId, sendToChat }: CanvasAppProps) => {
         {activeTab.loadError ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-background p-8 text-center">
             <AlertTriangle className="w-16 h-16 text-yellow-500 mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Sidan kan inte visas här</h3>
+            <h3 className="text-lg font-semibold mb-2">Page cannot be displayed here</h3>
             <p className="text-muted-foreground mb-4 max-w-md">
-              {new URL(activeTab.url).hostname} blockerar visning i inbäddade fönster av säkerhetsskäl.
+              {new URL(activeTab.url).hostname} blocks display in embedded frames for security reasons.
             </p>
             <Button onClick={openInNewTab} className="gap-2">
               <ExternalLink className="w-4 h-4" />
-              Öppna i ny flik
+              Open in new tab
             </Button>
           </div>
         ) : (

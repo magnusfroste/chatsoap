@@ -63,11 +63,11 @@ export function useAIChat(roomId: string | undefined) {
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           if (response.status === 429) {
-            toast.error("Rate limit. Vänta lite och försök igen.");
+            toast.error("Rate limited. Please wait and try again.");
           } else if (response.status === 402) {
-            toast.error("AI credits slut. Kontakta admin.");
+            toast.error("AI credits exhausted. Contact admin.");
           } else {
-            toast.error(errorData.error || "Kunde inte nå AI:n");
+            toast.error(errorData.error || "Could not reach the AI");
           }
           return;
         }
@@ -147,7 +147,7 @@ export function useAIChat(roomId: string | undefined) {
           return;
         }
         console.error("AI stream error:", error);
-        toast.error("Något gick fel med AI:n");
+        toast.error("Something went wrong with the AI");
       }
     },
     [roomId]

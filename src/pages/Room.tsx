@@ -304,10 +304,10 @@ export default function RoomPage() {
                         <Sparkles className="w-8 h-8 text-primary" />
                       </div>
                       <h3 className="font-display text-xl font-semibold mb-2">
-                        Välkommen till AI-arbetsytan
+                        Welcome to the AI workspace
                       </h3>
                       <p className="text-muted-foreground max-w-sm mx-auto">
-                        Börja med <span className="text-primary font-mono">@ai</span> för att prata med AI:n. Alla i rummet kan se och bidra.
+                        Start with <span className="text-primary font-mono">@ai</span> to talk to the AI. Everyone in the room can see and contribute.
                       </p>
                     </div>
                   ) : (
@@ -327,7 +327,7 @@ export default function RoomPage() {
                               {msg.is_ai ? "AI Assistant" : msg.profile?.display_name || "Anonym"}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              {new Date(msg.created_at).toLocaleTimeString("sv-SE", { 
+                              {new Date(msg.created_at).toLocaleTimeString("en-US", { 
                                 hour: "2-digit", 
                                 minute: "2-digit" 
                               })}
@@ -356,7 +356,7 @@ export default function RoomPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-sm font-medium">AI Assistant</span>
-                          <span className="text-xs text-muted-foreground">skriver...</span>
+                          <span className="text-xs text-muted-foreground">typing...</span>
                         </div>
                         <div className="rounded-lg p-3 bg-primary/10 border border-primary/20">
                           <p className="text-sm whitespace-pre-wrap">
@@ -381,7 +381,7 @@ export default function RoomPage() {
               <div className="border-t border-border/50 p-4 bg-background/80 backdrop-blur-sm">
                 <form onSubmit={sendMessage} className="max-w-3xl mx-auto flex gap-2">
                   <Input
-                    placeholder="Skriv @ai för att prata med AI..."
+                    placeholder="Type @ai to talk to the AI..."
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     className="flex-1"

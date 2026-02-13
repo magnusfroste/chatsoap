@@ -200,7 +200,7 @@ export const ChatMessageInput = ({
       {/* AI hint */}
       {isGroup ? (
         <p className="text-center text-xs text-muted-foreground mt-2">
-          Skriv <span className="font-medium text-whatsapp-green">@ai</span> för att prata med AI-assistenten
+          Type <span className="font-medium text-whatsapp-green">@ai</span> to talk to the AI assistant
         </p>
       ) : (
         <>

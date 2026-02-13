@@ -183,7 +183,7 @@ export function PersonaSwitcher({ conversationId, currentPersona, onPersonaChang
         .from("conversations")
         .update({ 
           persona: personaId,
-          name: displayName || "AI Assistent"
+          name: displayName || "AI Assistant"
         })
         .eq("id", conversationId);
 

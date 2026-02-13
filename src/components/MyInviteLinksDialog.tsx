@@ -14,7 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Link, Copy, Check, Trash2, Loader2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
-import { sv } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 
 interface InviteLink {
   id: string;
@@ -53,7 +53,7 @@ export default function MyInviteLinksDialog({ trigger }: MyInviteLinksDialogProp
       setLinks(data || []);
     } catch (error) {
       console.error("Error fetching invite links:", error);
-      toast.error("Kunde inte hämta invite-länkar");
+      toast.error("Could not fetch invite links");
     } finally {
       setLoading(false);
     }
@@ -70,10 +70,10 @@ export default function MyInviteLinksDialog({ trigger }: MyInviteLinksDialogProp
     try {
       await navigator.clipboard.writeText(url);
       setCopiedId(link.id);
-      toast.success("Länk kopierad!");
+      toast.success("Link copied!");
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
-      toast.error("Kunde inte kopiera länken");
+      toast.error("Could not copy link");
     }
   };
 
@@ -88,10 +88,10 @@ export default function MyInviteLinksDialog({ trigger }: MyInviteLinksDialogProp
       if (error) throw error;
       
       setLinks(prev => prev.filter(l => l.id !== link.id));
-      toast.success("Invite-länk borttagen");
+      toast.success("Invite link removed");
     } catch (error) {
       console.error("Error deleting invite link:", error);
-      toast.error("Kunde inte ta bort länken");
+      toast.error("Could not remove link");
     } finally {
       setDeletingId(null);
     }
@@ -106,7 +106,7 @@ export default function MyInviteLinksDialog({ trigger }: MyInviteLinksDialogProp
         {trigger || (
           <Button variant="ghost" size="sm" className="w-full justify-start">
             <Link className="w-4 h-4 mr-2" />
-            Mina invite-länkar
+            My invite links
           </Button>
         )}
       </DialogTrigger>
@@ -114,10 +114,10 @@ export default function MyInviteLinksDialog({ trigger }: MyInviteLinksDialogProp
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Link className="w-5 h-5 text-primary" />
-            Mina invite-länkar
+            My Invite Links
           </DialogTitle>
           <DialogDescription>
-            Hantera dina skapade invite-länkar
+            Manage your created invite links
           </DialogDescription>
         </DialogHeader>
 
@@ -128,8 +128,8 @@ export default function MyInviteLinksDialog({ trigger }: MyInviteLinksDialogProp
         ) : links.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Link className="w-10 h-10 mx-auto mb-3 opacity-50" />
-            <p>Du har inga invite-länkar ännu</p>
-            <p className="text-sm mt-1">Skapa en ny via menyn i chattsidebaren</p>
+            <p>You don't have any invite links yet</p>
+            <p className="text-sm mt-1">Create one via the menu in the chat sidebar</p>
           </div>
         ) : (
           <ScrollArea className="max-h-[400px] pr-4">
@@ -138,7 +138,7 @@ export default function MyInviteLinksDialog({ trigger }: MyInviteLinksDialogProp
               {activeLinks.length > 0 && (
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground mb-2">
-                    Aktiva ({activeLinks.length})
+                    Active ({activeLinks.length})
                   </h4>
                   <div className="space-y-2">
                     {activeLinks.map((link) => (
@@ -159,7 +159,7 @@ export default function MyInviteLinksDialog({ trigger }: MyInviteLinksDialogProp
               {usedLinks.length > 0 && (
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground mb-2">
-                    Använda ({usedLinks.length})
+                    Used ({usedLinks.length})
                   </h4>
                   <div className="space-y-2">
                     {usedLinks.map((link) => (
@@ -194,7 +194,7 @@ interface LinkCardProps {
 }
 
 function LinkCard({ link, onCopy, onDelete, isCopied, isDeleting, isUsed }: LinkCardProps) {
-  const displayName = link.conversation_name || (link.conversation_id ? "Befintlig chatt" : "Ny chatt");
+  const displayName = link.conversation_name || (link.conversation_id ? "Existing chat" : "New chat");
   
   return (
     <div className={`p-3 rounded-lg border ${isUsed ? 'bg-muted/50 border-border/50' : 'bg-card border-border'}`}>
@@ -206,13 +206,13 @@ function LinkCard({ link, onCopy, onDelete, isCopied, isDeleting, isUsed }: Link
           <p className="text-xs text-muted-foreground mt-0.5">
             {formatDistanceToNow(new Date(link.created_at), { 
               addSuffix: true, 
-              locale: sv 
+              locale: enUS 
             })}
             {isUsed && link.used_at && (
               <span className="ml-2">
-                • Använd {formatDistanceToNow(new Date(link.used_at), { 
+                • Used {formatDistanceToNow(new Date(link.used_at), { 
                   addSuffix: true, 
-                  locale: sv 
+                  locale: enUS 
                 })}
               </span>
             )}

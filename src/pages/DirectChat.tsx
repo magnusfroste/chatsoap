@@ -350,7 +350,7 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
           if (otherProfile) {
             convInfo.other_user = {
               id: otherProfile.user_id,
-              display_name: otherProfile.display_name || "Användare",
+              display_name: otherProfile.display_name || "User",
               last_seen_at: otherProfile.last_seen_at,
             };
           }
@@ -690,16 +690,16 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
     const title = content.slice(0, 50) + (content.length > 50 ? "..." : "");
     emitCreateNote(content, title);
     toast({
-      title: "Sparat till anteckningar",
-      description: "Meddelandet har sparats som en ny anteckning.",
+      title: "Saved to notes",
+      description: "Message has been saved as a new note.",
     });
   };
 
   const handleSaveDocumentToNotes = async (title: string, content: string) => {
     emitCreateNote(content, title);
     toast({
-      title: "Sparat till anteckningar",
-      description: "Dokumentet har sparats som en ny anteckning.",
+      title: "Saved to notes",
+      description: "Document has been saved as a new note.",
     });
   };
 

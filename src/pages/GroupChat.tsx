@@ -272,7 +272,7 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
       setMembers(
         profiles?.map((p) => ({
           user_id: p.user_id,
-          display_name: p.display_name || "Användare",
+          display_name: p.display_name || "User",
         })) || []
       );
     } catch (error) {

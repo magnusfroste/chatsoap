@@ -59,7 +59,7 @@ export const useChatActions = (userId: string | undefined) => {
   const togglePin = useCallback(async (conversationId: string, currentValue: boolean) => {
     const success = await updateMemberSetting(conversationId, { is_pinned: !currentValue });
     if (success) {
-      toast.success(currentValue ? "Chatt avfäst" : "Chatt fäst");
+      toast.success(currentValue ? "Chat unpinned" : "Chat pinned");
     }
     return success;
   }, [updateMemberSetting]);
@@ -67,7 +67,7 @@ export const useChatActions = (userId: string | undefined) => {
   const toggleFavorite = useCallback(async (conversationId: string, currentValue: boolean) => {
     const success = await updateMemberSetting(conversationId, { is_favorite: !currentValue });
     if (success) {
-      toast.success(currentValue ? "Borttagen från favoriter" : "Tillagd i favoriter");
+      toast.success(currentValue ? "Removed from favorites" : "Added to favorites");
     }
     return success;
   }, [updateMemberSetting]);
@@ -75,7 +75,7 @@ export const useChatActions = (userId: string | undefined) => {
   const toggleMute = useCallback(async (conversationId: string, currentValue: boolean) => {
     const success = await updateMemberSetting(conversationId, { is_muted: !currentValue });
     if (success) {
-      toast.success(currentValue ? "Aviseringar på" : "Aviseringar av");
+      toast.success(currentValue ? "Notifications enabled" : "Notifications muted");
     }
     return success;
   }, [updateMemberSetting]);
@@ -83,7 +83,7 @@ export const useChatActions = (userId: string | undefined) => {
   const toggleArchive = useCallback(async (conversationId: string, currentValue: boolean) => {
     const success = await updateMemberSetting(conversationId, { is_archived: !currentValue });
     if (success) {
-      toast.success(currentValue ? "Chatt avarkiverad" : "Chatt arkiverad");
+      toast.success(currentValue ? "Chat unarchived" : "Chat archived");
     }
     return success;
   }, [updateMemberSetting]);
@@ -94,7 +94,7 @@ export const useChatActions = (userId: string | undefined) => {
       deleted_at: new Date().toISOString() 
     });
     if (success) {
-      toast.success("Chatt borttagen");
+      toast.success("Chat deleted");
     }
     return success;
   }, [updateMemberSetting]);
@@ -105,7 +105,7 @@ export const useChatActions = (userId: string | undefined) => {
       deleted_at: null 
     });
     if (success) {
-      toast.success("Chatt återställd");
+      toast.success("Chat restored");
     }
     return success;
   }, [updateMemberSetting]);
@@ -123,11 +123,11 @@ export const useChatActions = (userId: string | undefined) => {
         .eq("user_id", userId);
 
       if (error) throw error;
-      toast.success("Chatt permanent borttagen");
+      toast.success("Chat permanently deleted");
       return true;
     } catch (error) {
       console.error("Error deleting chat:", error);
-      toast.error("Kunde inte ta bort chatt");
+      toast.error("Could not delete chat");
       return false;
     } finally {
       setLoading(false);
@@ -158,8 +158,8 @@ export const useChatActions = (userId: string | undefined) => {
 
       // Format messages
       const formattedMessages = messages?.map(m => {
-        const date = new Date(m.created_at).toLocaleString("sv-SE");
-        const sender = m.is_ai ? "AI" : (m.user_id ? (profileMap.get(m.user_id) || "Användare") : "System");
+        const date = new Date(m.created_at).toLocaleString("en-US");
+        const sender = m.is_ai ? "AI" : (m.user_id ? (profileMap.get(m.user_id) || "User") : "System");
         return `[${date}] ${sender}: ${m.content}`;
       }).join("\n\n");
 
@@ -174,10 +174,10 @@ export const useChatActions = (userId: string | undefined) => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      toast.success("Chatt exporterad");
+      toast.success("Chat exported");
     } catch (error) {
       console.error("Error exporting chat:", error);
-      toast.error("Kunde inte exportera chatt");
+      toast.error("Could not export chat");
     } finally {
       setLoading(false);
     }

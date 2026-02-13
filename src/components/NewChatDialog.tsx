@@ -158,7 +158,7 @@ const NewChatDialog = ({ open, onOpenChange, onChatCreated }: NewChatDialogProps
         .from("conversations")
         .insert({
           type: "ai_chat",
-          name: persona?.name || "AI Assistent",
+          name: persona?.name || "AI Assistant",
           persona: personaId,
           created_by: user.id,
         })
