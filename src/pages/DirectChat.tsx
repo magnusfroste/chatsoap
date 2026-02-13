@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAIChat } from "@/hooks/useAIChat";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
@@ -70,6 +70,8 @@ interface DirectChatProps {
 const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGNote, onClearCAG }: DirectChatProps) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const autoJoinCall = searchParams.get("autoJoinCall") === "true";
   const { user, profile, loading: authLoading } = useAuth();
   const { streamAIResponse, cancelStream } = useAIChat(id);
   const { typingUsers, handleInputChange, stopTyping } = useTypingPresence(
@@ -116,6 +118,16 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
     conversation?.other_user?.id,
     conversation?.other_user?.display_name
   );
+
+  // Clean up autoJoinCall param after mount
+  useEffect(() => {
+    if (autoJoinCall) {
+      setSearchParams((prev) => {
+        prev.delete("autoJoinCall");
+        return prev;
+      }, { replace: true });
+    }
+  }, [autoJoinCall, setSearchParams]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -702,7 +714,7 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
   return (
     <TooltipProvider>
       {/* Incoming call - still use full overlay */}
-      {callState.status === "ringing" && callState.isIncoming && (
+      {callState.status === "ringing" && callState.isIncoming && !autoJoinCall && (
         <CallUI
           status={callState.status}
           callType={callState.callType}
