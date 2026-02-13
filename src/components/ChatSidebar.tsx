@@ -583,7 +583,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
             </Button>
           </div>
         ) : (
-          <div className={`transition-all duration-300 ${isCollapsed ? 'py-2' : ''}`} style={{ width: '100%', maxWidth: '100%' }}>
+          <div className={`transition-all duration-300 ${isCollapsed ? 'py-2 flex flex-col items-center' : ''}`} style={{ width: '100%', maxWidth: '100%' }}>
             {filteredConversations.map((conv, index) => {
               const isActive = activeConversationId === conv.id;
               const hasUnread = (conv.unread_count ?? 0) > 0;
@@ -597,14 +597,12 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
                   onFocus={() => setFocusedIndex(index)}
                   className={`flex items-center transition-all duration-300 ease-in-out text-left outline-none ${
                     isCollapsed 
-                      ? 'justify-center px-0 py-2 hover:bg-muted/50' 
-                      : 'gap-3 px-4 py-3 hover:bg-muted/50 border-b border-border/50'
+                      ? 'justify-center py-2 w-full hover:bg-muted/50' 
+                      : 'gap-3 px-4 py-3 hover:bg-muted/50 border-b border-border/50 w-full'
                   } ${isActive ? (isCollapsed ? '' : 'bg-muted') : ''} ${isFocused ? 'bg-primary/10 border-l-2 border-l-primary' : ''}`}
                   title={isCollapsed ? getDisplayName(conv) : undefined}
                   style={{ 
                     animationDelay: `${index * 30}ms`,
-                    width: '100%',
-                    maxWidth: '100%',
                     overflow: 'hidden',
                   }}
                 >
