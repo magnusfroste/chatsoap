@@ -3,6 +3,7 @@ import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useIncomingCallListener, IncomingCall } from "@/hooks/useIncomingCallListener";
 import { IncomingCallOverlay } from "@/components/IncomingCallOverlay";
+import { useLastSeenHeartbeat } from "@/hooks/useLastSeen";
 
 interface Profile {
   id: string;
@@ -33,6 +34,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Global incoming call listener
   const { incomingCall, acceptCall, declineCall } = useIncomingCallListener(user?.id);
+
+  // Heartbeat for last-seen presence
+  useLastSeenHeartbeat(user?.id);
 
   // Fetch profile helper
   const fetchProfile = async (userId: string) => {

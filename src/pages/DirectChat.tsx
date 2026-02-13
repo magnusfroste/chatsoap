@@ -55,6 +55,7 @@ interface ConversationInfo {
   other_user?: {
     id: string;
     display_name: string;
+    last_seen_at?: string | null;
   };
 }
 
@@ -328,16 +329,17 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
           .single();
 
         if (members) {
-          const { data: profile } = await supabase
+          const { data: otherProfile } = await supabase
             .from("profiles")
-            .select("user_id, display_name")
+            .select("user_id, display_name, last_seen_at")
             .eq("user_id", members.user_id)
             .single();
 
-          if (profile) {
+          if (otherProfile) {
             convInfo.other_user = {
-              id: profile.user_id,
-              display_name: profile.display_name || "Användare",
+              id: otherProfile.user_id,
+              display_name: otherProfile.display_name || "Användare",
+              last_seen_at: otherProfile.last_seen_at,
             };
           }
         }
