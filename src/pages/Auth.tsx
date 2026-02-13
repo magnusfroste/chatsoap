@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useAppSettings } from "@/hooks/useAppSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,19 +15,15 @@ const loginSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
-const createSignupSchema = (requireInviteCode: boolean) => z.object({
+const signupSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   displayName: z.string().min(2, "Name must be at least 2 characters").optional(),
-  inviteCode: requireInviteCode 
-    ? z.string().min(1, "Invite code is required") 
-    : z.string().optional(),
 });
 
 export default function Auth() {
   const navigate = useNavigate();
   const { user, signIn, signUp, loading } = useAuth();
-  const { requireInviteCode, loading: settingsLoading } = useAppSettings();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Form states
@@ -37,7 +32,6 @@ export default function Auth() {
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [signupName, setSignupName] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
 
   useEffect(() => {
     if (user && !loading) {
@@ -70,12 +64,10 @@ export default function Auth() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const signupSchema = createSignupSchema(requireInviteCode);
     const result = signupSchema.safeParse({ 
       email: signupEmail, 
       password: signupPassword,
       displayName: signupName || undefined,
-      inviteCode: requireInviteCode ? inviteCode : undefined
     });
     
     if (!result.success) {
@@ -84,7 +76,7 @@ export default function Auth() {
     }
 
     setIsSubmitting(true);
-    const { error } = await signUp(signupEmail, signupPassword, signupName, requireInviteCode ? inviteCode : undefined);
+    const { error } = await signUp(signupEmail, signupPassword, signupName);
     setIsSubmitting(false);
 
     if (error) {
@@ -98,7 +90,7 @@ export default function Auth() {
     }
   };
 
-  if (loading || settingsLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -172,20 +164,6 @@ export default function Auth() {
               
               <TabsContent value="signup">
                 <form onSubmit={handleSignup} className="space-y-4">
-                  {requireInviteCode && (
-                    <div className="space-y-2">
-                      <Label htmlFor="invite-code">Invite code *</Label>
-                      <Input
-                        id="invite-code"
-                        type="text"
-                        placeholder="SOAP-XXXX"
-                        value={inviteCode}
-                        onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                        className="font-mono"
-                        required
-                      />
-                    </div>
-                  )}
                   <div className="space-y-2">
                     <Label htmlFor="signup-name">Display name</Label>
                     <Input
@@ -233,12 +211,6 @@ export default function Auth() {
             </Tabs>
           </CardContent>
         </Card>
-
-        {requireInviteCode && (
-          <p className="text-center text-sm text-muted-foreground mt-6">
-            No invite code? Contact an existing member.
-          </p>
-        )}
       </div>
     </div>
   );

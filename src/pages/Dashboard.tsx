@@ -3,11 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Zap, Plus, LogOut, Users, Copy, Check, Loader2 } from "lucide-react";
+import { Zap, Plus, LogOut, Users, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface Room {
@@ -26,8 +26,6 @@ export default function Dashboard() {
   const [newRoomDesc, setNewRoomDesc] = useState("");
   const [creating, setCreating] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [inviteCode, setInviteCode] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -92,32 +90,6 @@ export default function Dashboard() {
     fetchRooms();
   };
 
-  const generateInviteCode = async () => {
-    if (!user) return;
-    
-    const code = `SOAP-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-    
-    const { error } = await supabase.from("invite_codes").insert({
-      code,
-      created_by: user.id,
-      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
-    });
-
-    if (error) {
-      toast.error("Could not create invite code");
-    } else {
-      setInviteCode(code);
-    }
-  };
-
-  const copyInviteCode = () => {
-    if (inviteCode) {
-      navigator.clipboard.writeText(inviteCode);
-      setCopied(true);
-      toast.success("Copied!");
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -148,42 +120,6 @@ export default function Dashboard() {
             <span className="font-display text-lg font-bold">ChatSoap</span>
           </div>
           <div className="flex items-center gap-4">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm" onClick={generateInviteCode}>
-                  Invite
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Invite to ChatSoap</DialogTitle>
-                  <DialogDescription>
-                    Share this code with someone you want to invite
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="mt-4">
-                  {inviteCode ? (
-                    <div className="flex items-center gap-2">
-                      <Input 
-                        value={inviteCode} 
-                        readOnly 
-                        className="font-mono text-lg text-center"
-                      />
-                      <Button onClick={copyInviteCode} size="icon" variant="outline">
-                        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button onClick={generateInviteCode} className="w-full">
-                      Generate code
-                    </Button>
-                  )}
-                  <p className="text-sm text-muted-foreground mt-3">
-                    Code is valid for 7 days.
-                  </p>
-                </div>
-              </DialogContent>
-            </Dialog>
             <Button variant="ghost" size="icon" onClick={handleSignOut}>
               <LogOut className="w-5 h-5" />
             </Button>
