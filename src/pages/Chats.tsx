@@ -9,7 +9,7 @@ import { NotificationPermissionBanner } from "@/components/NotificationPermissio
 import { WorkspaceCanvas, CanvasApp } from "@/components/WorkspaceCanvas";
 import { canvasEventBus } from "@/lib/canvas-apps";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { Loader2, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Loader2, PanelRightOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import AnonymousUserBanner from "@/components/AnonymousUserBanner";
@@ -178,33 +178,12 @@ const Chats = () => {
             minSize={25} 
             className="min-w-0"
           >
-            <div className="h-full flex flex-col min-w-0 overflow-hidden relative">
+            <div className="h-full flex flex-col min-w-0 overflow-hidden">
               {renderChatContent()}
-              
-              {/* Canvas Toggle Button - positioned at top-right of chat */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={toggleCanvasCollapse}
-                    className="absolute top-3 right-3 h-8 w-8 bg-background/80 backdrop-blur-sm border border-border shadow-sm hover:bg-muted z-10"
-                  >
-                    {isCanvasCollapsed ? (
-                      <PanelRightOpen className="h-4 w-4" />
-                    ) : (
-                      <PanelRightClose className="h-4 w-4" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left">
-                  {isCanvasCollapsed ? "Show workspace" : "Hide workspace"}
-                </TooltipContent>
-              </Tooltip>
             </div>
           </ResizablePanel>
 
-          {!isCanvasCollapsed && (
+          {!isCanvasCollapsed ? (
             <>
               <ResizableHandle withHandle />
 
@@ -213,6 +192,7 @@ const Chats = () => {
                 <WorkspaceCanvas 
                   conversationId={activeConversationId}
                   conversationType={conversationType as "direct" | "group" | "ai_chat" | undefined}
+                  onCollapse={toggleCanvasCollapse}
                   cagContext={{
                     selectedFiles: cagContext.selectedFiles,
                     toggleFile: cagContext.toggleFile,
@@ -226,6 +206,22 @@ const Chats = () => {
                 />
               </ResizablePanel>
             </>
+          ) : (
+            <div className="w-10 flex-shrink-0 border-l border-border flex flex-col items-center pt-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={toggleCanvasCollapse}
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                  >
+                    <PanelRightOpen className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">Show workspace</TooltipContent>
+              </Tooltip>
+            </div>
           )}
         </ResizablePanelGroup>
       </div>
