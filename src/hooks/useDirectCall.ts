@@ -579,7 +579,7 @@ export function useDirectCall(
     
     let pollInterval: NodeJS.Timeout | null = null;
 
-    const handleStatusChange = (newStatus: string) => {
+    const handleStatusChange = async (newStatus: string) => {
       console.log('[DirectCall] Processing status change:', newStatus, 'current local status:', callStatusRef.current);
       
       if (newStatus === "accepted") {
@@ -587,6 +587,27 @@ export function useDirectCall(
           console.log('[DirectCall] ✅ Caller: Call accepted, transitioning to connected');
           setCallState((prev) => ({ ...prev, status: "connected" }));
           if (pollInterval) clearInterval(pollInterval);
+        } else if (callStatusRef.current === "ringing" && !peerRef.current) {
+          // Callee side: accepted via global overlay, need to create peer here
+          console.log('[DirectCall] ✅ Callee: Call accepted via overlay, creating peer');
+          if (pollInterval) clearInterval(pollInterval);
+          
+          // Fetch call details to know the call type
+          const { data: callData } = await supabase
+            .from("direct_calls")
+            .select("*")
+            .eq("id", callId)
+            .single();
+          
+          if (callData && !peerRef.current) {
+            const remoteId = callData.caller_id === userId ? callData.callee_id : callData.caller_id;
+            setCallState((prev) => ({ ...prev, status: "connected" }));
+            
+            const stream = await getLocalMedia(callData.call_type === "video");
+            if (stream && !peerRef.current) {
+              await createPeer(false, stream, remoteId, callId);
+            }
+          }
         }
       } else if (newStatus === "declined" || newStatus === "ended") {
         console.log('[DirectCall] Call', newStatus, '- cleaning up');
@@ -652,7 +673,7 @@ export function useDirectCall(
       if (pollInterval) clearInterval(pollInterval);
       supabase.removeChannel(channel);
     };
-  }, [callState.callId, userId, cleanupCall]);
+  }, [callState.callId, userId, cleanupCall, getLocalMedia, createPeer]);
 
   // Listen for signals - CRITICAL: Use callState.callId directly to ensure subscription is set up correctly
   useEffect(() => {
