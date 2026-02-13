@@ -264,29 +264,24 @@ export function useDirectCall(
     });
   }, [callState.callId]);
 
-  // End call
-  const endCall = useCallback(async () => {
+  // Shared cleanup helper — single source of truth for teardown
+  const cleanupCall = useCallback(() => {
     if (peerRef.current) {
       peerRef.current.destroy();
       peerRef.current = null;
     }
-
-    stopLocalMedia();
-    setRemoteStream(null);
-
-    if (callIdRef.current) {
-      await supabase
-        .from("direct_calls")
-        .update({ status: "ended", ended_at: new Date().toISOString() })
-        .eq("id", callIdRef.current);
-      
-      // Clean up signals
-      await supabase
-        .from("call_signals")
-        .delete()
-        .eq("call_id", callIdRef.current);
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
     }
-
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((track) => track.stop());
+      screenStreamRef.current = null;
+    }
+    setLocalStream(null);
+    setRemoteStream(null);
+    setScreenStream(null);
+    setIsScreenSharing(false);
     callIdRef.current = null;
     setCallState({
       callId: null,
@@ -296,7 +291,25 @@ export function useDirectCall(
       remoteUserName: null,
       isIncoming: false,
     });
-  }, [stopLocalMedia]);
+  }, []);
+
+  // End call
+  const endCall = useCallback(async () => {
+    const currentCallId = callIdRef.current;
+    cleanupCall();
+
+    if (currentCallId) {
+      await supabase
+        .from("direct_calls")
+        .update({ status: "ended", ended_at: new Date().toISOString() })
+        .eq("id", currentCallId);
+      
+      await supabase
+        .from("call_signals")
+        .delete()
+        .eq("call_id", currentCallId);
+    }
+  }, [cleanupCall]);
 
   // Toggle audio
   const toggleAudio = useCallback(() => {
@@ -444,89 +457,21 @@ export function useDirectCall(
           isIncoming: true,
         });
 
-        // Get local media and create peer
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
-            video: activeCall.call_type === "video" ? { width: 640, height: 480, facingMode: "user" } : false,
-          });
-          
-          if (cancelled) {
-            stream.getTracks().forEach(t => t.stop());
-            return;
-          }
-
-          localStreamRef.current = stream;
-          setLocalStream(stream);
-          setVideoEnabled(activeCall.call_type === "video");
-          setAudioEnabled(true);
-
-          // Create peer as non-initiator
-          const peer = new Peer({
-            initiator: false,
-            trickle: true,
-            stream,
-            config: {
-              iceServers: [
-                { urls: "stun:stun.l.google.com:19302" },
-                { urls: "stun:stun1.l.google.com:19302" },
-              ],
-            },
-          });
-
-          peer.on("signal", async (signal) => {
-            console.log('[DirectCall] Callee sending signal:', (signal as any).type || 'candidate');
-            await supabase.from("call_signals").insert({
-              call_id: activeCall.id,
-              from_user_id: userId,
-              to_user_id: activeCall.caller_id,
-              signal_data: signal as unknown as Json,
-            });
-          });
-
-          peer.on("stream", (remoteStream) => {
-            console.log('[DirectCall] 🎵 CALLEE: Received remote stream');
-            const audioTracks = remoteStream.getAudioTracks();
-            console.log('[DirectCall] CALLEE audio tracks:', audioTracks.length);
-            audioTracks.forEach(track => {
-              if (!track.enabled) {
-                console.log('[DirectCall] CALLEE: Enabling audio track');
-                track.enabled = true;
-              }
-            });
-            setRemoteStream(remoteStream);
-          });
-
-          peer.on("error", (err) => {
-            console.error("Peer error:", err);
-            peer.destroy();
-            peerRef.current = null;
-          });
-
-          peer.on("connect", () => {
-            console.log("✅ Peer connected!");
-          });
-
-          peerRef.current = peer;
-
-          // Fetch existing signals from caller
-          const { data: existingSignals } = await supabase
-            .from("call_signals")
-            .select("*")
-            .eq("call_id", activeCall.id)
-            .eq("to_user_id", userId)
-            .order("created_at", { ascending: true });
-
-          if (existingSignals && existingSignals.length > 0) {
-            console.log('[DirectCall] CALLEE: Processing', existingSignals.length, 'existing signals');
-            for (const signal of existingSignals) {
-              peer.signal(signal.signal_data as any);
-              await supabase.from("call_signals").delete().eq("id", signal.id);
-            }
-          }
-        } catch (error) {
-          console.error("Error joining call:", error);
+        // Get local media and create peer via shared helper
+        const stream = await getLocalMedia(activeCall.call_type === "video");
+        if (!stream || cancelled) {
+          if (stream) stream.getTracks().forEach(t => t.stop());
+          return;
         }
+
+        // Double-check no peer was created by another path while we awaited
+        if (peerRef.current) {
+          console.log('[DirectCall] Peer already created by another path, skipping');
+          stream.getTracks().forEach(t => t.stop());
+          return;
+        }
+
+        await createPeer(false, stream, activeCall.caller_id, activeCall.id);
         return; // Found and joined, stop polling
       }
       
@@ -546,7 +491,7 @@ export function useDirectCall(
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [conversationId, userId]);
+  }, [conversationId, userId, getLocalMedia, createPeer]);
 
   // Listen for incoming calls
   useEffect(() => {
@@ -620,61 +565,15 @@ export function useDirectCall(
       console.log('[DirectCall] Processing status change:', newStatus, 'current local status:', callStatusRef.current);
       
       if (newStatus === "accepted") {
-        // Caller: Call was accepted by callee
         if (callStatusRef.current === "calling") {
           console.log('[DirectCall] ✅ Caller: Call accepted, transitioning to connected');
           setCallState((prev) => ({ ...prev, status: "connected" }));
-          // Stop polling since we're connected
           if (pollInterval) clearInterval(pollInterval);
         }
-      } else if (newStatus === "declined") {
-        // Caller: Call was declined by callee - stop ringing and clean up
-        console.log('[DirectCall] Call declined by callee');
+      } else if (newStatus === "declined" || newStatus === "ended") {
+        console.log('[DirectCall] Call', newStatus, '- cleaning up');
         if (pollInterval) clearInterval(pollInterval);
-        if (peerRef.current) {
-          peerRef.current.destroy();
-          peerRef.current = null;
-        }
-        // Stop local media inline
-        if (localStreamRef.current) {
-          localStreamRef.current.getTracks().forEach((track) => track.stop());
-          localStreamRef.current = null;
-        }
-        setLocalStream(null);
-        setRemoteStream(null);
-        callIdRef.current = null;
-        setCallState({
-          callId: null,
-          status: "idle",
-          callType: "audio",
-          remoteUserId: null,
-          remoteUserName: null,
-          isIncoming: false,
-        });
-      } else if (newStatus === "ended") {
-        // Other party ended the call
-        console.log('[DirectCall] Remote party ended the call');
-        if (pollInterval) clearInterval(pollInterval);
-        if (peerRef.current) {
-          peerRef.current.destroy();
-          peerRef.current = null;
-        }
-        // Stop local media inline
-        if (localStreamRef.current) {
-          localStreamRef.current.getTracks().forEach((track) => track.stop());
-          localStreamRef.current = null;
-        }
-        setLocalStream(null);
-        setRemoteStream(null);
-        callIdRef.current = null;
-        setCallState({
-          callId: null,
-          status: "idle",
-          callType: "audio",
-          remoteUserId: null,
-          remoteUserName: null,
-          isIncoming: false,
-        });
+        cleanupCall();
       }
     };
 
@@ -735,7 +634,7 @@ export function useDirectCall(
       if (pollInterval) clearInterval(pollInterval);
       supabase.removeChannel(channel);
     };
-  }, [callState.callId, userId]); // FIXED: Removed callState.status from dependencies
+  }, [callState.callId, userId, cleanupCall]);
 
   // Listen for signals - CRITICAL: Use callState.callId directly to ensure subscription is set up correctly
   useEffect(() => {

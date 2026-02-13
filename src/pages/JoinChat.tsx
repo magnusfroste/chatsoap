@@ -82,34 +82,51 @@ export default function JoinChat() {
   };
 
   const handleJoin = async () => {
-    if (!inviteLink) return;
+    if (!inviteLink || joining) return;
     
     setJoining(true);
     try {
-      let userId = user?.id;
+      let currentUserId = user?.id;
 
       // If not logged in, sign in anonymously
-      if (!userId) {
+      if (!currentUserId) {
         const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
         
         if (anonError) throw anonError;
-        userId = anonData.user?.id;
+        currentUserId = anonData.user?.id;
 
-        if (!userId) throw new Error("Failed to create anonymous session");
+        if (!currentUserId) throw new Error("Failed to create anonymous session");
 
         // Create a profile with random name
         const randomName = generateRandomName();
         await supabase.from("profiles").insert({
-          user_id: userId,
+          user_id: currentUserId,
           display_name: randomName,
         });
       }
 
-      // The conversation should already exist (created when the invite link was made)
       const conversationId = inviteLink.conversation_id;
-
       if (!conversationId) {
         throw new Error("Invalid invite link - no conversation associated");
+      }
+
+      // Atomically claim the invite: only succeeds if used_by is still null
+      const { data: claimed, error: claimError } = await supabase
+        .from("chat_invite_links")
+        .update({
+          used_by: currentUserId,
+          used_at: new Date().toISOString(),
+        })
+        .eq("id", inviteLink.id)
+        .is("used_by", null)
+        .select()
+        .maybeSingle();
+
+      if (claimError) throw claimError;
+
+      if (!claimed) {
+        setError("This invite link has already been used.");
+        return;
       }
 
       // Add the joining user as a member
@@ -117,22 +134,13 @@ export default function JoinChat() {
         .from("conversation_members")
         .insert({
           conversation_id: conversationId,
-          user_id: userId,
+          user_id: currentUserId,
         });
 
       // Ignore duplicate key error (already a member)
       if (memberError && !memberError.message.includes("duplicate")) {
         throw memberError;
       }
-
-      // Mark invite as used
-      await supabase
-        .from("chat_invite_links")
-        .update({
-          used_by: userId,
-          used_at: new Date().toISOString(),
-        })
-        .eq("id", inviteLink.id);
 
       toast.success("Welcome to the chat!");
       navigate(`/chat/${conversationId}`);
