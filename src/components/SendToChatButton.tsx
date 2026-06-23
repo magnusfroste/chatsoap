@@ -130,7 +130,7 @@ export const SendToChatButton = ({
 
       const { error } = await supabase.from("messages").insert({
         conversation_id: conversation.id,
-        sender_id: userId,
+        user_id: userId,
         content: messageContent,
       });
 
