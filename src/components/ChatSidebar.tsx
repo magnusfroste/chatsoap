@@ -71,7 +71,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
       fetchConversations();
       
       const channel = supabase
-        .channel("conversations-updates")
+        .channel(`conversations-updates-${Date.now()}`)
         .on(
           "postgres_changes",
           {
