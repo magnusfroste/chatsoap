@@ -67,50 +67,52 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
   const PULL_THRESHOLD = 80;
 
   useEffect(() => {
-    if (user) {
-      fetchConversations();
-      
-      const channel = supabase
-        .channel(`conversations-updates-${Date.now()}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "conversations",
-          },
-          () => {
-            fetchConversations();
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "messages",
-          },
-          () => {
-            fetchConversations();
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "message_read_receipts",
-          },
-          () => {
-            fetchConversations();
-          }
-        )
-        .subscribe();
+    if (!user) return;
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
+    fetchConversations();
+
+    const channel = supabase
+      .channel(`conversations-updates-${user.id}-${Date.now()}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "conversations",
+        },
+        () => {
+          fetchConversations();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+        },
+        () => {
+          fetchConversations();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "message_read_receipts",
+        },
+        () => {
+          fetchConversations();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      // Remove all postgres_changes callbacks and tear down the channel
+      channel.unsubscribe();
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const fetchConversations = useCallback(async (isRefresh = false) => {
