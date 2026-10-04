@@ -10,7 +10,7 @@ import { EventEmitter } from 'events';
 
 // Ensure process.nextTick exists for stream-browserify
 if (!(process as any).nextTick) {
-  (process as any).nextTick = (fn: Function, ...args: any[]) => {
+  (process as any).nextTick = (fn: (...args: any[]) => void, ...args: any[]) => {
     queueMicrotask(() => fn(...args));
   };
 }

@@ -629,7 +629,7 @@ export const useCollaborativeCanvas = (
           }));
           break;
           
-        case "arrow":
+        case "arrow": {
           const endX = shape.endX || shape.x + 100;
           const endY = shape.endY || shape.y;
           
@@ -664,6 +664,7 @@ export const useCollaborativeCanvas = (
             strokeWidth: 2,
           }));
           break;
+        }
           
         case "sticky":
           // Background rectangle

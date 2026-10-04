@@ -102,13 +102,17 @@ export function useAudioLevel(stream: MediaStream | null, enabled: boolean = tru
       if (sourceRef.current) {
         try {
           sourceRef.current.disconnect();
-        } catch (e) {}
+        } catch (e) {
+          // ignore
+        }
         sourceRef.current = null;
       }
       if (contextRef.current && contextRef.current.state !== "closed") {
         try {
           contextRef.current.close();
-        } catch (e) {}
+        } catch (e) {
+          // ignore
+        }
         contextRef.current = null;
       }
       analyserRef.current = null;

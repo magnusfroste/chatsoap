@@ -85,7 +85,7 @@ export function detectArtifacts(text: string): DetectedArtifact[] {
   }
   
   // Detect standalone URLs (not already in code blocks)
-  const urlRegex = /(?<!`)(https?:\/\/[^\s<>\[\]"'`]+)(?!`)/g;
+  const urlRegex = /(?<!`)(https?:\/\/[^\s<>[\]"'`]+)(?!`)/g;
   while ((match = urlRegex.exec(text)) !== null) {
     const url = match[1];
     

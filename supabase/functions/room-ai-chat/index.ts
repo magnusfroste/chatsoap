@@ -532,10 +532,11 @@ async function processToolCalls(
         case "code_execution":
           result = await executeCode(args.code, args.language);
           break;
-        case "send_code_to_sandbox":
+        case "send_code_to_sandbox": {
           const autoRun = args.auto_run || false;
           result = `__CODE_SANDBOX__:${JSON.stringify({ code: args.code, language: args.language, autoRun })}`;
           break;
+        }
         case "generate_slides":
           result = `__SLIDES_UPDATE__:${JSON.stringify({ 
             slides: args.slides, 

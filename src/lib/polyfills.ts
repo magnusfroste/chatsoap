@@ -11,7 +11,7 @@ if (typeof globalThis !== 'undefined') {
   
   // Ensure process.nextTick exists
   if (!process.nextTick) {
-    (process as any).nextTick = (fn: Function, ...args: any[]) => {
+    (process as any).nextTick = (fn: (...args: any[]) => void, ...args: any[]) => {
       queueMicrotask(() => fn(...args));
     };
   }
