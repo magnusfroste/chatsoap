@@ -856,6 +856,17 @@ export type Database = {
     }
     Functions: {
       add_admin_by_email: { Args: { _email: string }; Returns: undefined }
+      claim_chat_invite: { Args: { p_token: string }; Returns: string | null }
+      get_chat_invite: {
+        Args: { p_token: string }
+        Returns: {
+          id: string
+          conversation_id: string | null
+          conversation_name: string | null
+          created_by: string
+          created_at: string
+        }[]
+      }
       get_user_conversation_ids: {
         Args: { _user_id: string }
         Returns: string[]

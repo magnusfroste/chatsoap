@@ -46,12 +46,8 @@ export default function JoinChat() {
 
   const validateToken = async () => {
     try {
-      const { data, error } = await supabase
-        .from("chat_invite_links")
-        .select("*")
-        .eq("token", token)
-        .is("used_by", null)
-        .maybeSingle();
+      const { data: rows, error } = await supabase.rpc("get_chat_invite", { p_token: token });
+      const data = rows?.[0] ? { ...rows[0], token, used_by: null, used_at: null } : null;
 
       if (error) throw error;
       
@@ -105,45 +101,24 @@ export default function JoinChat() {
         });
       }
 
-      const conversationId = inviteLink.conversation_id;
-      if (!conversationId) {
+      if (!inviteLink.conversation_id) {
         throw new Error("Invalid invite link - no conversation associated");
       }
 
-      // Atomically claim the invite: only succeeds if used_by is still null
-      const { data: claimed, error: claimError } = await supabase
-        .from("chat_invite_links")
-        .update({
-          used_by: currentUserId,
-          used_at: new Date().toISOString(),
-        })
-        .eq("id", inviteLink.id)
-        .is("used_by", null)
-        .select()
-        .maybeSingle();
+      // Claim the invite and join the conversation in one server-side step
+      const { data: joinedConversationId, error: claimError } = await supabase.rpc("claim_chat_invite", {
+        p_token: inviteLink.token,
+      });
 
       if (claimError) throw claimError;
 
-      if (!claimed) {
+      if (!joinedConversationId) {
         setError("This invite link has already been used.");
         return;
       }
 
-      // Add the joining user as a member
-      const { error: memberError } = await supabase
-        .from("conversation_members")
-        .insert({
-          conversation_id: conversationId,
-          user_id: currentUserId,
-        });
-
-      // Ignore duplicate key error (already a member)
-      if (memberError && !memberError.message.includes("duplicate")) {
-        throw memberError;
-      }
-
       toast.success("Welcome to the chat!");
-      navigate(`/chat/${conversationId}`);
+      navigate(`/chat/${joinedConversationId}`);
     } catch (err) {
       console.error("Error joining chat:", err);
       toast.error("Failed to join chat. Please try again.");
