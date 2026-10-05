@@ -70,6 +70,20 @@ create policy "Conversation creators can add members" on public.conversation_mem
 
 -- 4. Rum som hör till en konversation (samma id) kräver medlemskap i den.
 --    Fristående rum fungerar som förut: den som har länken kan gå med.
+--    conversation_exists körs med ägarrättigheter, annars döljer RLS
+--    konversationen för utomstående och rummet ser fristående ut.
+create or replace function public.conversation_exists(_conversation_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (select 1 from public.conversations where id = _conversation_id)
+$$;
+revoke execute on function public.conversation_exists(uuid) from public, anon;
+grant execute on function public.conversation_exists(uuid) to authenticated;
+
 drop policy if exists "Room creators can add members" on public.room_members;
 create policy "Room creators can add members" on public.room_members
   for insert to authenticated with check (
@@ -77,7 +91,7 @@ create policy "Room creators can add members" on public.room_members
     or (
       user_id = auth.uid()
       and (
-        not exists (select 1 from public.conversations c where c.id = room_members.room_id)
+        not public.conversation_exists(room_members.room_id)
         or public.is_conversation_member(room_members.room_id, auth.uid())
       )
     )
