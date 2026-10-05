@@ -1,0 +1,11 @@
+# ChatSoap
+
+> Invite-only platform where small teams collaborate in real time around a shared AI workspace: video plus shared AI, not screen sharing.
+
+ChatSoap is built for tech leaders and small teams (2-4 participants) who want to think together with AI. Everyone in a room sees and contributes to the same AI conversation, can talk to an AI voice assistant that the whole room hears, and meets over HD video with real-time presence and reactions. Access is by invitation.
+
+## Key links
+
+- [Home](https://chatsoap.lovable.app/): overview of ChatSoap
+- [Sign in / join](https://chatsoap.lovable.app/auth)
+- [Sitemap](https://chatsoap.lovable.app/sitemap.xml)
