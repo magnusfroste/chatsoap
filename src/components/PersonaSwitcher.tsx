@@ -1,3 +1,4 @@
+import { uniqueChannelName } from "@/lib/realtimeChannel";
 import { useState, useEffect } from "react";
 import { Bot, Code, Pen, Lightbulb, GraduationCap, ChevronDown, Check, Loader2, Plus, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -108,7 +109,7 @@ export function PersonaSwitcher({ conversationId, currentPersona, onPersonaChang
 
     // Subscribe to realtime changes for persona settings
     const channel = supabase
-      .channel('persona-settings-changes')
+      .channel(uniqueChannelName("persona-settings-changes"))
       .on(
         'postgres_changes',
         {

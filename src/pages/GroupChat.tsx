@@ -1,3 +1,4 @@
+import { uniqueChannelName } from "@/lib/realtimeChannel";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -122,7 +123,7 @@ const GroupChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAGN
 
       // Subscribe to new messages - directly update state for instant updates
       const channel = supabase
-        .channel(`group-${id}`)
+        .channel(uniqueChannelName(`group-${id}`))
         .on(
           "postgres_changes",
           {

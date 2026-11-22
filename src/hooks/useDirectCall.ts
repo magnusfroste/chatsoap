@@ -1,3 +1,4 @@
+import { uniqueChannelName } from "@/lib/realtimeChannel";
 import { useState, useEffect, useRef, useCallback } from "react";
 import Peer, { Instance as PeerInstance, SignalData } from "simple-peer";
 import { supabase } from "@/integrations/supabase/client";
@@ -516,7 +517,7 @@ export function useDirectCall(
     if (!userId) return;
 
     // Use unique channel name to avoid binding conflicts
-    const channelName = `incoming-calls-${userId}-${Date.now()}`;
+    const channelName = uniqueChannelName(`incoming-calls-${userId}`);
     console.log('[DirectCall] Setting up incoming calls channel:', channelName);
 
     const channel = supabase
@@ -574,7 +575,7 @@ export function useDirectCall(
     if (callStatusRef.current === "idle" || callStatusRef.current === "ended") return;
 
     // Use stable channel name (no timestamp) so we don't recreate on state changes
-    const channelName = `call-status-${callId}`;
+    const channelName = uniqueChannelName(`call-status-${callId}`);
     console.log('[DirectCall] Setting up STABLE call status channel for callId:', callId);
     
     let pollInterval: NodeJS.Timeout | null = null;
@@ -681,7 +682,7 @@ export function useDirectCall(
     if (!callId || !userId) return;
 
     // Use unique channel name with timestamp to ensure fresh subscription
-    const channelName = `call-signals-${callId}-${Date.now()}`;
+    const channelName = uniqueChannelName(`call-signals-${callId}`);
     console.log('[DirectCall] Setting up signal listener for callId:', callId);
 
     const channel = supabase

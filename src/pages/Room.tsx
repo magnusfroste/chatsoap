@@ -1,3 +1,4 @@
+import { uniqueChannelName } from "@/lib/realtimeChannel";
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -83,7 +84,7 @@ export default function RoomPage() {
       
       // Subscribe to new messages
       const channel = supabase
-        .channel(`room-${id}`)
+        .channel(uniqueChannelName(`room-${id}`))
         .on(
           "postgres_changes",
           {

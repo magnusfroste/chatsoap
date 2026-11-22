@@ -1,3 +1,4 @@
+import { uniqueChannelName } from "@/lib/realtimeChannel";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -382,7 +383,7 @@ const FileManagerApp = ({
 
     // Subscribe to new messages with attachments
     const messageChannel = supabase
-      .channel(`files-${conversationId}`)
+      .channel(uniqueChannelName(`files-${conversationId}`))
       .on(
         "postgres_changes",
         {
@@ -439,7 +440,7 @@ const FileManagerApp = ({
     // Subscribe to notes changes (own notes + conversation notes)
     const notesChannel = user?.id
       ? supabase
-          .channel(`notes-files-${conversationId}-${user.id}`)
+          .channel(uniqueChannelName(`notes-files-${conversationId}-${user.id}`))
           .on(
             "postgres_changes",
             {

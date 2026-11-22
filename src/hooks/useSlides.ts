@@ -1,3 +1,4 @@
+import { uniqueChannelName } from "@/lib/realtimeChannel";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -319,7 +320,7 @@ export function useSlides(roomId: string | undefined) {
     if (!roomId) return;
 
     const channel = supabase
-      .channel(`slides-${roomId}`)
+      .channel(uniqueChannelName(`slides-${roomId}`))
       .on(
         "postgres_changes",
         {

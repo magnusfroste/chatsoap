@@ -1,3 +1,4 @@
+import { uniqueChannelName } from "@/lib/realtimeChannel";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -72,7 +73,7 @@ const ChatSidebar = ({ activeConversationId, onConversationSelect, isCollapsed =
     fetchConversations();
 
     const channel = supabase
-      .channel(`conversations-updates-${user.id}-${crypto.randomUUID()}`)
+      .channel(uniqueChannelName(`conversations-updates-${user.id}`))
       .on(
         "postgres_changes",
         {

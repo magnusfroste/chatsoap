@@ -1,3 +1,4 @@
+import { uniqueChannelName } from "@/lib/realtimeChannel";
 import { useState, useEffect, useRef, useCallback } from "react";
 import Peer, { Instance as PeerInstance, SignalData } from "simple-peer";
 import { supabase } from "@/integrations/supabase/client";
@@ -235,7 +236,7 @@ export function useWebRTC(roomId: string | undefined, userId: string | undefined
     if (!roomId || !userId) return;
 
     const channel = supabase
-      .channel(`signals-${roomId}-${userId}`)
+      .channel(uniqueChannelName(`signals-${roomId}-${userId}`))
       .on(
         "postgres_changes",
         {
@@ -303,7 +304,7 @@ export function useWebRTC(roomId: string | undefined, userId: string | undefined
 
     // Subscribe to presence changes
     const channel = supabase
-      .channel(`presence-${roomId}`)
+      .channel(uniqueChannelName(`presence-${roomId}`))
       .on(
         "postgres_changes",
         {

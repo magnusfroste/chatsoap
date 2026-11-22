@@ -1,3 +1,4 @@
+import { uniqueChannelName } from "@/lib/realtimeChannel";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNotifications } from "./useNotifications";
@@ -71,8 +72,8 @@ export function useIncomingCallListener(userId: string | undefined) {
     if (!userId) return;
 
     // Use unique channel names to avoid binding conflicts
-    const channelName = `global-incoming-calls-${userId}-${Date.now()}`;
-    const statusChannelName = `global-call-status-${userId}-${Date.now()}`;
+    const channelName = uniqueChannelName(`global-incoming-calls-${userId}`);
+    const statusChannelName = uniqueChannelName(`global-call-status-${userId}`);
 
     console.log('[IncomingCallListener] Setting up channel:', channelName);
 

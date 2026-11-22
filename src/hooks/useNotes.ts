@@ -1,3 +1,4 @@
+import { uniqueChannelName } from "@/lib/realtimeChannel";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -52,7 +53,7 @@ export const useNotes = (userId: string | undefined) => {
     if (!userId) return;
 
     const channel = supabase
-      .channel(`notes-changes-${userId}`)
+      .channel(uniqueChannelName(`notes-changes-${userId}`))
       .on(
         "postgres_changes",
         {

@@ -1,3 +1,4 @@
+import { uniqueChannelName } from "@/lib/realtimeChannel";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -298,7 +299,7 @@ export function useCodeSandbox({ roomId, userId }: UseCodeSandboxOptions) {
     loadState();
 
     const channel = supabase
-      .channel(`code-sandbox-${roomId}`)
+      .channel(uniqueChannelName(`code-sandbox-${roomId}`))
       .on(
         "postgres_changes",
         {

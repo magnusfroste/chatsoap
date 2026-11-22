@@ -1,3 +1,4 @@
+import { uniqueChannelName } from "@/lib/realtimeChannel";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -67,7 +68,7 @@ export const MessageReactions = ({ messageId, userId, isOwn }: MessageReactionsP
 
     fetchReactions();
     const channel = supabase
-      .channel(`reactions-${messageId}`)
+      .channel(uniqueChannelName(`reactions-${messageId}`))
       .on(
         "postgres_changes",
         {

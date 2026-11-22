@@ -1,3 +1,4 @@
+import { uniqueChannelName } from "@/lib/realtimeChannel";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -160,7 +161,7 @@ const DirectChat = ({ cagFiles = [], cagNotes = [], onRemoveCAGFile, onRemoveCAG
     if (!user?.id || !id) return;
     
     // Use a simpler, unique channel name to avoid binding conflicts
-    const channelName = `messages-${id}-${user.id}-${Date.now()}`;
+    const channelName = uniqueChannelName(`messages-${id}-${user.id}`);
     console.log('[DirectChat Realtime] Setting up channel:', channelName);
     
     const channel = supabase

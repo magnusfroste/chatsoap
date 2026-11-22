@@ -1,3 +1,4 @@
+import { uniqueChannelName } from "@/lib/realtimeChannel";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -94,7 +95,7 @@ export const useReadReceipts = (conversationId: string | undefined, userId: stri
 
     // Listen for new read receipts
     const channel = supabase
-      .channel(`read-receipts-${conversationId}`)
+      .channel(uniqueChannelName(`read-receipts-${conversationId}`))
       .on(
         "postgres_changes",
         {

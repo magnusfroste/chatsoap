@@ -1,3 +1,4 @@
+import { uniqueChannelName } from "@/lib/realtimeChannel";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -358,7 +359,7 @@ export function PluginRegistryCard() {
 
     // Subscribe to realtime changes for plugin settings
     const channel = supabase
-      .channel('plugin-settings-changes')
+      .channel(uniqueChannelName("plugin-settings-changes"))
       .on(
         'postgres_changes',
         {

@@ -1,3 +1,4 @@
+import { uniqueChannelName } from "@/lib/realtimeChannel";
 import { useEffect, useRef, useState, useCallback, RefObject } from "react";
 import { Canvas as FabricCanvas, PencilBrush, IText, Rect, Circle, Line, FabricObject, TPointerEvent, TPointerEventInfo } from "fabric";
 import { supabase } from "@/integrations/supabase/client";
@@ -483,7 +484,7 @@ export const useCollaborativeCanvas = (
     if (!roomId) return;
 
     const channel = supabase
-      .channel(`canvas-${roomId}`)
+      .channel(uniqueChannelName(`canvas-${roomId}`))
       .on(
         "postgres_changes",
         {

@@ -1,3 +1,4 @@
+import { uniqueChannelName } from "@/lib/realtimeChannel";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { canvasEventBus } from "@/lib/canvas-apps/events";
@@ -486,7 +487,7 @@ export function SpreadsheetApp({ conversationId, initialData }: SpreadsheetAppPr
     if (!conversationId) return;
     
     const channel = supabase
-      .channel(`spreadsheet-${conversationId}`)
+      .channel(uniqueChannelName(`spreadsheet-${conversationId}`))
       .on(
         "postgres_changes",
         {
